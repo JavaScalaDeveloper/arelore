@@ -1,0 +1,212 @@
+.app-layout {
+  min-height: 100vh;
+}
+
+/* Header 样式 */
+.app-header {
+  background: #001529;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.header-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1200px;
+  margin: 0 auto;
+  height: 64px;
+}
+
+/* Logo 样式 */
+.logo {
+  font-size: 24px;
+  font-weight: bold;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.3s;
+  min-width: 120px;
+}
+
+.logo:hover {
+  opacity: 0.8;
+}
+
+/* 导航菜单样式 */
+.nav-menu {
+  flex: 1;
+  margin: 0 24px;
+  background: transparent;
+  border-bottom: none;
+}
+
+.nav-menu .ant-menu-item {
+  padding: 0 16px;
+  font-size: 15px;
+}
+
+/* 右侧功能区 */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.notification-badge {
+  cursor: pointer;
+  color: #fff;
+  font-size: 18px;
+  transition: opacity 0.3s;
+}
+
+.notification-badge:hover {
+  opacity: 0.8;
+}
+
+.notification-icon {
+  font-size: 18px;
+}
+
+/* Content 样式 */
+.app-content {
+  margin: 0;
+  background: #f0f2f5;
+}
+
+.app-content-wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+/* Hero 区域 */
+.hero-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 80px 40px;
+  border-radius: 12px;
+  text-align: center;
+  color: #fff;
+  margin-bottom: 48px;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.hero-title {
+  font-size: 48px;
+  margin-bottom: 16px;
+  font-weight: bold;
+}
+
+.hero-subtitle {
+  font-size: 20px;
+  margin-bottom: 40px;
+  line-height: 1.6;
+  opacity: 0.95;
+}
+
+.hero-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+/* 特性展示区 */
+.features-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-top: 48px;
+}
+
+.feature-card {
+  background: #fff;
+  padding: 32px 24px;
+  border-radius: 8px;
+  text-align: center;
+  transition: transform 0.3s, box-shadow 0.3s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.feature-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.feature-icon {
+  font-size: 48px;
+  color: #1890ff;
+  margin-bottom: 16px;
+}
+
+.feature-card h3 {
+  font-size: 20px;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.feature-card p {
+  color: #666;
+  line-height: 1.6;
+}
+
+/* Footer 样式 */
+.app-footer {
+  background: #001529;
+  color: #fff;
+  padding: 32px 24px;
+  margin-top: 48px;
+}
+
+.footer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.footer-links {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+}
+
+.footer-links a {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.footer-links a:hover {
+  color: #fff;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .header-container {
+    flex-wrap: wrap;
+  }
+
+  .nav-menu {
+    order: 3;
+    width: 100%;
+    margin-top: 16px;
+  }
+
+  .hero-title {
+    font-size: 32px;
+  }
+
+  .hero-subtitle {
+    font-size: 16px;
+  }
+
+  .features-section {
+    grid-template-columns: 1fr;
+  }
+
+  .header-right {
+    gap: 8px;
+  }
+}
