@@ -1,0 +1,28 @@
+/var/log/arelore/*.log {
+    # 每天轮转一次
+    daily
+    
+    # 保留 30 天的日志
+    rotate 30
+    
+    # 压缩旧日志
+    compress
+    
+    # 延迟一天压缩
+    delaycompress
+    
+    # 如果日志为空不轮转
+    notifempty
+    
+    # 日志文件不存在也不报错
+    missingok
+    
+    # 创建新文件的权限
+    create 0644 root root
+    
+    # 轮转后执行的脚本
+    postrotate
+        # 可以在这里添加重启服务或通知服务的命令
+        # 例如：systemctl reload arelore-server-user
+    endscript
+}
