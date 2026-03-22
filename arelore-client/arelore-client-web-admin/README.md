@@ -1,10 +1,11 @@
 # Arelore Web Admin
 
-Arelore 管理后台系统（Web 端），基于 React + Ant Design 构建。
+Arelore 管理后台系统（Web 端），基于 React + TypeScript + Ant Design 构建。
 
 ## 技术栈
 
 - **React**: 18.2.0
+- **TypeScript**: 5.3.2
 - **Ant Design**: 5.12.0
 - **React Router**: 6.20.0
 - **Axios**: 1.6.2
@@ -49,16 +50,21 @@ arelore-client-web-admin/
 │   ├── index.html              # HTML 模板
 │   └── manifest.json           # PWA 配置
 ├── src/
-│   ├── pages/                  # 页面组件
-│   │   ├── Layout.js          # 布局组件
-│   │   ├── Login.js           # 登录页
-│   │   ├── Dashboard.js       # 控制台
-│   │   ├── UserManagement.js  # 用户管理
-│   │   └── SystemSettings.js  # 系统设置
-│   ├── App.js                  # 主应用组件
-│   ├── index.js                # 入口文件
+│   ├── pages/                  # 页面组件（TypeScript）
+│   │   ├── Layout.tsx          # 布局组件
+│   │   ├── Login.tsx           # 登录页
+│   │   ├── Dashboard.tsx       # 控制台
+│   │   ├── UserManagement.tsx  # 用户管理
+│   │   └── SystemSettings.tsx  # 系统设置
+│   ├── api/                    # API 接口（TypeScript）
+│   ├── utils/                  # 工具函数（TypeScript）
+│   ├── types/                  # TypeScript 类型定义
+│   ├── App.tsx                 # 主应用组件（TypeScript）
+│   ├── index.tsx               # 入口文件（TypeScript）
 │   └── index.css               # 全局样式
-└── package.json                # 依赖配置
+├── package.json                # 依赖配置
+├── tsconfig.json               # TypeScript 配置
+└── README.md                   # 说明文档
 ```
 
 ## API 接口
@@ -90,7 +96,8 @@ arelore-client-web-admin/
 
 ## 注意事项
 
-1. **端口配置**: 管理端应使用不同的端口（建议 3001），避免与用户端（3000）冲突
-2. **权限控制**: 需要实现完整的路由守卫和权限验证
-3. **安全性**: 管理端应该有更严格的安全措施
-4. **独立部署**: 管理端和用户端应该独立打包和部署
+1. **TypeScript**: 所有代码必须使用 TypeScript 编写，并添加适当的类型注解
+2. **端口配置**: 管理端应使用不同的端口（建议 3001），避免与用户端（3000）冲突
+3. **权限控制**: 需要实现完整的路由守卫和权限验证
+4. **安全性**: 管理端应该有更严格的安全措施
+5. **独立部署**: 管理端和用户端应该独立打包和部署

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Layout as AntLayout, Menu } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   DashboardOutlined,
   UserOutlined,
@@ -10,14 +11,16 @@ import {
   MenuUnfoldOutlined,
 } from '@ant-design/icons';
 
+type MenuItem = Required<MenuProps>['items'][number];
+
 const { Header, Sider, Content, Footer } = AntLayout;
 
-const Layout = () => {
-  const [collapsed, setCollapsed] = useState(false);
+const Layout: React.FC = () => {
+  const [collapsed, setCollapsed] = useState<boolean>(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const menuItems = [
+  const menuItems: MenuItem[] = [
     {
       key: '/dashboard',
       icon: <DashboardOutlined />,
@@ -35,7 +38,7 @@ const Layout = () => {
     },
   ];
 
-  const handleMenuClick = ({ key }) => {
+  const handleMenuClick = ({ key }: { key: string }) => {
     navigate(key);
   };
 

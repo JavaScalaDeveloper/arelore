@@ -1,12 +1,23 @@
 import React from 'react';
-import { Form, Input, Button, Card, Switch } from 'antd';
+import { Form, Input, Button, Card, Switch, message } from 'antd';
+import type { FormProps } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
-import { message } from 'antd';
 
-const SystemSettings = () => {
+interface SettingsFormValues {
+  siteName: string;
+  siteDescription?: string;
+  allowRegister: boolean;
+  maintenanceMode: boolean;
+  smtpHost?: string;
+  smtpPort?: string;
+  smtpUsername?: string;
+  smtpPassword?: string;
+}
+
+const SystemSettings: React.FC = () => {
   const [form] = Form.useForm();
 
-  const onFinish = async (values) => {
+  const onFinish: FormProps<SettingsFormValues>['onFinish'] = async (values) => {
     try {
       console.log('系统设置:', values);
       message.success('保存成功');

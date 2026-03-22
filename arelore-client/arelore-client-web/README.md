@@ -1,12 +1,14 @@
 # Arelore Client Web
 
-基于 React + JSX + Ant Design 的企业级 Web 应用。
+基于 React + TypeScript + Ant Design 的企业级 Web 应用。
 
 ## 技术栈
 
 - **React**: 18.2.0
+- **TypeScript**: 5.3.2
 - **React Router**: 6.20.0 (路由管理)
 - **Ant Design**: 5.12.0 (UI 组件库)
+- **Axios**: 1.6.2 (HTTP 客户端)
 - **Node.js**: v24.11.1
 
 ## 功能特性
@@ -39,14 +41,22 @@ arelore-client-web/
 ├── public/                 # 静态资源
 │   └── index.html         # HTML 模板
 ├── src/                    # 源代码
-│   ├── components/        # 公共组件（待扩展）
-│   ├── pages/             # 页面组件（待扩展）
-│   ├── utils/             # 工具函数（待扩展）
-│   ├── App.js             # 主应用组件
+│   ├── api/               # API 接口（TypeScript）
+│   │   ├── auth.tsx      # 认证相关 API
+│   │   └── user.tsx      # 用户相关 API
+│   ├── pages/             # 页面组件（TypeScript）
+│   │   ├── HomePage.tsx   # 首页
+│   │   └── LoginPage.tsx  # 登录页
+│   ├── types/             # TypeScript 类型定义
+│   │   └── index.ts       # 通用类型
+│   ├── utils/             # 工具函数（TypeScript）
+│   │   └── request.tsx    # Axios 封装
+│   ├── App.tsx            # 主应用组件（TypeScript）
 │   ├── App.css            # 应用样式
-│   ├── index.js           # 应用入口
+│   ├── index.tsx          # 应用入口（TypeScript）
 │   └── index.css          # 全局样式
 ├── package.json           # 项目配置
+├── tsconfig.json          # TypeScript 配置
 └── README.md              # 说明文档
 ```
 
@@ -106,9 +116,10 @@ npm test
 
 ## 开发规范
 
-- 使用 JSX 语法编写组件
+- 使用 TypeScript + React 语法编写组件
 - 使用 Ant Design 5.x 组件库
 - 遵循 React Hooks 最佳实践
 - 组件化、模块化开发
 - 使用 React Router 6.x 进行路由管理
 - 响应式设计，适配移动端
+- 所有代码必须使用 TypeScript 类型注解

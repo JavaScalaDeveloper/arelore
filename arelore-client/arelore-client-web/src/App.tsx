@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Layout, Menu, Button, Avatar, Dropdown, Space, Badge } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Layout, Menu, Button, Avatar, Dropdown, Space, Badge, message } from 'antd';
+import type { MenuProps } from 'antd';
 import { 
   UserOutlined, 
   SettingOutlined, 
@@ -11,20 +12,25 @@ import {
   BellOutlined
 } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
+import { authApi } from './api/auth';
+import WechatLoginModal from './pages/LoginPage';
+import { UserInfo } from './types';
 import './App.css';
 
 const { Header, Content, Footer } = Layout;
 
+type MenuItem = Required<MenuProps>['items'][number];
+
 // 导航菜单配置
-const navigationItems = [
+const navigationItems: { key: string; icon: React.ReactNode; label: string; path: string }[] = [
   { key: 'home', icon: <HomeOutlined />, label: '首页', path: '/' },
   { key: 'products', icon: <SolutionOutlined />, label: '产品中心', path: '/products' },
   { key: 'solutions', icon: <CustomerServiceOutlined />, label: '解决方案', path: '/solutions' },
   { key: 'contact', icon: <PhoneOutlined />, label: '联系我们', path: '/contact' },
 ];
 
-// 用户菜单配置
-const userMenuItems = [
+// 用户菜单配置（动态）
+const getUserMenuItems = (onLogout: () => void): MenuItem[] => [
   {
     key: 'profile',
     icon: <UserOutlined />,
@@ -39,22 +45,48 @@ const userMenuItems = [
   },
   {
     type: 'divider',
-  },
+  } as any,
   {
     key: 'logout',
     icon: <LogoutOutlined />,
     label: '退出登录',
-    onClick: () => console.log('退出登录')
+    onClick: onLogout
   }
 ];
 
 function App() {
-  const [current, setCurrent] = useState('home');
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // 模拟登录状态
+  const [current, setCurrent] = useState<string>('home');
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const navigate = useNavigate();
 
+  // 初始化时检查登录状态
+  useEffect(() => {
+    checkLoginStatus();
+  }, []);
+
+  // 检查登录状态
+  const checkLoginStatus = () => {
+    const token = localStorage.getItem('userToken');
+    const userStr = localStorage.getItem('currentUser');
+    
+    if (token && userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setCurrentUser(user);
+        setIsLoggedIn(true);
+      } catch (error) {
+        console.error('解析用户信息失败:', error);
+        localStorage.removeItem('userToken');
+        localStorage.removeItem('currentUser');
+        setIsLoggedIn(false);
+      }
+    }
+  };
+
   // 处理导航点击
-  const handleNavClick = (e) => {
+  const handleNavClick = (e: { key: string }) => {
     setCurrent(e.key);
     const item = navigationItems.find(i => i.key === e.key);
     if (item && item.path) {
@@ -63,8 +95,9 @@ function App() {
   };
 
   // 处理用户菜单点击
-  const handleUserMenuClick = ({ key }) => {
-    const item = userMenuItems.find(i => i.key === key);
+  const handleUserMenuClick = ({ key }: { key: string }) => {
+    const items = getUserMenuItems(handleLogout);
+    const item = items?.find(i => i && 'key' in i && i.key === key) as any;
     if (item && item.path) {
       navigate(item.path);
     } else if (item && item.onClick) {
@@ -72,14 +105,62 @@ function App() {
     }
   };
 
+  // 打开登录弹窗
+  const handleOpenLogin = () => {
+    setShowLoginModal(true);
+  };
+
+  // 关闭登录弹窗
+  const handleCloseLogin = () => {
+    setShowLoginModal(false);
+  };
+
+  // 处理登录成功
+  const handleLoginSuccess = (user: UserInfo) => {
+    setCurrentUser(user);
+    setIsLoggedIn(true);
+    message.success(`欢迎回来，${user.nickname || user.username}！`);
+  };
+
+  // 处理退出登录
+  const handleLogout = async () => {
+    try {
+      // 调用后端退出接口
+      await authApi.logout();
+      
+      // 清除本地数据
+      localStorage.removeItem('userToken');
+      localStorage.removeItem('currentUser');
+      
+      setCurrentUser(null);
+      setIsLoggedIn(false);
+      message.success('已退出登录');
+      
+      // 跳转到首页
+      navigate('/');
+    } catch (error) {
+      console.error('退出登录失败:', error);
+      // 即使后端失败，也清除本地数据
+      localStorage.removeItem('userToken');
+      localStorage.removeItem('currentUser');
+      setCurrentUser(null);
+      setIsLoggedIn(false);
+      message.success('已退出登录');
+    }
+  };
+
   // 用户头像下拉菜单
   const userDropdown = (
-    <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenuClick }} trigger={['click']}>
+    <Dropdown menu={{ items: getUserMenuItems(handleLogout), onClick: handleUserMenuClick }} trigger={['click']}>
       <Space style={{ cursor: 'pointer' }}>
         <Badge count={3} size="small">
-          <Avatar style={{ backgroundColor: '#1890ff' }} icon={<UserOutlined />} />
+          <Avatar 
+            src={currentUser?.avatar} 
+            style={{ backgroundColor: currentUser?.avatar ? '#fff' : '#1890ff' }} 
+            icon={!currentUser?.avatar && <UserOutlined />}
+          />
         </Badge>
-        <span style={{ color: '#fff' }}>张三</span>
+        <span style={{ color: '#fff' }}>{currentUser?.nickname || currentUser?.username || '用户'}</span>
       </Space>
     </Dropdown>
   );
@@ -123,7 +204,7 @@ function App() {
                 <Button 
                   type="primary" 
                   ghost
-                  onClick={() => navigate('/login')}
+                  onClick={handleOpenLogin}
                 >
                   登录
                 </Button>
@@ -189,6 +270,13 @@ function App() {
           </div>
         </div>
       </Footer>
+
+      {/* 微信登录弹窗 */}
+      <WechatLoginModal 
+        visible={showLoginModal}
+        onCancel={handleCloseLogin}
+        onLoginSuccess={handleLoginSuccess}
+      />
     </Layout>
   );
 }

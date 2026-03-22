@@ -1,14 +1,14 @@
-import axios from 'axios';
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
 
 // 创建 axios 实例
-const request = axios.create({
+const request: AxiosInstance = axios.create({
   baseURL: process.env.REACT_APP_API_BASE_URL,
   timeout: 10000, // 请求超时时间
 });
 
 // 请求拦截器
 request.interceptors.request.use(
-  (config) => {
+  (config: any) => {
     // 从 localStorage 获取 token
     const token = localStorage.getItem('adminToken');
     if (token) {
@@ -16,7 +16,7 @@ request.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
+  (error: any) => {
     console.error('请求错误:', error);
     return Promise.reject(error);
   }
@@ -24,7 +24,7 @@ request.interceptors.request.use(
 
 // 响应拦截器
 request.interceptors.response.use(
-  (response) => {
+  (response: AxiosResponse) => {
     const res = response.data;
     
     // 如果返回的状态码不是 200，说明接口有错误
@@ -42,7 +42,7 @@ request.interceptors.response.use(
     
     return res;
   },
-  (error) => {
+  (error: any) => {
     console.error('网络错误:', error);
     
     if (error.response) {

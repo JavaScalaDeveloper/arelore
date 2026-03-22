@@ -3,11 +3,16 @@ import { Form, Input, Button, Card, message } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
-const Login = () => {
+interface LoginFormValues {
+  username: string;
+  password: string;
+}
+
+const Login: React.FC = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm();
 
-  const onFinish = async (values) => {
+  const onFinish = async (values: LoginFormValues) => {
     try {
       // TODO: 实际的登录请求
       console.log('登录信息:', values);

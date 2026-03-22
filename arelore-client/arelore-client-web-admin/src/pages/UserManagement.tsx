@@ -1,14 +1,31 @@
 import React, { useState } from 'react';
 import { Table, Button, Space, Modal, Form, Input, Switch, message } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 
-const UserManagement = () => {
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
+interface UserRecord {
+  key: string;
+  username: string;
+  email: string;
+  phone: string;
+  status: boolean;
+  createTime: string;
+}
+
+interface FormValues {
+  username?: string;
+  email?: string;
+  phone?: string;
+  status?: boolean;
+}
+
+const UserManagement: React.FC = () => {
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
   const [form] = Form.useForm();
 
   // 模拟数据
-  const dataSource = [
+  const dataSource: UserRecord[] = [
     {
       key: '1',
       username: '张三',
@@ -27,7 +44,7 @@ const UserManagement = () => {
     },
   ];
 
-  const columns = [
+  const columns: ColumnsType<UserRecord> = [
     {
       title: '用户名',
       dataIndex: 'username',
@@ -47,7 +64,7 @@ const UserManagement = () => {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => status ? '启用' : '禁用',
+      render: (status: boolean) => status ? '启用' : '禁用',
     },
     {
       title: '创建时间',
@@ -57,7 +74,7 @@ const UserManagement = () => {
     {
       title: '操作',
       key: 'action',
-      render: (_, record) => (
+      render: (_: any, record: UserRecord) => (
         <Space size="small">
           <Button 
             type="link" 
@@ -79,13 +96,13 @@ const UserManagement = () => {
     },
   ];
 
-  const handleEdit = (record) => {
+  const handleEdit = (record: UserRecord) => {
     setEditingUser(record);
     form.setFieldsValue(record);
     setModalVisible(true);
   };
 
-  const handleDelete = (record) => {
+  const handleDelete = (record: UserRecord) => {
     Modal.confirm({
       title: '确认删除',
       content: `确定要删除用户 ${record.username} 吗？`,

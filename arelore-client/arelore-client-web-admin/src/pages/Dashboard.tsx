@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Statistic, Table, Button, message, Spin } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import {
   UserOutlined,
   MessageOutlined,
@@ -8,10 +9,24 @@ import {
 } from '@ant-design/icons';
 import { adminApi } from '../api/admin';
 
-const Dashboard = () => {
-  const [loading, setLoading] = useState(false);
-  const [dashboardData, setDashboardData] = useState(null);
-  const [userList, setUserList] = useState([]);
+interface DashboardData {
+  totalUsers?: number;
+  todayNewUsers?: number;
+  totalMessages?: number;
+  systemStatus?: string;
+}
+
+interface UserRecord {
+  id: string;
+  username?: string;
+  email?: string;
+  status?: number;
+}
+
+const Dashboard: React.FC = () => {
+  const [loading, setLoading] = useState<boolean>(false);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [userList, setUserList] = useState<UserRecord[]>([]);
 
   // 加载仪表盘数据
   const loadDashboard = async () => {
@@ -52,7 +67,7 @@ const Dashboard = () => {
     loadUserList();
   }, []);
 
-  const columns = [
+  const columns: ColumnsType<UserRecord> = [
     {
       title: 'ID',
       dataIndex: 'id',
@@ -73,7 +88,7 @@ const Dashboard = () => {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => status ? (
+      render: (status: number) => status ? (
         <span style={{ color: '#52c41a' }}>启用</span>
       ) : (
         <span style={{ color: '#ff4d4f' }}>禁用</span>

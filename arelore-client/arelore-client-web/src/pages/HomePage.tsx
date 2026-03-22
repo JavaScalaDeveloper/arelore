@@ -1,12 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Table, Button, message, Spin } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { UserOutlined, SolutionOutlined, CustomerServiceOutlined } from '@ant-design/icons';
-import { userApi } from './api/user';
+import { userApi } from '../api/user';
 
-const HomePage = () => {
-  const [loading, setLoading] = useState(false);
-  const [userList, setUserList] = useState([]);
-  const [stats, setStats] = useState({
+interface UserRecord {
+  id: string;
+  username?: string;
+  email?: string;
+  status?: number;
+}
+
+interface Stats {
+  totalUsers: number;
+  todayNew: number;
+  totalProducts: number;
+}
+
+const HomePage: React.FC = () => {
+  const [loading, setLoading] = useState<boolean>(false);
+  const [userList, setUserList] = useState<UserRecord[]>([]);
+  const [stats, setStats] = useState<Stats>({
     totalUsers: 0,
     todayNew: 0,
     totalProducts: 0
@@ -42,13 +56,13 @@ const HomePage = () => {
     loadUserList();
   }, []);
 
-  const columns = [
+  const columns: ColumnsType<UserRecord> = [
     {
       title: '序号',
-      dataIndex: 'id',
-      key: 'id',
+      dataIndex: 'index',
+      key: 'index',
       width: 80,
-      render: (_, __, index) => index + 1
+      render: (_: any, __: any, index: number) => index + 1
     },
     {
       title: '用户名',
@@ -64,7 +78,7 @@ const HomePage = () => {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => status ? (
+      render: (status: number) => status ? (
         <span style={{ color: '#52c41a' }}>启用</span>
       ) : (
         <span style={{ color: '#ff4d4f' }}>禁用</span>
@@ -134,7 +148,7 @@ const HomePage = () => {
           <Table
             columns={columns}
             dataSource={userList}
-            rowKey={(record) => record.id || Math.random()}
+            rowKey={(record) => record.id || Math.random().toString()}
             pagination={false}
             locale={{ emptyText: '暂无数据' }}
           />
