@@ -9,11 +9,13 @@ import {
   SolutionOutlined,
   CustomerServiceOutlined,
   PhoneOutlined,
-  BellOutlined
+  BellOutlined,
+  EyeInvisibleOutlined
 } from '@ant-design/icons';
-import { Link, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import { authApi } from './api/auth';
 import WechatLoginModal from './pages/LoginPage';
+import TextMaskingPage from './pages/TextMaskingPage';
 import { UserInfo } from './types';
 import './App.css';
 
@@ -25,6 +27,7 @@ type MenuItem = Required<MenuProps>['items'][number];
 const navigationItems: { key: string; icon: React.ReactNode; label: string; path: string }[] = [
   { key: 'home', icon: <HomeOutlined />, label: '首页', path: '/' },
   { key: 'products', icon: <SolutionOutlined />, label: '产品中心', path: '/products' },
+  { key: 'tools', icon: <EyeInvisibleOutlined />, label: '工具', path: '/tools' },
   { key: 'solutions', icon: <CustomerServiceOutlined />, label: '解决方案', path: '/solutions' },
   { key: 'contact', icon: <PhoneOutlined />, label: '联系我们', path: '/contact' },
 ];
@@ -191,13 +194,13 @@ function App() {
 
           {/* 右侧功能区 */}
           <div className="header-right">
-            {/* 通知图标 */}
-            <Badge count={5} size="small" className="notification-badge">
+            {/* 通知图标 - 暂时隐藏 */}
+            {/* <Badge count={5} size="small" className="notification-badge">
               <BellOutlined className="notification-icon" />
-            </Badge>
+            </Badge> */}
 
-            {/* 登录/用户中心 */}
-            {isLoggedIn ? (
+            {/* 登录/用户中心 - 暂时隐藏 */}
+            {/* {isLoggedIn ? (
               userDropdown
             ) : (
               <Space>
@@ -215,48 +218,53 @@ function App() {
                   注册
                 </Button>
               </Space>
-            )}
+            )} */}
           </div>
         </div>
       </Header>
 
       <Content className="app-content">
-        <div className="app-content-wrapper">
-          <div className="hero-section">
-            <h1 className="hero-title">欢迎来到 Arelore</h1>
-            <p className="hero-subtitle">
-              创新技术，引领未来<br/>
-              为您提供最优质的产品和服务
-            </p>
-            <Space size="large" className="hero-buttons">
-              <Button type="primary" size="large" onClick={() => navigate('/products')}>
-                探索产品
-              </Button>
-              <Button size="large" onClick={() => navigate('/contact')}>
-                联系我们
-              </Button>
-            </Space>
-          </div>
+        <Routes>
+          <Route path="/" element={
+            <div className="app-content-wrapper">
+              <div className="hero-section">
+                <h1 className="hero-title">欢迎来到 Arelore</h1>
+                <p className="hero-subtitle">
+                  创新技术，引领未来<br/>
+                  为您提供最优质的产品和服务
+                </p>
+                <Space size="large" className="hero-buttons">
+                  <Button type="primary" size="large" onClick={() => navigate('/products')}>
+                    探索产品
+                  </Button>
+                  <Button size="large" onClick={() => navigate('/contact')}>
+                    联系我们
+                  </Button>
+                </Space>
+              </div>
 
-          {/* 特性展示区 */}
-          <div className="features-section">
-            <div className="feature-card">
-              <SolutionOutlined className="feature-icon" />
-              <h3>丰富的产品线</h3>
-              <p>提供多样化的产品选择，满足不同需求</p>
+              {/* 特性展示区 */}
+              <div className="features-section">
+                <div className="feature-card">
+                  <SolutionOutlined className="feature-icon" />
+                  <h3>丰富的产品线</h3>
+                  <p>提供多样化的产品选择，满足不同需求</p>
+                </div>
+                <div className="feature-card">
+                  <CustomerServiceOutlined className="feature-icon" />
+                  <h3>专业的服务</h3>
+                  <p>7x24 小时专业技术支持与服务</p>
+                </div>
+                <div className="feature-card">
+                  <PhoneOutlined className="feature-icon" />
+                  <h3>便捷的联系</h3>
+                  <p>多渠道沟通，快速响应您的需求</p>
+                </div>
+              </div>
             </div>
-            <div className="feature-card">
-              <CustomerServiceOutlined className="feature-icon" />
-              <h3>专业的服务</h3>
-              <p>7x24 小时专业技术支持与服务</p>
-            </div>
-            <div className="feature-card">
-              <PhoneOutlined className="feature-icon" />
-              <h3>便捷的联系</h3>
-              <p>多渠道沟通，快速响应您的需求</p>
-            </div>
-          </div>
-        </div>
+          } />
+          <Route path="/tools" element={<TextMaskingPage />} />
+        </Routes>
       </Content>
 
       <Footer className="app-footer">

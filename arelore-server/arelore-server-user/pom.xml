@@ -55,6 +55,12 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- Jakarta Annotation (Spring Boot 3.x) -->
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

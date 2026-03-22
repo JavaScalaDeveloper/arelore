@@ -1,5 +1,14 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
+// 响应数据接口
+export interface ApiResponse<T = any> {
+  code: number;
+  message: string;
+  data: T;
+  timestamp?: number;
+  success?: boolean;
+}
+
 // 创建 axios 实例
 const request: AxiosInstance = axios.create({
   baseURL: process.env.REACT_APP_API_BASE_URL,
@@ -37,7 +46,7 @@ request.interceptors.response.use(
         window.location.href = '/login';
       }
       
-      return Promise.reject(new Error(res.message || '请求失败'));
+      return Promise.reject(new Error(res.message || '请求失败')) as any;
     }
     
     return res;
