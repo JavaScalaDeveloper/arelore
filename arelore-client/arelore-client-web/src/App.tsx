@@ -12,10 +12,11 @@ import {
   BellOutlined,
   EyeInvisibleOutlined
 } from '@ant-design/icons';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { authApi } from './api/auth';
 import WechatLoginModal from './pages/LoginPage';
 import TextMaskingPage from './pages/TextMaskingPage';
+import FileDetectionPage from './pages/FileDetectionPage';
 import { UserInfo } from './types';
 import './App.css';
 
@@ -24,12 +25,50 @@ const { Header, Content, Footer } = Layout;
 type MenuItem = Required<MenuProps>['items'][number];
 
 // 导航菜单配置
-const navigationItems: { key: string; icon: React.ReactNode; label: string; path: string }[] = [
-  { key: 'home', icon: <HomeOutlined />, label: '首页', path: '/' },
-  { key: 'products', icon: <SolutionOutlined />, label: '产品中心', path: '/products' },
-  { key: 'tools', icon: <EyeInvisibleOutlined />, label: '工具', path: '/tools' },
-  { key: 'solutions', icon: <CustomerServiceOutlined />, label: '解决方案', path: '/solutions' },
-  { key: 'contact', icon: <PhoneOutlined />, label: '联系我们', path: '/contact' },
+const navigationItems: any[] = [
+  { key: 'home', icon: <HomeOutlined />, label: '首页', path: '/home' },
+  {
+    key: 'products',
+    icon: <SolutionOutlined />,
+    label: '产品中心',
+    children: [
+      {
+        key: 'databaseSecurity',
+        label: '数据库安全',
+        children: [
+          {
+            key: 'databaseClassification',
+            label: '数据库分类分级',
+            path: '/home/products/database-classification'
+          }
+        ]
+      },
+      {
+        key: 'apiSecurity',
+        label: 'API安全',
+        path: '/home/products/api-security'
+      }
+    ]
+  },
+  {
+    key: 'tools',
+    icon: <EyeInvisibleOutlined />,
+    label: '免费工具',
+    children: [
+      {
+        key: 'textMasking',
+        label: '文本脱敏',
+        path: '/home/tools'
+      },
+      {
+        key: 'fileDetection',
+        label: '文件敏感内容检测',
+        path: '/home/tools/file-detection'
+      }
+    ]
+  },
+  { key: 'solutions', icon: <CustomerServiceOutlined />, label: '解决方案', path: '/home/solutions' },
+  { key: 'contact', icon: <PhoneOutlined />, label: '联系我们', path: '/home/contact' },
 ];
 
 // 用户菜单配置（动态）
@@ -91,7 +130,24 @@ function App() {
   // 处理导航点击
   const handleNavClick = (e: { key: string }) => {
     setCurrent(e.key);
-    const item = navigationItems.find(i => i.key === e.key);
+    
+    // 查找菜单项（包括子菜单）
+    const findMenuItem = (items: any[], key: string): any => {
+      for (const item of items) {
+        if (item.key === key) {
+          return item;
+        }
+        if (item.children) {
+          const found = findMenuItem(item.children, key);
+          if (found) {
+            return found;
+          }
+        }
+      }
+      return null;
+    };
+    
+    const item = findMenuItem(navigationItems, e.key);
     if (item && item.path) {
       navigate(item.path);
     }
@@ -173,7 +229,7 @@ function App() {
       <Header className="app-header">
         <div className="header-container">
           {/* Logo */}
-          <div className="logo" onClick={() => navigate('/')}>
+          <div className="logo" onClick={() => navigate('/home')}>
             <span>Arelore</span>
           </div>
 
@@ -185,11 +241,37 @@ function App() {
             onClick={handleNavClick}
             className="nav-menu"
           >
-            {navigationItems.map(item => (
-              <Menu.Item key={item.key} icon={item.icon}>
-                {item.label}
-              </Menu.Item>
-            ))}
+            {navigationItems.map(item => {
+              if (item.type === 'sub' || ('children' in item && item.children)) {
+                return (
+                  <Menu.SubMenu key={item.key} icon={item.icon} title={item.label}>
+                    {(item.children || []).map((child: any) => {
+                      if (child.children) {
+                        return (
+                          <Menu.SubMenu key={child.key} title={child.label}>
+                            {child.children.map((grandchild: any) => (
+                              <Menu.Item key={grandchild.key}>
+                                {grandchild.label}
+                              </Menu.Item>
+                            ))}
+                          </Menu.SubMenu>
+                        );
+                      }
+                      return (
+                        <Menu.Item key={child.key}>
+                          {child.label}
+                        </Menu.Item>
+                      );
+                    })}
+                  </Menu.SubMenu>
+                );
+              }
+              return (
+                <Menu.Item key={item.key} icon={item.icon}>
+                  {item.label}
+                </Menu.Item>
+              );
+            })}
           </Menu>
 
           {/* 右侧功能区 */}
@@ -225,7 +307,8 @@ function App() {
 
       <Content className="app-content">
         <Routes>
-          <Route path="/" element={
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/home" element={
             <div className="app-content-wrapper">
               <div className="hero-section">
                 <h1 className="hero-title">欢迎来到 Arelore</h1>
@@ -234,10 +317,10 @@ function App() {
                   为您提供最优质的产品和服务
                 </p>
                 <Space size="large" className="hero-buttons">
-                  <Button type="primary" size="large" onClick={() => navigate('/products')}>
+                  <Button type="primary" size="large" onClick={() => navigate('/home/products')}>
                     探索产品
                   </Button>
-                  <Button size="large" onClick={() => navigate('/contact')}>
+                  <Button size="large" onClick={() => navigate('/home/contact')}>
                     联系我们
                   </Button>
                 </Space>
@@ -263,7 +346,63 @@ function App() {
               </div>
             </div>
           } />
-          <Route path="/tools" element={<TextMaskingPage />} />
+          <Route path="/home/tools" element={<TextMaskingPage />} />
+          <Route path="/home/tools/file-detection" element={<FileDetectionPage />} />
+          <Route path="/home/products/database-classification" element={
+            <div className="app-content-wrapper">
+              <div style={{ padding: '24px' }}>
+                <h1>数据库分类分级</h1>
+                <p style={{ fontSize: '16px', lineHeight: '1.8', marginBottom: '24px' }}>
+                  数据库分类分级是一款专业的数据安全管理工具，能够对数据库进行全面扫描，自动检测并识别敏感信息，帮助企业建立完善的数据分类分级体系。
+                </p>
+                <h2>主要功能</h2>
+                <ul style={{ fontSize: '16px', lineHeight: '1.8', marginBottom: '24px' }}>
+                  <li><strong>智能扫描：</strong>自动扫描数据库，检测各类敏感信息</li>
+                  <li><strong>分类分级：</strong>支持自定义分类分级策略，灵活配置敏感数据级别</li>
+                  <li><strong>风险评估：</strong>提供数据安全风险评估报告</li>
+                  <li><strong>合规管理：</strong>满足数据安全合规要求</li>
+                  <li><strong>可视化展示：</strong>直观展示数据库敏感信息分布情况</li>
+                </ul>
+                <h2>核心优势</h2>
+                <ul style={{ fontSize: '16px', lineHeight: '1.8' }}>
+                  <li><strong>高效准确：</strong>快速扫描大型数据库，准确率高</li>
+                  <li><strong>灵活配置：</strong>支持自定义规则和策略</li>
+                  <li><strong>易于部署：</strong>简单的部署流程，低运维成本</li>
+                  <li><strong>安全可靠：</strong>采用先进的数据处理技术，确保数据安全</li>
+                </ul>
+              </div>
+            </div>
+          } />
+          <Route path="/home/products/api-security" element={
+            <div className="app-content-wrapper">
+              <div style={{ padding: '24px' }}>
+                <h1>API安全</h1>
+                <p style={{ fontSize: '16px', lineHeight: '1.8' }}>
+                  API安全产品正在开发中，敬请期待...
+                </p>
+              </div>
+            </div>
+          } />
+          <Route path="/home/contact" element={
+            <div className="app-content-wrapper">
+              <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
+                <h1 style={{ textAlign: 'center', marginBottom: '32px' }}>联系我们</h1>
+                <div style={{ 
+                  backgroundColor: '#f0f5ff', 
+                  padding: '24px', 
+                  borderRadius: '8px',
+                  textAlign: 'center'
+                }}>
+                  <p style={{ fontSize: '18px', marginBottom: '16px' }}>
+                    <strong>QQ：</strong>544789628
+                  </p>
+                  <p style={{ fontSize: '18px' }}>
+                    <strong>微信：</strong>AiDeepCore
+                  </p>
+                </div>
+              </div>
+            </div>
+          } />
         </Routes>
       </Content>
 

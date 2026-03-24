@@ -49,7 +49,7 @@ interface SensitiveTypeInfo {
 
 const TextMaskingPage: React.FC = () => {
   const [inputType, setInputType] = useState<'text' | 'file'>('text');
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(['china_phone', 'address', 'chinese_name', 'email', 'id_card']);
   const [maskMethod, setMaskMethod] = useState<string>('keep_partially'); // 默认选中"保留部分"
   const [inputText, setInputText] = useState<string>('');
   const [outputText, setOutputText] = useState<string>('');
