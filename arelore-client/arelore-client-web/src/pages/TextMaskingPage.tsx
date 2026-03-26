@@ -166,8 +166,8 @@ const TextMaskingPage: React.FC = () => {
         </div>
 
         {/* 输入类型选择 */}
-        <div style={{ marginBottom: '24px' }}>
-          <Title level={5} style={{ marginBottom: '12px' }}>输入方式</Title>
+        <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center' }}>
+          <Title level={5} style={{ margin: 0, marginRight: '16px' }}>输入方式</Title>
           <Radio.Group value={inputType} onChange={(e) => setInputType(e.target.value)}>
             <Radio.Button value="text">文本</Radio.Button>
             <Radio.Button value="file" disabled>文件（暂不可选）</Radio.Button>
@@ -219,17 +219,17 @@ const TextMaskingPage: React.FC = () => {
         </div>
 
         {/* 脱敏方式选择 */}
-        <div style={{ marginBottom: '24px' }}>
-          <Title level={5} style={{ marginBottom: '12px' }}>脱敏方式</Title>
+        {/* <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center' }}>
+          <Title level={5} style={{ margin: 0, marginRight: '16px' }}>脱敏方式</Title>
           <Radio.Group 
             value={maskMethod} 
             onChange={(e) => setMaskMethod(e.target.value)}
             buttonStyle="solid"
           >
-            <Radio.Button value="full_mask">全部替换为*</Radio.Button>
+            <Radio.Button value="full_mask" disabled>全部替换为*</Radio.Button>
             <Radio.Button value="keep_partially">保留部分</Radio.Button>
           </Radio.Group>
-        </div>
+        </div> */}
 
         {/* 处理按钮 */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>

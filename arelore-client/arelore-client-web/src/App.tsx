@@ -47,6 +47,17 @@ const navigationItems: any[] = [
         key: 'apiSecurity',
         label: 'API安全',
         path: '/home/products/api-security'
+      },
+      {
+        key: 'mqSecurity',
+        label: 'MQ安全',
+        children: [
+          {
+            key: 'mqClassification',
+            label: 'MQ分类分级',
+            path: '/home/products/mq-classification'
+          }
+        ]
       }
     ]
   },
@@ -383,6 +394,31 @@ function App() {
               </div>
             </div>
           } />
+          <Route path="/home/products/mq-classification" element={
+            <div className="app-content-wrapper">
+              <div style={{ padding: '24px' }}>
+                <h1>MQ分类分级</h1>
+                <p style={{ fontSize: '16px', lineHeight: '1.8', marginBottom: '24px' }}>
+                  MQ分类分级是一款专业的消息队列安全管理工具，能够对消息队列进行全面扫描，自动检测并识别敏感信息，帮助企业建立完善的消息队列分类分级体系。
+                </p>
+                <h2>主要功能</h2>
+                <ul style={{ fontSize: '16px', lineHeight: '1.8', marginBottom: '24px' }}>
+                  <li><strong>智能扫描：</strong>自动扫描消息队列，检测各类敏感信息</li>
+                  <li><strong>分类分级：</strong>支持自定义分类分级策略，灵活配置敏感数据级别</li>
+                  <li><strong>风险评估：</strong>提供消息队列安全风险评估报告</li>
+                  <li><strong>合规管理：</strong>满足数据安全合规要求</li>
+                  <li><strong>可视化展示：</strong>直观展示消息队列敏感信息分布情况</li>
+                </ul>
+                <h2>核心优势</h2>
+                <ul style={{ fontSize: '16px', lineHeight: '1.8' }}>
+                  <li><strong>高效准确：</strong>快速扫描大型消息队列，准确率高</li>
+                  <li><strong>灵活配置：</strong>支持自定义规则和策略</li>
+                  <li><strong>易于部署：</strong>简单的部署流程，低运维成本</li>
+                  <li><strong>安全可靠：</strong>采用先进的数据处理技术，确保数据安全</li>
+                </ul>
+              </div>
+            </div>
+          } />
           <Route path="/home/contact" element={
             <div className="app-content-wrapper">
               <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
@@ -415,6 +451,9 @@ function App() {
             <a href="#">服务条款</a>
             <a href="#">帮助中心</a>
           </div>
+          <p style={{ fontSize: '12px', color: '#999', marginTop: '12px' }}>
+            鄂ICP备2026013952号-1
+          </p>
         </div>
       </Footer>
 
