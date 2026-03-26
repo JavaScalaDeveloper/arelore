@@ -42,9 +42,9 @@ ENVIRONMENT="dev"
 
 # API 基础 URL 配置
 API_URL_DEV="http://localhost:8081/api"
-API_URL_TEST="http://test.arelore.com/api"
-API_URL_PRE="http://pre.arelore.com/api"
-API_URL_PRD="http://www.arelore.com/api"
+API_URL_TEST="http://test.arelore.com:8081/api"
+API_URL_PRE="http://pre.arelore.com:8081/api"
+API_URL_PRD="http://www.arelore.com:8081/api"
 
 # 启动应用
 start_app() {
@@ -94,16 +94,42 @@ start_app() {
     echo "启动 ${APP_NAME} (环境: $ENVIRONMENT)..."
     echo "API 基础 URL: $API_BASE_URL"
     
-    # 检查是否已运行
+    # 检查是否已运行（通过PID文件）
     if [ -f "$PID_FILE" ]; then
         PID=$(cat "$PID_FILE")
         if ps -p "$PID" > /dev/null 2>&1; then
             echo "${APP_NAME} 已在运行 (PID: $PID)"
-            return 1
+            echo "正在停止现有进程..."
+            kill "$PID"
+            sleep 2
+            if ps -p "$PID" > /dev/null 2>&1; then
+                echo "强制停止进程..."
+                kill -9 "$PID"
+                sleep 1
+            fi
+            rm -f "$PID_FILE"
         else
             echo "发现残留的PID文件，正在清理..."
             rm -f "$PID_FILE"
         fi
+    fi
+    
+    # 检查端口是否被占用
+    PORT_PIDS=$(lsof -t -i:$PORT 2>/dev/null)
+    if [ -n "$PORT_PIDS" ]; then
+        echo "端口 $PORT 已被占用"
+        echo "正在停止占用端口的进程..."
+        # 逐个停止占用端口的进程
+        for PID in $PORT_PIDS; do
+            echo "停止进程: $PID"
+            kill "$PID" 2>/dev/null
+            sleep 0.5
+            if ps -p "$PID" > /dev/null 2>&1; then
+                echo "强制停止进程: $PID"
+                kill -9 "$PID" 2>/dev/null
+                sleep 0.5
+            fi
+        done
     fi
     
     # 切换到应用目录
