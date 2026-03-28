@@ -5,7 +5,7 @@ import com.arelore.server.user.strategy.SensitiveMaskStrategy;
 import org.springframework.stereotype.Component;
 
 /**
- * 全量替换脱敏策略（全部用*代替）
+ * 全量脱敏策略
  */
 @Component
 public class FullMaskStrategy implements SensitiveMaskStrategy {
@@ -15,12 +15,18 @@ public class FullMaskStrategy implements SensitiveMaskStrategy {
         if (CharSequenceUtil.isBlank(text)) {
             return text;
         }
-        // 全部替换为*
+        
+        // 将所有字符替换为*
         return "*".repeat(text.length());
     }
     
     @Override
     public String getType() {
         return "full_mask";
+    }
+    
+    @Override
+    public String getExample() {
+        return null;
     }
 }

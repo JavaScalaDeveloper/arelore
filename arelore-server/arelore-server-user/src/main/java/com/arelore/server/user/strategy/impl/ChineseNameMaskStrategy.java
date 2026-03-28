@@ -52,12 +52,16 @@ public class ChineseNameMaskStrategy implements SensitiveMaskStrategy {
         "宇文", "长孙", "慕容", "司寇", "仲孙"
     ));
     
+    private String matchedExample;
+    
     @Override
     public String mask(String text) {
         if (CharSequenceUtil.isBlank(text)) {
+            matchedExample = null;
             return text;
         }
         
+        matchedExample = null;
         StringBuilder result = new StringBuilder();
         Matcher matcher = CHINESE_CHAR_PATTERN.matcher(text);
         int lastEnd = 0;
@@ -80,6 +84,10 @@ public class ChineseNameMaskStrategy implements SensitiveMaskStrategy {
             }
             
             if (isName) {
+                // 记录第一个匹配到的姓名作为示例
+                if (matchedExample == null) {
+                    matchedExample = match;
+                }
                 // 替换为姓名格式：第一个字保留，后面用*代替
                 if (match.length() <= 1) {
                     result.append("*");
@@ -103,5 +111,10 @@ public class ChineseNameMaskStrategy implements SensitiveMaskStrategy {
     @Override
     public String getType() {
         return "chinese_name";
+    }
+    
+    @Override
+    public String getExample() {
+        return matchedExample;
     }
 }

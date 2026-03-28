@@ -19,4 +19,11 @@ public interface SensitiveMaskStrategy {
      * @return 策略类型
      */
     String getType();
+    
+    /**
+     * 获取实际匹配到的示例值
+     * 
+     * @return 示例值，如果没有匹配到则返回null
+     */
+    String getExample();
 }

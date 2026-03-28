@@ -79,10 +79,18 @@ public class TextMaskServiceImpl implements TextMaskService {
             for (String typeCode : matchedTypes) {
                 try {
                     SensitiveType type = SensitiveType.fromCode(typeCode);
+                    SensitiveMaskStrategy strategy = strategyFactory.getStrategy(typeCode);
+                    String example = type.getExample(); // 默认使用枚举中的示例值
+                    if (strategy != null) {
+                        String matchedExample = strategy.getExample();
+                        if (matchedExample != null) {
+                            example = matchedExample; // 使用实际匹配到的示例值
+                        }
+                    }
                     TextMaskResponse.SensitiveTypeInfo info = TextMaskResponse.SensitiveTypeInfo.builder()
                         .code(type.getCode())
                         .label(type.getName())
-                        .example(type.getExample())
+                        .example(example)
                         .build();
                     sensitiveTypeInfoList.add(info);
                 } catch (IllegalArgumentException e) {

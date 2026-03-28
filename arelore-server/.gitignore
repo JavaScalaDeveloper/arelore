@@ -1,3 +1,4 @@
 /.idea/
 /arelore-server-*/target/
 *.class
+/arelore-server-*/logs/

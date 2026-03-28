@@ -13,17 +13,26 @@ import java.util.regex.Pattern;
 @Component
 public class EmailMaskStrategy implements SensitiveMaskStrategy {
     
-    private static final Pattern EMAIL_PATTERN = Pattern.compile("\\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}\\b");
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+        "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"
+    );
+    
+    private String matchedExample;
     
     @Override
     public String mask(String text) {
         if (CharSequenceUtil.isBlank(text)) {
+            matchedExample = null;
             return text;
         }
         
-        // 使用正则匹配邮箱，只显示首字母和@及域名
+        matchedExample = null;
+        // 使用正则替换邮箱信息，保留前 3 个字符和域名，中间用*代替
         return EMAIL_PATTERN.matcher(text).replaceAll(match -> {
             String email = match.group();
+            if (matchedExample == null) {
+                matchedExample = email;
+            }
             return DesensitizedUtil.email(email);
         });
     }
@@ -31,5 +40,10 @@ public class EmailMaskStrategy implements SensitiveMaskStrategy {
     @Override
     public String getType() {
         return "email";
+    }
+    
+    @Override
+    public String getExample() {
+        return matchedExample;
     }
 }

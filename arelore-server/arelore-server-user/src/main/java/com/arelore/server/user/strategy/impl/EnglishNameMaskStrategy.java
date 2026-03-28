@@ -16,15 +16,22 @@ public class EnglishNameMaskStrategy implements SensitiveMaskStrategy {
         "\\b[A-Z][a-z]+(?:\\s+[A-Z][a-z]+)*\\b"
     );
     
+    private String matchedExample;
+    
     @Override
     public String mask(String text) {
         if (CharSequenceUtil.isBlank(text)) {
+            matchedExample = null;
             return text;
         }
         
+        matchedExample = null;
         // 使用正则匹配英文姓名，只保留首字母
         return ENGLISH_NAME_PATTERN.matcher(text).replaceAll(match -> {
             String name = match.group();
+            if (matchedExample == null) {
+                matchedExample = name;
+            }
             String[] parts = name.split("\\s+");
             
             StringBuilder result = new StringBuilder();
@@ -46,5 +53,10 @@ public class EnglishNameMaskStrategy implements SensitiveMaskStrategy {
     @Override
     public String getType() {
         return "english_name";
+    }
+    
+    @Override
+    public String getExample() {
+        return matchedExample;
     }
 }

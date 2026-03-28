@@ -40,6 +40,11 @@ const navigationItems: any[] = [
             key: 'databaseClassification',
             label: '数据库分类分级',
             path: '/home/products/database-classification'
+          },
+          {
+            key: 'databaseAudit',
+            label: '数据库审计',
+            path: '/home/products/database-audit'
           }
         ]
       },
@@ -47,6 +52,17 @@ const navigationItems: any[] = [
         key: 'apiSecurity',
         label: 'API安全',
         path: '/home/products/api-security'
+      },
+      {
+        key: 'applicationSecurity',
+        label: '应用安全',
+        children: [
+          {
+            key: 'codeSecurityScan',
+            label: '代码安全扫描',
+            path: '/home/products/application-security/code-security-scan'
+          }
+        ]
       },
       {
         key: 'mqSecurity',
@@ -63,13 +79,13 @@ const navigationItems: any[] = [
   },
   {
     key: 'tools',
-    icon: <EyeInvisibleOutlined />,
+    icon: <SolutionOutlined />,
     label: '免费工具',
     children: [
       {
         key: 'textMasking',
         label: '文本脱敏',
-        path: '/home/tools'
+        path: '/home/tools/text-masking'
       },
       {
         key: 'fileDetection',
@@ -357,7 +373,7 @@ function App() {
               </div>
             </div>
           } />
-          <Route path="/home/tools" element={<TextMaskingPage />} />
+          <Route path="/home/tools/text-masking" element={<TextMaskingPage />} />
           <Route path="/home/tools/file-detection" element={<FileDetectionPage />} />
           <Route path="/home/products/database-classification" element={
             <div className="app-content-wrapper">
@@ -380,6 +396,31 @@ function App() {
                   <li><strong>灵活配置：</strong>支持自定义规则和策略</li>
                   <li><strong>易于部署：</strong>简单的部署流程，低运维成本</li>
                   <li><strong>安全可靠：</strong>采用先进的数据处理技术，确保数据安全</li>
+                </ul>
+              </div>
+            </div>
+          } />
+          <Route path="/home/products/database-audit" element={
+            <div className="app-content-wrapper">
+              <div style={{ padding: '24px' }}>
+                <h1>数据库审计</h1>
+                <p style={{ fontSize: '16px', lineHeight: '1.8', marginBottom: '24px' }}>
+                  数据库审计是一款专业的数据库行为审计工具，能够对数据库的DQL（数据查询语言）操作进行全面监控和审计，帮助企业识别异常访问和潜在的数据泄露风险。
+                </p>
+                <h2>主要功能</h2>
+                <ul style={{ fontSize: '16px', lineHeight: '1.8', marginBottom: '24px' }}>
+                  <li><strong>DQL行为审计：</strong>监控和记录所有数据库查询操作，包括SELECT语句</li>
+                  <li><strong>访问控制：</strong>基于用户、角色、时间等维度的访问权限控制</li>
+                  <li><strong>异常检测：</strong>智能识别异常查询行为和可疑数据访问</li>
+                  <li><strong>审计日志：</strong>详细记录查询语句、执行时间、返回结果等信息</li>
+                  <li><strong>合规报告：</strong>生成符合等保2.0要求的审计报告</li>
+                </ul>
+                <h2>核心优势</h2>
+                <ul style={{ fontSize: '16px', lineHeight: '1.8' }}>
+                  <li><strong>实时监控：</strong>实时监控数据库查询操作，及时发现安全风险</li>
+                  <li><strong>细粒度审计：</strong>支持对特定表、字段的查询审计</li>
+                  <li><strong>高性能：</strong>采用低影响设计，不影响数据库性能</li>
+                  <li><strong>易于集成：</strong>支持主流数据库，易于部署和配置</li>
                 </ul>
               </div>
             </div>
@@ -415,6 +456,31 @@ function App() {
                   <li><strong>灵活配置：</strong>支持自定义规则和策略</li>
                   <li><strong>易于部署：</strong>简单的部署流程，低运维成本</li>
                   <li><strong>安全可靠：</strong>采用先进的数据处理技术，确保数据安全</li>
+                </ul>
+              </div>
+            </div>
+          } />
+          <Route path="/home/products/application-security/code-security-scan" element={
+            <div className="app-content-wrapper">
+              <div style={{ padding: '24px' }}>
+                <h1>代码安全扫描</h1>
+                <p style={{ fontSize: '16px', lineHeight: '1.8', marginBottom: '24px' }}>
+                  代码安全扫描是一款专业的静态代码分析工具，能够自动检测代码中可能泄露的敏感信息，如API密钥、密码、证书等，帮助开发团队提前发现安全风险。
+                </p>
+                <h2>主要功能</h2>
+                <ul style={{ fontSize: '16px', lineHeight: '1.8', marginBottom: '24px' }}>
+                  <li><strong>敏感信息检测：</strong>自动识别代码中的AK/SK、密码、证书等敏感信息</li>
+                  <li><strong>多语言支持：</strong>支持Java、Python、JavaScript、Go、C++等多种编程语言</li>
+                  <li><strong>自定义规则：</strong>支持配置自定义检测规则，适应不同项目需求</li>
+                  <li><strong>实时扫描：</strong>支持IDE插件，在开发过程中实时检测安全问题</li>
+                  <li><strong>报告生成：</strong>提供详细的扫描报告，包含风险等级和修复建议</li>
+                </ul>
+                <h2>核心优势</h2>
+                <ul style={{ fontSize: '16px', lineHeight: '1.8' }}>
+                  <li><strong>高效准确：</strong>采用正则表达式和语义分析相结合的方式，检测准确率高</li>
+                  <li><strong>易于集成：</strong>支持CI/CD集成，自动化安全检测</li>
+                  <li><strong>低误报率：</strong>通过智能算法减少误报，提高检测效率</li>
+                  <li><strong>安全合规：</strong>帮助企业满足等保2.0、GDPR等合规要求</li>
                 </ul>
               </div>
             </div>

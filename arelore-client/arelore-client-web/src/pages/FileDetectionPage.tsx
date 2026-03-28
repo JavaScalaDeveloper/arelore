@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Checkbox, Button, Space, message, Typography, Upload, Progress } from 'antd';
-import { UploadOutlined, EyeInvisibleOutlined, ClearOutlined } from '@ant-design/icons';
+import { UploadOutlined, SearchOutlined, ClearOutlined } from '@ant-design/icons';
 import request, { ApiResponse } from '../utils/request';
 
 const { Title } = Typography;
@@ -32,6 +32,16 @@ const ACCEPTED_FILE_TYPES = {
   'image/*': ['.jpg', '.jpeg', '.png', '.gif', '.bmp'],
   'application/msword': ['.doc'],
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+  'application/vnd.ms-powerpoint': ['.ppt'],
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+  'application/vnd.ms-excel': ['.xls'],
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+  'application/pdf': ['.pdf'],
+  'text/plain': ['.txt', '.log', '.sql'],
+  'text/html': ['.html', '.htm'],
+  'text/markdown': ['.md'],
+  'application/json': ['.json'],
+  'application/rtf': ['.rtf'],
 };
 
 // 敏感类型信息接口
@@ -53,9 +63,23 @@ const FileDetectionPage: React.FC = () => {
   const beforeUpload = (file: File) => {
     const isImage = file.type.startsWith('image/');
     const isWord = file.type === 'application/msword' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const isPpt = file.type === 'application/vnd.ms-powerpoint' || file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    const isExcel = file.type === 'application/vnd.ms-excel' || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    const isPdf = file.type === 'application/pdf';
+    const isTxt = file.type === 'text/plain';
+    const isHtml = file.type === 'text/html';
+    const isMarkdown = file.type === 'text/markdown';
+    const isJson = file.type === 'application/json';
+    const isRtf = file.type === 'application/rtf';
+    const filename = file.name.toLowerCase();
     
-    if (!isImage && !isWord) {
-      message.error('仅支持图片和Word文档格式');
+    // 检查文件扩展名
+    const isLog = filename.endsWith('.log');
+    const isSql = filename.endsWith('.sql');
+    const isMd = filename.endsWith('.md');
+    
+    if (!isImage && !isWord && !isPpt && !isExcel && !isPdf && !isTxt && !isHtml && !isMarkdown && !isJson && !isRtf && !isLog && !isSql && !isMd) {
+      message.error('仅支持图片、Word文档、PPT、Excel、PDF、TXT、HTML、Markdown、JSON、LOG、SQL、RTF格式');
       return Upload.LIST_IGNORE;
     }
     
@@ -71,7 +95,14 @@ const FileDetectionPage: React.FC = () => {
   // 文件选择
   const handleFileChange = (info: any) => {
     const { fileList } = info;
-    setFileList(fileList);
+    // 确保始终只保留一个文件
+    if (fileList.length > 1) {
+      const newFileList = [fileList[fileList.length - 1]];
+      setFileList(newFileList);
+      message.warning('只能上传一个文件');
+    } else {
+      setFileList(fileList);
+    }
   };
 
   // 清除文件
@@ -131,7 +162,7 @@ const FileDetectionPage: React.FC = () => {
     fileList,
     beforeUpload,
     onChange: handleFileChange,
-    accept: '.jpg,.jpeg,.png,.gif,.bmp,.doc,.docx',
+    accept: '.jpg,.jpeg,.png,.gif,.bmp,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.pdf,.txt,.html,.htm,.md,.json,.log,.sql,.rtf',
     showUploadList: {
       showPreviewIcon: true,
       showRemoveIcon: true,
@@ -142,7 +173,7 @@ const FileDetectionPage: React.FC = () => {
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
       <Card style={{ marginBottom: '24px' }}>
         <Title level={2} style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <EyeInvisibleOutlined style={{ marginRight: '8px', color: '#1890ff' }} />
+          <SearchOutlined style={{ marginRight: '8px', color: '#1890ff' }} />
           文件敏感内容检测
         </Title>
 
@@ -175,7 +206,7 @@ const FileDetectionPage: React.FC = () => {
           <Space style={{ width: '100%' }}>
             <Upload {...uploadProps}>
               <Button icon={<UploadOutlined />} size="large">
-                选择文件（支持图片、Word文档）
+                选择文件（支持图片、文档等）
               </Button>
             </Upload>
             <Button 
@@ -189,7 +220,7 @@ const FileDetectionPage: React.FC = () => {
             </Button>
           </Space>
           <div style={{ marginTop: '12px', fontSize: '12px', color: '#999' }}>
-            支持格式：JPG、PNG、GIF、BMP、DOC、DOCX（最大10MB）
+            支持格式：JPG、PNG、GIF、BMP、DOC、DOCX、PPT、PPTX、XLS、XLSX、PDF、TXT、HTML、HTM、MD、JSON、LOG、SQL、RTF（最大10MB）
           </div>
         </div>
 
@@ -200,7 +231,7 @@ const FileDetectionPage: React.FC = () => {
             size="large"
             onClick={handleProcess}
             loading={isProcessing}
-            icon={<EyeInvisibleOutlined />}
+            icon={<SearchOutlined />}
             style={{ minWidth: '200px' }}
             disabled={fileList.length === 0 || selectedTypes.length === 0}
           >
@@ -221,25 +252,27 @@ const FileDetectionPage: React.FC = () => {
             <Title level={5} style={{ marginBottom: '16px' }}>检测结果</Title>
             
             {/* 敏感类型信息展示 */}
-            {sensitiveTypeInfoList.length > 0 && (
-              <div style={{ 
-                marginBottom: '16px', 
-                padding: '12px', 
-                backgroundColor: '#f0f5ff', 
-                borderRadius: '4px',
-                fontSize: '13px',
-                lineHeight: '1.8'
-              }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#1890ff' }}>
-                  检测到的敏感信息：
-                </div>
-                {sensitiveTypeInfoList.map((info, index) => (
+            <div style={{ 
+              marginBottom: '16px', 
+              padding: '12px', 
+              backgroundColor: '#f0f5ff', 
+              borderRadius: '4px',
+              fontSize: '13px',
+              lineHeight: '1.8'
+            }}>
+              <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#1890ff' }}>
+                检测到的敏感信息：
+              </div>
+              {sensitiveTypeInfoList.length > 0 ? (
+                sensitiveTypeInfoList.map((info, index) => (
                   <div key={index} style={{ marginBottom: '4px' }}>
                     {info.label}：{info.example}
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              ) : (
+                <div style={{ color: '#666' }}>无敏感信息</div>
+              )}
+            </div>
             
             {/* 检测结果文本 */}
             {detectionResult && (

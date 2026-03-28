@@ -16,15 +16,22 @@ public class IntlPhoneMaskStrategy implements SensitiveMaskStrategy {
         "\\+[1-9]\\d{0,2}[- ]?\\(?\\d{2,4}\\)?[- ]?\\d{3,6}[- ]?\\d{3,6}"
     );
     
+    private String matchedExample;
+    
     @Override
     public String mask(String text) {
         if (CharSequenceUtil.isBlank(text)) {
+            matchedExample = null;
             return text;
         }
         
+        matchedExample = null;
         // 使用正则匹配国际手机号，保留前 3 位和后 4 位，中间用*代替
         return PHONE_PATTERN.matcher(text).replaceAll(match -> {
             String phone = match.group();
+            if (matchedExample == null) {
+                matchedExample = phone;
+            }
             // 移除非数字字符以便计算
             String digits = phone.replaceAll("[^\\d]", "");
             
@@ -49,5 +56,10 @@ public class IntlPhoneMaskStrategy implements SensitiveMaskStrategy {
     @Override
     public String getType() {
         return "intl_phone";
+    }
+    
+    @Override
+    public String getExample() {
+        return matchedExample;
     }
 }

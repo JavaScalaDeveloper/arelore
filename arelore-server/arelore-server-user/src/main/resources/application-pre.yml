@@ -1,0 +1,36 @@
+# =====================================================
+# Arelore Server User Service Configuration (Pre)
+# =====================================================
+# API 设计规范：
+# 1. 禁止使用 RESTful 风格（路径上不允许有参数）
+# 2. 所有入参必须通过 @RequestBody 传递（Body 参数）
+# 3. 统一使用 POST 方法
+# 4. 路径命名规范：/api/user/{操作名}，如 /api/user/list
+# =====================================================
+
+server:
+  port: 8081
+
+spring:
+  application:
+    name: arelore-server-user
+
+logging:
+  level:
+    root: INFO
+    com.arelore.server.user: INFO
+
+# =====================================================
+# 微信登录配置
+# =====================================================
+wechat:
+  # 微信公众号 AppID（已填写）
+  appid: xxx
+  
+  # 微信授权回调地址（需要 URL 编码，并在微信开放平台配置白名单）
+  # ⚠️ 注意：必须替换为真实域名，本地测试可用 ngrok
+  # 原始地址：https://yourdomain.com/api/user/auth/wechat/callback
+  redirect-uri: http%3a%2f%2fpre.yoursite.com%2fcallback
+  
+  # 授权作用域（固定为 snsapi_login - 网页授权登录）
+  scope: snsapi_login

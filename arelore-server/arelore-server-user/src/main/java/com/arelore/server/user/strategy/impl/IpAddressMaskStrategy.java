@@ -16,15 +16,22 @@ public class IpAddressMaskStrategy implements SensitiveMaskStrategy {
         "\\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\b"
     );
     
+    private String matchedExample;
+    
     @Override
     public String mask(String text) {
         if (CharSequenceUtil.isBlank(text)) {
+            matchedExample = null;
             return text;
         }
         
+        matchedExample = null;
         // 使用正则匹配IP地址，只保留第一段
         return IP_PATTERN.matcher(text).replaceAll(match -> {
             String ip = match.group();
+            if (matchedExample == null) {
+                matchedExample = ip;
+            }
             String[] parts = ip.split("\\.");
             
             if (parts.length != 4) {
@@ -39,5 +46,10 @@ public class IpAddressMaskStrategy implements SensitiveMaskStrategy {
     @Override
     public String getType() {
         return "ip_address";
+    }
+    
+    @Override
+    public String getExample() {
+        return matchedExample;
     }
 }

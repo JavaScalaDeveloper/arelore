@@ -260,25 +260,27 @@ const TextMaskingPage: React.FC = () => {
             </div>
             
             {/* 敏感类型信息展示 */}
-            {sensitiveTypeInfoList.length > 0 && (
-              <div style={{ 
-                marginBottom: '16px', 
-                padding: '12px', 
-                backgroundColor: '#f0f5ff', 
-                borderRadius: '4px',
-                fontSize: '13px',
-                lineHeight: '1.8'
-              }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#1890ff' }}>
-                  敏感信息类型：
-                </div>
-                {sensitiveTypeInfoList.map((info, index) => (
+            <div style={{ 
+              marginBottom: '16px', 
+              padding: '12px', 
+              backgroundColor: '#f0f5ff', 
+              borderRadius: '4px',
+              fontSize: '13px',
+              lineHeight: '1.8'
+            }}>
+              <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#1890ff' }}>
+                敏感信息类型：
+              </div>
+              {sensitiveTypeInfoList.length > 0 ? (
+                sensitiveTypeInfoList.map((info, index) => (
                   <div key={index} style={{ marginBottom: '4px' }}>
                     {info.label}：{info.example}
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              ) : (
+                <div style={{ color: '#666' }}>无敏感信息</div>
+              )}
+            </div>
             
             <TextArea
               value={outputText}

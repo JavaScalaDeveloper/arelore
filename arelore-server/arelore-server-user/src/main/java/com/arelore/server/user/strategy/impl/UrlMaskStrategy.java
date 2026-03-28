@@ -16,15 +16,22 @@ public class UrlMaskStrategy implements SensitiveMaskStrategy {
         "\\b(?:https?://|ftp://|www\\.)[^\\s<>\"']+\\b"
     );
     
+    private String matchedExample;
+    
     @Override
     public String mask(String text) {
         if (CharSequenceUtil.isBlank(text)) {
+            matchedExample = null;
             return text;
         }
         
+        matchedExample = null;
         // 使用正则匹配URL，保留协议和域名部分
         return URL_PATTERN.matcher(text).replaceAll(match -> {
             String url = match.group();
+            if (matchedExample == null) {
+                matchedExample = url;
+            }
             
             try {
                 // 尝试提取协议和域名部分
@@ -85,5 +92,10 @@ public class UrlMaskStrategy implements SensitiveMaskStrategy {
     @Override
     public String getType() {
         return "url";
+    }
+    
+    @Override
+    public String getExample() {
+        return matchedExample;
     }
 }
