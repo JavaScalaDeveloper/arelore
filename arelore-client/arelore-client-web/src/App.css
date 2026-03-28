@@ -210,3 +210,10 @@
     gap: 8px;
   }
 }
+
+/* 竖屏模式下隐藏导航菜单 */
+@media (orientation: portrait) and (max-width: 768px) {
+  .app-header {
+    display: none !important;
+  }
+}

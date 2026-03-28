@@ -137,7 +137,8 @@ const FileDetectionPage: React.FC = () => {
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
           setProgress(percentCompleted);
-        }
+        },
+        timeout: 30000 // 设置30秒超时
       });
 
       if (response && response.code === 200) {
@@ -206,7 +207,7 @@ const FileDetectionPage: React.FC = () => {
           <Space style={{ width: '100%' }}>
             <Upload {...uploadProps}>
               <Button icon={<UploadOutlined />} size="large">
-                选择文件（支持图片、文档等）
+                选择文件
               </Button>
             </Upload>
             <Button 

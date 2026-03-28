@@ -3,7 +3,7 @@ import axios from 'axios';
 // 创建 axios 实例
 const request = axios.create({
   baseURL: process.env.REACT_APP_API_BASE_URL,
-  timeout: 10000, // 请求超时时间
+  timeout: 30000, // 请求超时时间，从10秒增加到30秒
 });
 
 // 请求拦截器

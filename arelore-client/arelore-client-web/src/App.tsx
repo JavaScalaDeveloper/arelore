@@ -94,7 +94,39 @@ const navigationItems: any[] = [
       }
     ]
   },
-  { key: 'solutions', icon: <CustomerServiceOutlined />, label: '解决方案', path: '/home/solutions' },
+  {
+    key: 'solutions',
+    icon: <CustomerServiceOutlined />,
+    label: '解决方案',
+    children: [
+      {
+        key: 'scenarioSolutions',
+        label: '场景解决方案',
+        children: [
+          {
+            key: 'databaseClassificationSolution',
+            label: '数据库资产分类分级扫描治理方案',
+            path: '/home/solutions/database-classification'
+          },
+          {
+            key: 'apiClassificationSolution',
+            label: 'API分类分级扫描治理方案',
+            path: '/home/solutions/api-classification'
+          },
+          {
+            key: 'mqLogClassificationSolution',
+            label: 'MQ、日志分类分级解决方案',
+            path: '/home/solutions/mq-log-classification'
+          },
+          {
+            key: 'fileSensitiveSolution',
+            label: '文件敏感信息解决方案',
+            path: '/home/solutions/file-sensitive'
+          }
+        ]
+      }
+    ]
+  },
   { key: 'contact', icon: <PhoneOutlined />, label: '联系我们', path: '/home/contact' },
 ];
 
@@ -375,6 +407,47 @@ function App() {
           } />
           <Route path="/home/tools/text-masking" element={<TextMaskingPage />} />
           <Route path="/home/tools/file-detection" element={<FileDetectionPage />} />
+          {/* 场景解决方案路由 */}
+          <Route path="/home/solutions/database-classification" element={
+            <div className="app-content-wrapper">
+              <div style={{ padding: '24px' }}>
+                <h1>数据库资产分类分级扫描治理方案</h1>
+                <p style={{ fontSize: '16px', lineHeight: '1.8', marginBottom: '24px' }}>
+                  针对数据库资产的分类分级扫描治理方案，帮助企业建立完善的数据安全管理体系。
+                </p>
+              </div>
+            </div>
+          } />
+          <Route path="/home/solutions/api-classification" element={
+            <div className="app-content-wrapper">
+              <div style={{ padding: '24px' }}>
+                <h1>API分类分级扫描治理方案</h1>
+                <p style={{ fontSize: '16px', lineHeight: '1.8', marginBottom: '24px' }}>
+                  针对API的分类分级扫描治理方案，确保API接口的安全性和合规性。
+                </p>
+              </div>
+            </div>
+          } />
+          <Route path="/home/solutions/mq-log-classification" element={
+            <div className="app-content-wrapper">
+              <div style={{ padding: '24px' }}>
+                <h1>MQ、日志分类分级解决方案</h1>
+                <p style={{ fontSize: '16px', lineHeight: '1.8', marginBottom: '24px' }}>
+                  针对MQ和日志系统的分类分级解决方案，保障消息队列和日志数据的安全。
+                </p>
+              </div>
+            </div>
+          } />
+          <Route path="/home/solutions/file-sensitive" element={
+            <div className="app-content-wrapper">
+              <div style={{ padding: '24px' }}>
+                <h1>文件敏感信息解决方案</h1>
+                <p style={{ fontSize: '16px', lineHeight: '1.8', marginBottom: '24px' }}>
+                  针对文件敏感信息的检测和保护解决方案，防止敏感信息泄露。
+                </p>
+              </div>
+            </div>
+          } />
           <Route path="/home/products/database-classification" element={
             <div className="app-content-wrapper">
               <div style={{ padding: '24px' }}>
