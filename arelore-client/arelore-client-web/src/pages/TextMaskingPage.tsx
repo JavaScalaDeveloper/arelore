@@ -125,10 +125,49 @@ const TextMaskingPage: React.FC = () => {
     }
 
     try {
-      await navigator.clipboard.writeText(outputText);
-      message.success('复制成功');
+      // 尝试使用Clipboard API（现代浏览器）
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(outputText);
+        message.success('复制成功');
+      } else {
+        // 降级方案：使用传统的文本选择和复制方法
+        const textArea = document.createElement('textarea');
+        textArea.value = outputText;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        textArea.style.top = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        const success = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        if (success) {
+          message.success('复制成功');
+        } else {
+          message.error('复制失败，请手动复制');
+        }
+      }
     } catch (error) {
-      message.error('复制失败');
+      // 降级方案：使用传统的文本选择和复制方法
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = outputText;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        textArea.style.top = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        const success = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        if (success) {
+          message.success('复制成功');
+        } else {
+          message.error('复制失败，请手动复制');
+        }
+      } catch (fallbackError) {
+        message.error('复制失败，请手动复制');
+      }
     }
   };
 
