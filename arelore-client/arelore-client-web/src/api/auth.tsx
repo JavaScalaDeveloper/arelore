@@ -14,6 +14,13 @@ export const authApi = {
   },
 
   /**
+   * 移动端账号密码登录（测试）
+   */
+  mobileLogin: (data: { username: string; password: string }): Promise<ApiResponse<LoginResponse>> => {
+    return request.post('/user/auth/mobile/login', data);
+  },
+
+  /**
    * 获取微信扫码二维码
    */
   getWechatQrCode: (): Promise<ApiResponse<QrCodeResponse>> => {

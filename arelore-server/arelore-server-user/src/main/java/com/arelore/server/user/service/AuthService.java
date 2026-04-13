@@ -3,6 +3,7 @@ package com.arelore.server.user.service;
 import com.arelore.server.user.dto.WechatQrCodeResponse;
 import com.arelore.server.user.dto.WechatQrCodeStatusResponse;
 import com.arelore.server.user.dto.WechatQuickLoginRequest;
+import com.arelore.server.user.dto.MobileLoginRequest;
 
 import java.util.Map;
 
@@ -33,6 +34,14 @@ public interface AuthService {
      * @return 登录结果（包含 token 和用户信息）
      */
     Map<String, Object> wechatQuickLogin(WechatQuickLoginRequest request);
+
+    /**
+     * 移动端账号密码登录（测试）
+     *
+     * @param request 登录请求
+     * @return 登录结果（包含 token 和用户信息）
+     */
+    Map<String, Object> mobileLogin(MobileLoginRequest request);
 
     /**
      * 退出登录

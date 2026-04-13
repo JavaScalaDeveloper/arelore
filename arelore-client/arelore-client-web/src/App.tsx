@@ -17,6 +17,10 @@ import { authApi } from './api/auth';
 import WechatLoginModal from './pages/LoginPage';
 import TextMaskingPage from './pages/TextMaskingPage';
 import FileDetectionPage from './pages/FileDetectionPage';
+import MobileLoginPage from './pages/mobile/MobileLoginPage';
+import MobileHomePage from './pages/mobile/MobileHomePage';
+import MobileAuthGuard from './pages/mobile/MobileAuthGuard';
+import MbtiTestPage from './pages/mobile/mbti/MbtiTestPage';
 import { UserInfo } from './types';
 import './App.css';
 
@@ -367,6 +371,32 @@ function App() {
       <Content className="app-content">
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/mobile" element={<Navigate to="/mobile/home" replace />} />
+          <Route path="/mobile/login" element={<MobileLoginPage />} />
+          <Route
+            path="/mobile/home"
+            element={
+              <MobileAuthGuard>
+                <MobileHomePage />
+              </MobileAuthGuard>
+            }
+          />
+          <Route
+            path="/mobile/mbti"
+            element={
+              <MobileAuthGuard>
+                <MbtiTestPage />
+              </MobileAuthGuard>
+            }
+          />
+          <Route
+            path="/mobile/*"
+            element={
+              <MobileAuthGuard>
+                <Navigate to="/mobile/home" replace />
+              </MobileAuthGuard>
+            }
+          />
           <Route path="/home" element={
             <div className="app-content-wrapper">
               <div className="hero-section">

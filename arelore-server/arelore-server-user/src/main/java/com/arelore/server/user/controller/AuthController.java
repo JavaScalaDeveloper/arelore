@@ -4,6 +4,7 @@ import com.arelore.server.common.result.Result;
 import com.arelore.server.user.dto.WechatQrCodeResponse;
 import com.arelore.server.user.dto.WechatQrCodeStatusResponse;
 import com.arelore.server.user.dto.WechatQuickLoginRequest;
+import com.arelore.server.user.dto.MobileLoginRequest;
 import com.arelore.server.user.service.AuthService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +60,19 @@ public class AuthController {
             return Result.success(responseData);
         } catch (IllegalArgumentException e) {
             return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 移动端账号密码登录（测试）
+     */
+    @PostMapping("/mobile/login")
+    public Result<Map<String, Object>> mobileLogin(@RequestBody MobileLoginRequest request) {
+        try {
+            Map<String, Object> responseData = authService.mobileLogin(request);
+            return Result.success(responseData);
+        } catch (IllegalArgumentException e) {
+            return Result.error(2003, e.getMessage());
         }
     }
 

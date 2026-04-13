@@ -45,7 +45,7 @@ ENVIRONMENT="dev"
 APPLICATION_DEV="application.yml"
 APPLICATION_TEST="application-test.yml"
 APPLICATION_PRE="application-pre.yml"
-APPLICATION_PRD="application-prod.yml"
+APPLICATION_PRD="application-prd.yml"
 
 # 创建日志目录
 mkdir -p $LOG_DIR
@@ -173,7 +173,7 @@ start_app() {
             CONFIG_FILE="$APPLICATION_PRE"
             ;;
         prd)
-            ACTIVE_PROFILE="prod"
+            ACTIVE_PROFILE="prd"
             CONFIG_FILE="$APPLICATION_PRD"
             ;;
         *)

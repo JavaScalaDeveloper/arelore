@@ -1,0 +1,41 @@
+.mobile-login-page {
+  min-height: 100vh;
+  background: #f5f7fb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.mobile-login-card {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  padding: 24px;
+}
+
+.mobile-login-title {
+  margin: 0;
+  font-size: 22px;
+  text-align: center;
+}
+
+.mobile-login-subtitle {
+  margin: 8px 0 20px;
+  color: #666;
+  text-align: center;
+  font-size: 14px;
+}
+
+.mobile-login-result {
+  margin-top: 16px;
+  background: #f6ffed;
+  color: #389e0d;
+  border: 1px solid #b7eb8f;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+}

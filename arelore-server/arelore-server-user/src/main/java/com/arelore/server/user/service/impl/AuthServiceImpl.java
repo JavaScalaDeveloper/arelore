@@ -5,6 +5,7 @@ import cn.hutool.core.util.RandomUtil;
 import com.arelore.server.user.dto.WechatQrCodeResponse;
 import com.arelore.server.user.dto.WechatQrCodeStatusResponse;
 import com.arelore.server.user.dto.WechatQuickLoginRequest;
+import com.arelore.server.user.dto.MobileLoginRequest;
 import com.arelore.server.user.entity.QrCodeScene;
 import com.arelore.server.user.service.AuthService;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,12 @@ public class AuthServiceImpl implements AuthService {
     
     @Value("${wechat.scope:snsapi_login}")
     private String wechatScope;
+
+    @Value("${mobile.test-login.username:testuser}")
+    private String mobileTestUsername;
+
+    @Value("${mobile.test-login.password:123456}")
+    private String mobileTestPassword;
 
     // 模拟存储二维码场景信息（实际应该使用 Redis）
     private static final Map<String, QrCodeScene> QR_CODE_SCENES = new ConcurrentHashMap<>();
@@ -168,6 +175,38 @@ public class AuthServiceImpl implements AuthService {
         responseData.put("user", user);
         
         log.info("微信登录成功，userId: {}", openid);
+        return responseData;
+    }
+
+    @Override
+    public Map<String, Object> mobileLogin(MobileLoginRequest request) {
+        if (request == null || request.getUsername() == null || request.getPassword() == null) {
+            throw new IllegalArgumentException("用户名或密码不能为空");
+        }
+
+        String username = request.getUsername().trim();
+        String password = request.getPassword().trim();
+        if (username.isEmpty() || password.isEmpty()) {
+            throw new IllegalArgumentException("用户名或密码不能为空");
+        }
+
+        if (!mobileTestUsername.equals(username) || !mobileTestPassword.equals(password)) {
+            throw new IllegalArgumentException("用户名或密码错误");
+        }
+
+        String userId = "mobile_" + username;
+        String token = "Bearer " + IdUtil.fastSimpleUUID();
+        USER_TOKENS.put(token, userId);
+
+        Map<String, Object> responseData = new HashMap<>();
+        responseData.put("token", token);
+
+        Map<String, Object> user = new HashMap<>();
+        user.put("id", userId);
+        user.put("username", username);
+        user.put("nickname", "移动端测试用户");
+        user.put("avatar", "");
+        responseData.put("user", user);
         return responseData;
     }
 
