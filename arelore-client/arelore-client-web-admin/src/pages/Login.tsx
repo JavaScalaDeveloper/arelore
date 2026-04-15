@@ -18,6 +18,8 @@ const Login: React.FC = () => {
       console.log('登录信息:', values);
       
       // 模拟登录成功
+      localStorage.setItem('adminToken', `mock-token-${values.username}`);
+      localStorage.setItem('adminUser', values.username);
       message.success('登录成功');
       navigate('/dashboard');
     } catch (error) {

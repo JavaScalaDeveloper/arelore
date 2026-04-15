@@ -20,7 +20,7 @@
     <description>Arelore 后端服务父项目</description>
 
     <modules>
-        <module>arelore-server-common</module>
+        <module>arelore-server-core</module>
         <module>arelore-server-user</module>
         <module>arelore-server-admin</module>
     </modules>
@@ -138,7 +138,7 @@
             <!-- 内部模块依赖 -->
             <dependency>
                 <groupId>com.arelore</groupId>
-                <artifactId>arelore-server-common</artifactId>
+                <artifactId>arelore-server-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

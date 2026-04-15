@@ -5,15 +5,16 @@ import com.arelore.server.user.dto.WechatQrCodeResponse;
 import com.arelore.server.user.dto.WechatQrCodeStatusResponse;
 import com.arelore.server.user.dto.WechatQuickLoginRequest;
 import com.arelore.server.user.dto.MobileLoginRequest;
+import com.arelore.server.user.dto.AuthLoginResponse;
+import com.arelore.server.user.dto.AuthUserInfoResponse;
+import com.arelore.server.user.dto.SceneIdRequest;
 import com.arelore.server.user.service.AuthService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
 /**
- * 微信登录控制器
+ * 认证控制器（微信登录 + 移动端账号登录）。
  */
 @Slf4j
 @RestController
@@ -35,8 +36,8 @@ public class AuthController {
      * 检查微信扫码状态
      */
     @PostMapping("/wechat/qrcode/check")
-    public Result<WechatQrCodeStatusResponse> checkWechatQrCodeStatus(@RequestBody Map<String, String> request) {
-        String sceneId = request.get("sceneId");
+    public Result<WechatQrCodeStatusResponse> checkWechatQrCodeStatus(@RequestBody SceneIdRequest request) {
+        String sceneId = request.getSceneId();
         
         if (sceneId == null || sceneId.isEmpty()) {
             return Result.error("场景 ID 不能为空");
@@ -54,9 +55,9 @@ public class AuthController {
      * 微信一键登录
      */
     @PostMapping("/wechat/quick")
-    public Result<Map<String, Object>> wechatQuickLogin(@RequestBody WechatQuickLoginRequest request) {
+    public Result<AuthLoginResponse> wechatQuickLogin(@RequestBody WechatQuickLoginRequest request) {
         try {
-            Map<String, Object> responseData = authService.wechatQuickLogin(request);
+            AuthLoginResponse responseData = authService.wechatQuickLogin(request);
             return Result.success(responseData);
         } catch (IllegalArgumentException e) {
             return Result.error(e.getMessage());
@@ -64,12 +65,14 @@ public class AuthController {
     }
 
     /**
-     * 移动端账号密码登录（测试）
+     * 移动端账号密码登录：
+     * - 测试账号走 yml 中的测试密码校验
+     * - 非测试账号走注册结果表密码校验
      */
     @PostMapping("/mobile/login")
-    public Result<Map<String, Object>> mobileLogin(@RequestBody MobileLoginRequest request) {
+    public Result<AuthLoginResponse> mobileLogin(@RequestBody MobileLoginRequest request) {
         try {
-            Map<String, Object> responseData = authService.mobileLogin(request);
+            AuthLoginResponse responseData = authService.mobileLogin(request);
             return Result.success(responseData);
         } catch (IllegalArgumentException e) {
             return Result.error(2003, e.getMessage());
@@ -89,8 +92,8 @@ public class AuthController {
      * 获取当前用户信息
      */
     @PostMapping("/current")
-    public Result<Map<String, Object>> getCurrentUser(@RequestHeader(value = "Authorization", required = false) String token) {
-        Map<String, Object> user = authService.getCurrentUser(token);
+    public Result<AuthUserInfoResponse> getCurrentUser(@RequestHeader(value = "Authorization", required = false) String token) {
+        AuthUserInfoResponse user = authService.getCurrentUser(token);
         
         if (user == null) {
             return Result.error(401, "未登录或登录已过期");

@@ -20,7 +20,7 @@
         <!-- 通用模块 -->
         <dependency>
             <groupId>com.arelore</groupId>
-            <artifactId>arelore-server-common</artifactId>
+            <artifactId>arelore-server-core</artifactId>
         </dependency>
 
         <!-- Spring Boot Web -->

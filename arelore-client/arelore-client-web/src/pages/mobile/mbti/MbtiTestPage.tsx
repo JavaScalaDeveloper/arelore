@@ -1,50 +1,147 @@
-import React, { useMemo, useState } from 'react';
-import { Button, Card, Progress, Radio, Space, Typography } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Button, Card, Empty, Progress, Radio, Space, Spin, Typography, message } from 'antd';
+import { userApi } from '../../../api/user';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Paragraph, Text } = Typography;
 
-type Dimension = 'E' | 'I' | 'S' | 'N' | 'T' | 'F' | 'J' | 'P';
-
 interface Question {
-  id: number;
+  id: number | string;
+  questionCode?: string;
   text: string;
-  optionA: { label: string; dimension: Dimension };
-  optionB: { label: string; dimension: Dimension };
+  options: Array<{ key: string; label: string; dimension?: string }>;
 }
 
-const QUESTIONS: Question[] = [
-  { id: 1, text: '在聚会中，你通常会？', optionA: { label: '主动和很多人交流', dimension: 'E' }, optionB: { label: '更倾向和少数熟人聊天', dimension: 'I' } },
-  { id: 2, text: '你更相信什么？', optionA: { label: '可验证的事实与细节', dimension: 'S' }, optionB: { label: '灵感、趋势和可能性', dimension: 'N' } },
-  { id: 3, text: '做决策时你更看重？', optionA: { label: '逻辑与客观标准', dimension: 'T' }, optionB: { label: '感受与人际影响', dimension: 'F' } },
-  { id: 4, text: '你更喜欢哪种工作方式？', optionA: { label: '计划明确，按步骤执行', dimension: 'J' }, optionB: { label: '保持灵活，随时调整', dimension: 'P' } },
-  { id: 5, text: '周末后你通常感觉？', optionA: { label: '和人相处后更有能量', dimension: 'E' }, optionB: { label: '独处后更有能量', dimension: 'I' } },
-  { id: 6, text: '学习新知识时你更喜欢？', optionA: { label: '先看具体案例', dimension: 'S' }, optionB: { label: '先理解整体框架', dimension: 'N' } },
-  { id: 7, text: '面对冲突时你更倾向？', optionA: { label: '讲道理，快速解决问题', dimension: 'T' }, optionB: { label: '先共情，再沟通方案', dimension: 'F' } },
-  { id: 8, text: '对截止日期你的态度是？', optionA: { label: '提前规划并尽早完成', dimension: 'J' }, optionB: { label: '临近截止时效率更高', dimension: 'P' } }
-];
+const MBTI_TYPE_CODE = 'MBTI';
+
+interface BackendQuestion {
+  id: number;
+  questionCode: string;
+  questionName: string;
+  questionOrder: number;
+  options?: string;
+}
+
+interface QuestionOption {
+  key?: string;
+  text?: string;
+  dimension?: string;
+}
+
+interface DetectionTypeItem {
+  typeCode?: string;
+  extraInfo?: string;
+}
+
+interface ResultMeaningDetail {
+  summary?: string;
+  strengths?: string;
+  risks?: string;
+  suggestedRoles?: string;
+  communicationTips?: string;
+}
 
 const MbtiTestPage: React.FC = () => {
-  const [answers, setAnswers] = useState<Record<number, Dimension>>({});
+  const navigate = useNavigate();
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [result, setResult] = useState<string>('');
+  const [meaningByResult, setMeaningByResult] = useState<Record<string, string | ResultMeaningDetail>>({});
 
-  const progress = useMemo(() => Math.round((Object.keys(answers).length / QUESTIONS.length) * 100), [answers]);
+  useEffect(() => {
+    const loadQuestions = async () => {
+      try {
+        setLoading(true);
+        const res = await userApi.getDetectionQuestionAll({ typeCode: MBTI_TYPE_CODE });
+        const rawList: BackendQuestion[] = res.data || [];
+        const mapped = rawList
+          .sort((a, b) => (a.questionOrder || 0) - (b.questionOrder || 0))
+          .map((item) => {
+            let optionList: QuestionOption[] = [];
+            try {
+              optionList = item.options ? JSON.parse(item.options) : [];
+            } catch (error) {
+              optionList = [];
+            }
+            return {
+              id: item.id,
+              questionCode: item.questionCode,
+              text: item.questionName,
+              options: optionList
+                .map((option, index) => ({
+                  key: option.key || String.fromCharCode(65 + index),
+                  label: option.text || `选项${index + 1}`,
+                  dimension: option.dimension || ''
+                }))
+                .filter((option) => Boolean(option.key))
+            };
+          })
+          .filter((item) => item.options.length >= 2);
+        setQuestions(mapped);
+        const typeRes = await userApi.getDetectionTypeAll();
+        setMeaningByResult(extractMeaningMap(typeRes.data || [], MBTI_TYPE_CODE));
+      } catch (error) {
+        message.error('加载 MBTI 题目失败');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadQuestions();
+  }, []);
 
-  const handleSelect = (questionId: number, dimension: Dimension) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: dimension }));
+  const extractMeaningMap = (typeList: DetectionTypeItem[], typeCode: string) => {
+    const type = typeList.find((item) => item?.typeCode === typeCode);
+    if (!type?.extraInfo) {
+      return {};
+    }
+    try {
+      const parsed = JSON.parse(type.extraInfo);
+      return parsed?.resultMeanings || parsed?.meanings || parsed?.scoring?.resultMeanings || {};
+    } catch (error) {
+      return {};
+    }
   };
 
-  const handleSubmit = () => {
-    if (Object.keys(answers).length < QUESTIONS.length) {
+  const progress = useMemo(
+    () => (questions.length ? Math.round((Object.keys(answers).length / questions.length) * 100) : 0),
+    [answers, questions.length]
+  );
+
+  const handleSelect = (questionId: number | string, selectedOptionKey: string) => {
+    setAnswers((prev) => ({ ...prev, [String(questionId)]: selectedOptionKey }));
+  };
+
+  const handleSubmit = async () => {
+    if (Object.keys(answers).length < questions.length || questions.length === 0) {
+      message.warning('请先完成所有题目');
       return;
     }
 
-    const score: Record<Dimension, number> = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 };
-    Object.values(answers).forEach((dimension) => {
-      score[dimension] += 1;
-    });
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    const answeredQuestions = questions
+      .filter((question) => Boolean(answers[String(question.id)]))
+      .map((question) => {
+        const selectedOptionKey = answers[String(question.id)];
+        return {
+          questionId: question.id,
+          questionCode: question.questionCode,
+          selectedOptionKey
+        };
+      });
 
-    const mbti = `${score.E >= score.I ? 'E' : 'I'}${score.S >= score.N ? 'S' : 'N'}${score.T >= score.F ? 'T' : 'F'}${score.J >= score.P ? 'J' : 'P'}`;
-    setResult(mbti);
+    try {
+      const res = await userApi.saveDetectionResult({
+        userId: currentUser?.id || 'anonymous',
+        userDetectTypeCode: MBTI_TYPE_CODE,
+        answeredQuestions
+      });
+      message.success('结果已保存');
+      setResult(res.data?.detectResult || '');
+    } catch (error) {
+      message.error('结果保存失败');
+      return;
+    }
   };
 
   const handleReset = () => {
@@ -53,39 +150,81 @@ const MbtiTestPage: React.FC = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f7fb', padding: '16px' }}>
+    <div style={{ minHeight: 'calc(100vh - 56px)', background: '#f5f7fb', padding: '16px' }}>
       <Card style={{ maxWidth: 760, margin: '0 auto' }}>
         <Title level={3} style={{ marginTop: 0 }}>MBTI 性格测试</Title>
-        <Paragraph type="secondary">请根据你的第一直觉作答，全部完成后可查看测试结果。</Paragraph>
+        <Paragraph type="secondary">题目来自后端题库（typeCode=MBTI），请根据第一直觉作答。</Paragraph>
         <Progress percent={progress} size="small" />
-        <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: 12 }}>
-          {QUESTIONS.map((item) => (
-            <Card key={item.id} size="small">
-              <Text strong>{item.id}. {item.text}</Text>
-              <div style={{ marginTop: 8 }}>
-                <Radio.Group
-                  value={answers[item.id]}
-                  onChange={(e) => handleSelect(item.id, e.target.value as Dimension)}
-                >
-                  <Space direction="vertical">
-                    <Radio value={item.optionA.dimension}>{item.optionA.label}</Radio>
-                    <Radio value={item.optionB.dimension}>{item.optionB.label}</Radio>
-                  </Space>
-                </Radio.Group>
-              </div>
-            </Card>
-          ))}
-        </Space>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <Spin />
+          </div>
+        ) : questions.length === 0 ? (
+          <div style={{ marginTop: 16 }}>
+            <Empty description="暂无可用 MBTI 题目" />
+          </div>
+        ) : (
+          <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: 12 }}>
+            {questions.map((item, index) => (
+              <Card key={item.id} size="small">
+                <Text strong>{index + 1}. {item.text}</Text>
+                <div style={{ marginTop: 8 }}>
+                  <Radio.Group
+                    value={answers[String(item.id)]}
+                    onChange={(e) => handleSelect(item.id, e.target.value as string)}
+                  >
+                    <Space direction="vertical">
+                      {item.options.map((option) => (
+                        <Radio key={`${item.id}-${option.key}`} value={option.key}>
+                          {option.label}
+                        </Radio>
+                      ))}
+                    </Space>
+                  </Radio.Group>
+                </div>
+              </Card>
+            ))}
+          </Space>
+        )}
         <Space style={{ marginTop: 16 }}>
-          <Button type="primary" onClick={handleSubmit} disabled={progress < 100}>查看结果</Button>
+          <Button type="primary" onClick={handleSubmit} disabled={progress < 100 || loading || questions.length === 0}>查看结果</Button>
           <Button onClick={handleReset}>重置</Button>
         </Space>
         {result ? (
           <Card style={{ marginTop: 16, background: '#f6ffed', borderColor: '#b7eb8f' }}>
             <Text>你的 MBTI 类型是：</Text>
             <Title level={2} style={{ margin: '8px 0 0' }}>{result}</Title>
+            <Paragraph style={{ marginTop: 8, marginBottom: 0, color: '#666' }}>
+              {(() => {
+                const meaning = meaningByResult[result];
+                if (!meaning) {
+                  return '暂未配置该结果的含义说明。';
+                }
+                if (typeof meaning === 'string') {
+                  return meaning;
+                }
+                return meaning.summary || '暂未配置该结果的含义说明。';
+              })()}
+            </Paragraph>
+            {(() => {
+              const meaning = meaningByResult[result];
+              if (!meaning || typeof meaning === 'string') {
+                return null;
+              }
+              return (
+                <Space direction="vertical" size={4} style={{ marginTop: 8 }}>
+                  {meaning.strengths ? <Text style={{ color: '#389e0d' }}>优势：{meaning.strengths}</Text> : null}
+                  {meaning.risks ? <Text style={{ color: '#cf1322' }}>风险点：{meaning.risks}</Text> : null}
+                  {meaning.suggestedRoles ? <Text>建议方向：{meaning.suggestedRoles}</Text> : null}
+                  {meaning.communicationTips ? <Text>沟通建议：{meaning.communicationTips}</Text> : null}
+                </Space>
+              );
+            })()}
           </Card>
         ) : null}
+        <Space style={{ marginTop: 16 }}>
+          <Button onClick={() => navigate('/mobile/mbti/history')}>查看历史检测结果</Button>
+        </Space>
       </Card>
     </div>
   );

@@ -18,9 +18,16 @@ import WechatLoginModal from './pages/LoginPage';
 import TextMaskingPage from './pages/TextMaskingPage';
 import FileDetectionPage from './pages/FileDetectionPage';
 import MobileLoginPage from './pages/mobile/MobileLoginPage';
+import MobileRegisterPage from './pages/mobile/MobileRegisterPage';
 import MobileHomePage from './pages/mobile/MobileHomePage';
 import MobileAuthGuard from './pages/mobile/MobileAuthGuard';
+import MobileLayout from './pages/mobile/MobileLayout';
+import MobileProfilePage from './pages/mobile/MobileProfilePage';
 import MbtiTestPage from './pages/mobile/mbti/MbtiTestPage';
+import MbtiHistoryPage from './pages/mobile/mbti/MbtiHistoryPage';
+import ColorPersonalityTestPage from './pages/mobile/color/ColorPersonalityTestPage';
+import ColorHistoryPage from './pages/mobile/color/ColorHistoryPage';
+import MbtiQuestionBankPage from './pages/MbtiQuestionBankPage';
 import { UserInfo } from './types';
 import './App.css';
 
@@ -373,30 +380,23 @@ function App() {
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="/mobile" element={<Navigate to="/mobile/home" replace />} />
           <Route path="/mobile/login" element={<MobileLoginPage />} />
+          <Route path="/mobile/register" element={<MobileRegisterPage />} />
           <Route
-            path="/mobile/home"
+            path="/mobile"
             element={
               <MobileAuthGuard>
-                <MobileHomePage />
+                <MobileLayout />
               </MobileAuthGuard>
             }
-          />
-          <Route
-            path="/mobile/mbti"
-            element={
-              <MobileAuthGuard>
-                <MbtiTestPage />
-              </MobileAuthGuard>
-            }
-          />
-          <Route
-            path="/mobile/*"
-            element={
-              <MobileAuthGuard>
-                <Navigate to="/mobile/home" replace />
-              </MobileAuthGuard>
-            }
-          />
+          >
+            <Route path="home" element={<MobileHomePage />} />
+            <Route path="mbti" element={<MbtiTestPage />} />
+            <Route path="mbti/history" element={<MbtiHistoryPage />} />
+            <Route path="color-test" element={<ColorPersonalityTestPage />} />
+            <Route path="color-test/history" element={<ColorHistoryPage />} />
+            <Route path="profile" element={<MobileProfilePage />} />
+            <Route path="*" element={<Navigate to="/mobile/home" replace />} />
+          </Route>
           <Route path="/home" element={
             <div className="app-content-wrapper">
               <div className="hero-section">
@@ -437,6 +437,7 @@ function App() {
           } />
           <Route path="/home/tools/text-masking" element={<TextMaskingPage />} />
           <Route path="/home/tools/file-detection" element={<FileDetectionPage />} />
+          <Route path="/home/tools/mbti" element={<MbtiQuestionBankPage />} />
           {/* 场景解决方案路由 */}
           <Route path="/home/solutions/database-classification" element={
             <div className="app-content-wrapper">

@@ -11,8 +11,12 @@ request.interceptors.request.use(
   (config: any) => {
     // 从 localStorage 获取 token
     const token = localStorage.getItem('adminToken');
+    const adminUser = localStorage.getItem('adminUser');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (adminUser) {
+      config.headers['X-Current-User'] = adminUser;
     }
     return config;
   },

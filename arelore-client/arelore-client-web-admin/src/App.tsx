@@ -7,6 +7,8 @@ import Dashboard from './pages/Dashboard';
 import UserManagement from './pages/UserManagement';
 import SystemSettings from './pages/SystemSettings';
 import Login from './pages/Login';
+import DetectionTypeManagement from './pages/DetectionTypeManagement';
+import DetectionQuestionManagement from './pages/DetectionQuestionManagement';
 
 function App() {
   return (
@@ -26,6 +28,8 @@ function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="settings" element={<SystemSettings />} />
+            <Route path="detection-types" element={<DetectionTypeManagement />} />
+            <Route path="detection-questions" element={<DetectionQuestionManagement />} />
           </Route>
         </Routes>
       </Router>

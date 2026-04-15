@@ -6,6 +6,7 @@ import {
   DashboardOutlined,
   UserOutlined,
   SettingOutlined,
+  FileTextOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -35,6 +36,16 @@ const Layout: React.FC = () => {
       key: '/settings',
       icon: <SettingOutlined />,
       label: '系统设置',
+    },
+    {
+      key: '/detection-types',
+      icon: <FileTextOutlined />,
+      label: '题目类型管理',
+    },
+    {
+      key: '/detection-questions',
+      icon: <FileTextOutlined />,
+      label: '题目管理',
     },
   ];
 
@@ -83,7 +94,11 @@ const Layout: React.FC = () => {
             <span style={{ color: '#666' }}>管理员</span>
             <LogoutOutlined 
               style={{ cursor: 'pointer', color: '#ff4d4f' }} 
-              onClick={() => navigate('/login')}
+              onClick={() => {
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('adminUser');
+                navigate('/login');
+              }}
             />
           </div>
         </Header>

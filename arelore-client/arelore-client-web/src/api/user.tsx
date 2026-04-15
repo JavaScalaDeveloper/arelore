@@ -45,4 +45,40 @@ export const userApi = {
   delete: (data: { userId: string }): Promise<ApiResponse<any>> => {
     return request.post('/user/delete', data);
   },
+
+  getDetectionTypeAll: (): Promise<ApiResponse<any>> => {
+    return request.post('/user/detection/type/all', {});
+  },
+
+  getDetectionQuestionAll: (data?: { typeCode?: string }): Promise<ApiResponse<any>> => {
+    return request.post('/user/detection/question/all', data || {});
+  },
+
+  saveDetectionResult: (data: {
+    userId: string;
+    userDetectTypeCode: string;
+    answeredQuestions: Array<{
+      questionId?: number | string;
+      questionCode?: string;
+      selectedOptionKey: string;
+    }>;
+  }): Promise<ApiResponse<any>> => {
+    return request.post('/user/detection/result/save', data);
+  },
+
+  getCurrentDetectionResult: (data: { userId: string; typeCode: string }): Promise<ApiResponse<any>> => {
+    return request.post('/user/detection/result/current', data);
+  },
+
+  getDetectionResultHistory: (data: { userId: string; typeCode: string }): Promise<ApiResponse<any>> => {
+    return request.post('/user/detection/result/history', data);
+  },
+
+  mobileRegisterApply: (data: { mobile: string; password: string }): Promise<ApiResponse<any>> => {
+    return request.post('/user/register/mobile/apply', data);
+  },
+
+  mobileRegisterVerify: (data: { mobile: string; verifyCode: string }): Promise<ApiResponse<any>> => {
+    return request.post('/user/register/mobile/verify', data);
+  },
 };

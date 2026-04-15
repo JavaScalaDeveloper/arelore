@@ -14,6 +14,24 @@ server:
 spring:
   application:
     name: arelore-server-user
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+  datasource:
+    education:
+      url: jdbc:mysql://book-n95:3306/arelore_education?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      username: root
+      password: 123456
+      driver-class-name: com.mysql.cj.jdbc.Driver
+    user:
+      url: jdbc:mysql://book-n95:3306/arelore_user?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      username: root
+      password: 123456
+      driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
 
 logging:
   level:
@@ -42,3 +60,22 @@ mobile:
   test-login:
     username: testuser
     password: 123456
+
+# =====================================================
+# 阿里云短信验证码（Dypnsapi）
+# 说明：
+# 1) access-key-id / access-key-secret 建议通过环境变量注入，不在仓库明文保存
+# 2) 若未配置 AK/SK，代码会回退 DefaultCredentialProvider（实例角色/默认凭证链）
+# =====================================================
+aliyun:
+  sms:
+    enabled: true
+    region: cn-hangzhou
+    endpoint: dypnsapi.aliyuncs.com
+    access-key-id: ${ALIYUN_SMS_ACCESS_KEY_ID:}
+    access-key-secret: ${ALIYUN_SMS_ACCESS_KEY_SECRET:}
+    sign-name: "速通互联验证码"
+    template-code: "100001"
+    valid-minutes: 5
+
+

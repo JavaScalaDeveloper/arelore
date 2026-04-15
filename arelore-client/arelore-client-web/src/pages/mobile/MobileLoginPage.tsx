@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Form, Input, message } from 'antd';
+import { Button, Form, Input, message, Space } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { authApi } from '../../api/auth';
 import './MobileLoginPage.css';
@@ -79,6 +79,11 @@ const MobileLoginPage: React.FC = () => {
             登录
           </Button>
         </Form>
+        <Space style={{ marginTop: 12, width: '100%', justifyContent: 'space-between' }}>
+          <Button type="link" onClick={() => navigate('/mobile/register')}>
+            去注册
+          </Button>
+        </Space>
       </div>
     </div>
   );
