@@ -27,23 +27,6 @@ const SENSITIVE_TYPES: SensitiveType[] = [
   { label: '车牌号', value: 'license_plate' },
 ];
 
-// 支持的文件类型
-const ACCEPTED_FILE_TYPES = {
-  'image/*': ['.jpg', '.jpeg', '.png', '.gif', '.bmp'],
-  'application/msword': ['.doc'],
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-  'application/vnd.ms-powerpoint': ['.ppt'],
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
-  'application/vnd.ms-excel': ['.xls'],
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-  'application/pdf': ['.pdf'],
-  'text/plain': ['.txt', '.log', '.sql'],
-  'text/html': ['.html', '.htm'],
-  'text/markdown': ['.md'],
-  'application/json': ['.json'],
-  'application/rtf': ['.rtf'],
-};
-
 // 敏感类型信息接口
 interface SensitiveTypeInfo {
   code: string;

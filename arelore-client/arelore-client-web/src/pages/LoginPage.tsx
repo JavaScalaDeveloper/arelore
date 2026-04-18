@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Tabs, QRCode, Button, message, Space, Result } from 'antd';
 import { WechatOutlined, QrcodeOutlined, LoginOutlined } from '@ant-design/icons';
 import { authApi } from '../api/auth';
@@ -35,18 +35,6 @@ const WechatLoginModal: React.FC<WechatLoginModalProps> = ({ visible, onCancel, 
   }, [visible, activeTab]);
 
   // 轮询检查扫码状态
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (visible && qrCodeData && scanStatus !== 'expired') {
-      interval = setInterval(() => {
-        checkQrCodeStatus();
-      }, 2000); // 每 2 秒检查一次
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [visible, qrCodeData, scanStatus]);
-
   // 加载二维码
   const loadQrCode = async () => {
     try {
@@ -64,33 +52,8 @@ const WechatLoginModal: React.FC<WechatLoginModalProps> = ({ visible, onCancel, 
     }
   };
 
-  // 检查二维码状态
-  const checkQrCodeStatus = async () => {
-    try {
-      const response = await authApi.checkWechatQrCodeStatus({
-        sceneId: qrCodeData!.sceneId
-      });
-      
-      if (response.code === 200 && response.data) {
-        const { status, userInfo, code } = response.data;
-        
-        if (status === 'SCANED' || status === 'CONFIRMED') {
-          // 用户已扫码并确认
-          handleLoginSuccess(userInfo!, code!);
-          setScanStatus('scanned');
-        } else if (status === 'EXPIRED') {
-          // 二维码已过期
-          setScanStatus('expired');
-          message.warning('二维码已过期，请刷新重试');
-        }
-      }
-    } catch (error) {
-      console.error('检查二维码状态失败:', error);
-    }
-  };
-
   // 处理登录成功
-  const handleLoginSuccess = async (userInfo: UserInfo, code: string) => {
+  const handleLoginSuccess = useCallback(async (userInfo: UserInfo, code: string) => {
     try {
       // 调用后端登录接口
       const response = await authApi.wechatQuickLogin({
@@ -113,7 +76,47 @@ const WechatLoginModal: React.FC<WechatLoginModalProps> = ({ visible, onCancel, 
       console.error('登录失败:', error);
       message.error('登录失败，请重试');
     }
-  };
+  }, [onCancel, onLoginSuccess]);
+
+  // 检查二维码状态
+  const checkQrCodeStatus = useCallback(async () => {
+    if (!qrCodeData) {
+      return;
+    }
+    try {
+      const response = await authApi.checkWechatQrCodeStatus({
+        sceneId: qrCodeData.sceneId
+      });
+      
+      if (response.code === 200 && response.data) {
+        const { status, userInfo, code } = response.data;
+        
+        if (status === 'SCANED' || status === 'CONFIRMED') {
+          // 用户已扫码并确认
+          handleLoginSuccess(userInfo!, code!);
+          setScanStatus('scanned');
+        } else if (status === 'EXPIRED') {
+          // 二维码已过期
+          setScanStatus('expired');
+          message.warning('二维码已过期，请刷新重试');
+        }
+      }
+    } catch (error) {
+      console.error('检查二维码状态失败:', error);
+    }
+  }, [handleLoginSuccess, qrCodeData]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (visible && qrCodeData && scanStatus !== 'expired') {
+      interval = setInterval(() => {
+        checkQrCodeStatus();
+      }, 2000); // 每 2 秒检查一次
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [visible, qrCodeData, scanStatus, checkQrCodeStatus]);
 
   // 一键登录（模拟）
   const handleQuickLogin = async () => {

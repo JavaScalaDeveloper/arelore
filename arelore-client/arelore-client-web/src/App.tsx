@@ -1,19 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Avatar, Dropdown, Space, Badge, message } from 'antd';
-import type { MenuProps } from 'antd';
+import { Layout, Menu, Button, Space, message } from 'antd';
 import { 
-  UserOutlined, 
-  SettingOutlined, 
-  LogoutOutlined,
   HomeOutlined,
   SolutionOutlined,
   CustomerServiceOutlined,
-  PhoneOutlined,
-  BellOutlined,
-  EyeInvisibleOutlined
+  PhoneOutlined
 } from '@ant-design/icons';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
-import { authApi } from './api/auth';
 import WechatLoginModal from './pages/LoginPage';
 import TextMaskingPage from './pages/TextMaskingPage';
 import FileDetectionPage from './pages/FileDetectionPage';
@@ -35,8 +28,6 @@ import { UserInfo } from './types';
 import './App.css';
 
 const { Header, Content, Footer } = Layout;
-
-type MenuItem = Required<MenuProps>['items'][number];
 
 // 导航菜单配置
 const navigationItems: any[] = [
@@ -144,35 +135,8 @@ const navigationItems: any[] = [
   { key: 'contact', icon: <PhoneOutlined />, label: '联系我们', path: '/home/contact' },
 ];
 
-// 用户菜单配置（动态）
-const getUserMenuItems = (onLogout: () => void): MenuItem[] => [
-  {
-    key: 'profile',
-    icon: <UserOutlined />,
-    label: '个人中心',
-    path: '/user/profile'
-  },
-  {
-    key: 'settings',
-    icon: <SettingOutlined />,
-    label: '账号设置',
-    path: '/user/settings'
-  },
-  {
-    type: 'divider',
-  } as any,
-  {
-    key: 'logout',
-    icon: <LogoutOutlined />,
-    label: '退出登录',
-    onClick: onLogout
-  }
-];
-
 function App() {
   const [current, setCurrent] = useState<string>('home');
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const navigate = useNavigate();
 
@@ -188,14 +152,11 @@ function App() {
     
     if (token && userStr) {
       try {
-        const user = JSON.parse(userStr);
-        setCurrentUser(user);
-        setIsLoggedIn(true);
+        JSON.parse(userStr);
       } catch (error) {
         console.error('解析用户信息失败:', error);
         localStorage.removeItem('userToken');
         localStorage.removeItem('currentUser');
-        setIsLoggedIn(false);
       }
     }
   };
@@ -226,22 +187,6 @@ function App() {
     }
   };
 
-  // 处理用户菜单点击
-  const handleUserMenuClick = ({ key }: { key: string }) => {
-    const items = getUserMenuItems(handleLogout);
-    const item = items?.find(i => i && 'key' in i && i.key === key) as any;
-    if (item && item.path) {
-      navigate(item.path);
-    } else if (item && item.onClick) {
-      item.onClick();
-    }
-  };
-
-  // 打开登录弹窗
-  const handleOpenLogin = () => {
-    setShowLoginModal(true);
-  };
-
   // 关闭登录弹窗
   const handleCloseLogin = () => {
     setShowLoginModal(false);
@@ -249,53 +194,8 @@ function App() {
 
   // 处理登录成功
   const handleLoginSuccess = (user: UserInfo) => {
-    setCurrentUser(user);
-    setIsLoggedIn(true);
     message.success(`欢迎回来，${user.nickname || user.username}！`);
   };
-
-  // 处理退出登录
-  const handleLogout = async () => {
-    try {
-      // 调用后端退出接口
-      await authApi.logout();
-      
-      // 清除本地数据
-      localStorage.removeItem('userToken');
-      localStorage.removeItem('currentUser');
-      
-      setCurrentUser(null);
-      setIsLoggedIn(false);
-      message.success('已退出登录');
-      
-      // 跳转到首页
-      navigate('/');
-    } catch (error) {
-      console.error('退出登录失败:', error);
-      // 即使后端失败，也清除本地数据
-      localStorage.removeItem('userToken');
-      localStorage.removeItem('currentUser');
-      setCurrentUser(null);
-      setIsLoggedIn(false);
-      message.success('已退出登录');
-    }
-  };
-
-  // 用户头像下拉菜单
-  const userDropdown = (
-    <Dropdown menu={{ items: getUserMenuItems(handleLogout), onClick: handleUserMenuClick }} trigger={['click']}>
-      <Space style={{ cursor: 'pointer' }}>
-        <Badge count={3} size="small">
-          <Avatar 
-            src={currentUser?.avatar} 
-            style={{ backgroundColor: currentUser?.avatar ? '#fff' : '#1890ff' }} 
-            icon={!currentUser?.avatar && <UserOutlined />}
-          />
-        </Badge>
-        <span style={{ color: '#fff' }}>{currentUser?.nickname || currentUser?.username || '用户'}</span>
-      </Space>
-    </Dropdown>
-  );
 
   return (
     <Layout className="app-layout">
@@ -622,10 +522,10 @@ function App() {
         <div className="footer-content">
           <p>Arelore ©{new Date().getFullYear()} Created by Arelore Team</p>
           <div className="footer-links">
-            <a href="#">关于我们</a>
-            <a href="#">隐私政策</a>
-            <a href="#">服务条款</a>
-            <a href="#">帮助中心</a>
+            <a href="/home">关于我们</a>
+            <a href="/home">隐私政策</a>
+            <a href="/home">服务条款</a>
+            <a href="/home/contact">帮助中心</a>
           </div>
           <p style={{ fontSize: '12px', color: '#999', marginTop: '12px' }}>
             鄂ICP备2026013952号-1

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Checkbox, Radio, Button, Space, message, Typography, Select, Input } from 'antd';
+import { Card, Checkbox, Radio, Button, Space, message, Typography, Input } from 'antd';
 import { CopyOutlined, ClearOutlined, EyeInvisibleOutlined } from '@ant-design/icons';
 import request, { ApiResponse } from '../utils/request';
 
@@ -32,12 +32,6 @@ const SENSITIVE_TYPES: SensitiveType[] = [
   { label: '自定义正则表达式', value: 'custom_regex', disabled: true }, // 不可选中项
 ];
 
-// 脱敏方式
-const MASK_METHODS = [
-  { label: '全部替换为*', value: 'full_mask' },
-  { label: '保留部分', value: 'keep_partially', default: true },
-];
-
 const MAX_LENGTH = 50000; // 最大字符数
 
 // 敏感类型信息接口
@@ -50,7 +44,7 @@ interface SensitiveTypeInfo {
 const TextMaskingPage: React.FC = () => {
   const [inputType, setInputType] = useState<'text' | 'file'>('text');
   const [selectedTypes, setSelectedTypes] = useState<string[]>(['china_phone', 'address', 'chinese_name', 'email', 'id_card']);
-  const [maskMethod, setMaskMethod] = useState<string>('keep_partially'); // 默认选中"保留部分"
+  const [maskMethod] = useState<string>('keep_partially'); // 默认选中"保留部分"
   const [inputText, setInputText] = useState<string>('');
   const [outputText, setOutputText] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
