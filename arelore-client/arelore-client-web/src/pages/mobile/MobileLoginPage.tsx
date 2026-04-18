@@ -2,19 +2,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Form, Input, message, Space } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { authApi } from '../../api/auth';
+import { sha256Hex } from '../../utils/hash';
 import './MobileLoginPage.css';
 
 interface LoginFormData {
   username: string;
   password: string;
 }
-
-const sha256Hex = async (text: string): Promise<string> => {
-  const data = new TextEncoder().encode(text);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const bytes = Array.from(new Uint8Array(hashBuffer));
-  return bytes.map((b) => b.toString(16).padStart(2, '0')).join('');
-};
 
 const MobileLoginPage: React.FC = () => {
   const navigate = useNavigate();

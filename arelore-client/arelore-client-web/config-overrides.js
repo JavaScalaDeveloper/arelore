@@ -1,4 +1,9 @@
 module.exports = function override(config, env) {
+  // 开发环境保留 CRA 默认配置，否则会破坏 HMR（出现 hot-update.json 循环请求）。
+  if (env !== 'production') {
+    return config;
+  }
+
   // 输出文件名添加内容哈希，确保每次构建都是唯一的
   config.output.filename = 'static/js/[name].[contenthash:8].js';
   config.output.chunkFilename = 'static/js/[name].[contenthash:8].chunk.js';

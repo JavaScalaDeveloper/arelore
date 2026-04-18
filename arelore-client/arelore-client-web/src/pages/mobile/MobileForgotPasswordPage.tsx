@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button, Card, Form, Input, Progress, Space, Typography, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { userApi } from '../../api/user';
+import { sha256Hex } from '../../utils/hash';
 
 const { Title, Paragraph } = Typography;
 
@@ -10,13 +11,6 @@ interface ForgotPasswordForm {
   verifyCode: string;
   newPassword: string;
 }
-
-const sha256Hex = async (text: string): Promise<string> => {
-  const data = new TextEncoder().encode(text);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const bytes = Array.from(new Uint8Array(hashBuffer));
-  return bytes.map((b) => b.toString(16).padStart(2, '0')).join('');
-};
 
 const MobileForgotPasswordPage: React.FC = () => {
   const navigate = useNavigate();
