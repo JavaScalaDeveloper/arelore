@@ -14,6 +14,19 @@ server:
 spring:
   application:
     name: arelore-server-user
+  datasource:
+    education:
+      # 生产环境按你的要求使用 localhost 域名
+      url: jdbc:mysql://localhost:3306/arelore_education?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      username: root
+      password: 123456
+      driver-class-name: com.mysql.cj.jdbc.Driver
+    user:
+      # 用户注册相关库
+      url: jdbc:mysql://localhost:3306/arelore_user?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      username: root
+      password: 123456
+      driver-class-name: com.mysql.cj.jdbc.Driver
 
 logging:
   level:
