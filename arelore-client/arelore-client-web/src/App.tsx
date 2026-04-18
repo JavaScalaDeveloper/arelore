@@ -25,8 +25,10 @@ import MobileLayout from './pages/mobile/MobileLayout';
 import MobileProfilePage from './pages/mobile/MobileProfilePage';
 import MbtiTestPage from './pages/mobile/mbti/MbtiTestPage';
 import MbtiHistoryPage from './pages/mobile/mbti/MbtiHistoryPage';
+import MbtiResultPage from './pages/mobile/mbti/MbtiResultPage';
 import ColorPersonalityTestPage from './pages/mobile/color/ColorPersonalityTestPage';
 import ColorHistoryPage from './pages/mobile/color/ColorHistoryPage';
+import ColorResultPage from './pages/mobile/color/ColorResultPage';
 import MbtiQuestionBankPage from './pages/MbtiQuestionBankPage';
 import { UserInfo } from './types';
 import './App.css';
@@ -392,8 +394,10 @@ function App() {
             <Route path="home" element={<MobileHomePage />} />
             <Route path="mbti" element={<MbtiTestPage />} />
             <Route path="mbti/history" element={<MbtiHistoryPage />} />
+            <Route path="mbti/result" element={<MbtiResultPage />} />
             <Route path="color-test" element={<ColorPersonalityTestPage />} />
             <Route path="color-test/history" element={<ColorHistoryPage />} />
+            <Route path="color-test/result" element={<ColorResultPage />} />
             <Route path="profile" element={<MobileProfilePage />} />
             <Route path="*" element={<Navigate to="/mobile/home" replace />} />
           </Route>

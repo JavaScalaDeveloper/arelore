@@ -100,6 +100,16 @@ public class Result<T> implements Serializable {
     }
 
     /**
+     * 失败返回（使用枚举Code + 自定义消息）
+     *
+     * @param resultCode 结果码枚举
+     * @param message    自定义消息
+     */
+    public static <T> Result<T> error(ResultCode resultCode, String message) {
+        return new Result<>(resultCode.getCode(), message, null, System.currentTimeMillis());
+    }
+
+    /**
      * 判断是否成功
      *
      * @return true-成功，false-失败

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Card, Form, Input, message, Space, Typography } from 'antd';
+import { Button, Card, Form, Input, Progress, message, Space, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { userApi } from '../../api/user';
 
@@ -17,6 +17,50 @@ const MobileRegisterPage: React.FC = () => {
   const [applyLoading, setApplyLoading] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState<'LOW' | 'MEDIUM' | 'HIGH' | ''>('');
+
+  const getPasswordStrength = (password?: string): 'LOW' | 'MEDIUM' | 'HIGH' | '' => {
+    if (!password) {
+      return '';
+    }
+    const hasLetter = /[A-Za-z]/.test(password);
+    const hasNumber = /\d/.test(password);
+    const hasSymbol = /[^A-Za-z0-9]/.test(password);
+    const categoryCount = [hasLetter, hasNumber, hasSymbol].filter(Boolean).length;
+    if (password.length >= 10 && categoryCount >= 3) {
+      return 'HIGH';
+    }
+    if (password.length >= 8 && categoryCount >= 2) {
+      return 'MEDIUM';
+    }
+    return 'LOW';
+  };
+
+  const renderPasswordStrengthText = () => {
+    if (!passwordStrength) {
+      return null;
+    }
+    if (passwordStrength === 'HIGH') {
+      return <span style={{ color: '#389e0d' }}>密码强度：高（推荐）</span>;
+    }
+    if (passwordStrength === 'MEDIUM') {
+      return <span style={{ color: '#d48806' }}>密码强度：中（建议再加入符号或增加长度）</span>;
+    }
+    return <span style={{ color: '#cf1322' }}>密码强度：低（建议同时包含字母、数字、符号）</span>;
+  };
+
+  const getPasswordStrengthProgress = () => {
+    if (!passwordStrength) {
+      return null;
+    }
+    if (passwordStrength === 'HIGH') {
+      return { percent: 100, strokeColor: '#52c41a' };
+    }
+    if (passwordStrength === 'MEDIUM') {
+      return { percent: 66, strokeColor: '#faad14' };
+    }
+    return { percent: 33, strokeColor: '#ff4d4f' };
+  };
 
   const handleApply = async () => {
     try {
@@ -72,10 +116,23 @@ const MobileRegisterPage: React.FC = () => {
             <Form.Item
               label="密码"
               name="password"
-              rules={[{ required: true, message: '请输入密码' }, { min: 6, message: '至少6位' }]}
+              extra={renderPasswordStrengthText()}
+              rules={[{ required: true, message: '请输入密码' }, { min: 8, message: '至少8位' }]}
             >
-              <Input.Password placeholder="请输入密码" />
+              <Input.Password
+                placeholder="请输入密码"
+                onChange={(e) => setPasswordStrength(getPasswordStrength(e.target.value))}
+              />
             </Form.Item>
+            {passwordStrength ? (
+              <Progress
+                percent={getPasswordStrengthProgress()?.percent}
+                showInfo={false}
+                strokeColor={getPasswordStrengthProgress()?.strokeColor}
+                size="small"
+                style={{ marginTop: -6, marginBottom: 12 }}
+              />
+            ) : null}
             <Form.Item
               label="验证码"
               name="verifyCode"

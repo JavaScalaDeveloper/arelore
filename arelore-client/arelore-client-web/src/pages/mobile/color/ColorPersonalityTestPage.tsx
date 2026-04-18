@@ -44,8 +44,8 @@ const ColorPersonalityTestPage: React.FC = () => {
   const navigate = useNavigate();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [submitLoading, setSubmitLoading] = useState<boolean>(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [result, setResult] = useState<string>('');
   const [meaningByResult, setMeaningByResult] = useState<Record<string, string | ResultMeaningDetail>>({});
 
   useEffect(() => {
@@ -126,21 +126,33 @@ const ColorPersonalityTestPage: React.FC = () => {
       }));
 
     try {
+      setSubmitLoading(true);
       const res = await userApi.saveDetectionResult({
         userId: currentUser?.id || 'anonymous',
         userDetectTypeCode: COLOR_TYPE_CODE,
         answeredQuestions
       });
-      message.success('结果已保存');
-      setResult(res.data?.detectResult || '');
+      const detectResult = res.data?.detectResult || '';
+      if (!detectResult) {
+        message.error('结果计算失败，请重试');
+        return;
+      }
+      navigate('/mobile/color-test/result', {
+        replace: true,
+        state: {
+          result: detectResult,
+          meaning: meaningByResult[detectResult] || ''
+        }
+      });
     } catch (error) {
       message.error('结果保存失败');
+    } finally {
+      setSubmitLoading(false);
     }
   };
 
   const handleReset = () => {
     setAnswers({});
-    setResult('');
   };
 
   return (
@@ -151,7 +163,6 @@ const ColorPersonalityTestPage: React.FC = () => {
         <Space style={{ marginBottom: 12 }}>
           <Button onClick={() => navigate('/mobile/home')}>首页</Button>
         </Space>
-        <Progress percent={progress} size="small" />
         {loading ? (
           <div style={{ textAlign: 'center', padding: '40px 0' }}>
             <Spin />
@@ -183,42 +194,13 @@ const ColorPersonalityTestPage: React.FC = () => {
             ))}
           </Space>
         )}
+        <div style={{ marginTop: 16 }}>
+          <Progress percent={progress} size="small" />
+        </div>
         <Space style={{ marginTop: 16 }}>
-          <Button type="primary" onClick={handleSubmit} disabled={progress < 100 || loading || questions.length === 0}>查看结果</Button>
+          <Button type="primary" loading={submitLoading} onClick={handleSubmit} disabled={progress < 100 || loading || questions.length === 0}>查看结果</Button>
           <Button onClick={handleReset}>重置</Button>
         </Space>
-        {result ? (
-          <Card style={{ marginTop: 16, background: '#f6ffed', borderColor: '#b7eb8f' }}>
-            <Text>你的性格主色是：</Text>
-            <Title level={2} style={{ margin: '8px 0 0' }}>{result}</Title>
-            <Paragraph style={{ marginTop: 8, marginBottom: 0, color: '#666' }}>
-              {(() => {
-                const meaning = meaningByResult[result];
-                if (!meaning) {
-                  return '暂未配置该结果的含义说明。';
-                }
-                if (typeof meaning === 'string') {
-                  return meaning;
-                }
-                return meaning.summary || '暂未配置该结果的含义说明。';
-              })()}
-            </Paragraph>
-            {(() => {
-              const meaning = meaningByResult[result];
-              if (!meaning || typeof meaning === 'string') {
-                return null;
-              }
-              return (
-                <Space direction="vertical" size={4} style={{ marginTop: 8 }}>
-                  {meaning.strengths ? <Text style={{ color: '#389e0d' }}>优势：{meaning.strengths}</Text> : null}
-                  {meaning.risks ? <Text style={{ color: '#cf1322' }}>风险点：{meaning.risks}</Text> : null}
-                  {meaning.suggestedRoles ? <Text>建议方向：{meaning.suggestedRoles}</Text> : null}
-                  {meaning.communicationTips ? <Text>沟通建议：{meaning.communicationTips}</Text> : null}
-                </Space>
-              );
-            })()}
-          </Card>
-        ) : null}
         <Space style={{ marginTop: 16 }}>
           <Button onClick={() => navigate('/mobile/color-test/history')}>查看历史检测结果</Button>
         </Space>

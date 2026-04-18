@@ -4,6 +4,8 @@ import cn.hutool.core.util.RandomUtil;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.arelore.server.common.exception.BusinessException;
+import com.arelore.server.common.result.ResultCode;
 import com.arelore.server.core.registration.dto.MobileRegisterApplyRequest;
 import com.arelore.server.core.registration.dto.MobileRegisterVerifyRequest;
 import com.arelore.server.core.registration.entity.UserRegistrationApplication;
@@ -56,15 +58,15 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
     public void applyMobileRegister(MobileRegisterApplyRequest request, String clientIp) {
         // 1. 基础参数校验（手机号 + 密码）。
         if (request == null || !StringUtils.hasText(request.getMobile()) || !StringUtils.hasText(request.getPassword())) {
-            throw new IllegalArgumentException("手机号或密码不能为空");
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "手机号或密码不能为空");
         }
         String mobile = request.getMobile().trim();
         String password = request.getPassword();
         if (!mobile.matches("^1\\d{10}$")) {
-            throw new IllegalArgumentException("手机号格式不正确");
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "手机号格式不正确");
         }
-        if (password.length() < 6) {
-            throw new IllegalArgumentException("密码长度至少6位");
+        if (password.length() < 8) {
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "密码长度至少8位");
         }
         if (!StringUtils.hasText(clientIp) || "unknown".equalsIgnoreCase(clientIp)) {
             clientIp = "unknown";
@@ -78,7 +80,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
         existsWrapper.eq(UserRegistrationResult::getAccountType, ACCOUNT_TYPE_MOBILE)
             .eq(UserRegistrationResult::getAccount, mobile);
         if (resultMapper.selectCount(existsWrapper) > 0) {
-            throw new IllegalArgumentException("该手机号已注册");
+            throw new BusinessException(ResultCode.USER_MOBILE_ALREADY_REGISTERED, "该手机号已注册");
         }
 
         String verifyCode = RandomUtil.randomNumbers(6);
@@ -114,15 +116,15 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
     public String verifyMobileRegister(MobileRegisterVerifyRequest request, String clientIp) {
         // 1. 验证基本参数。
         if (request == null || !StringUtils.hasText(request.getMobile()) || !StringUtils.hasText(request.getVerifyCode())) {
-            throw new IllegalArgumentException("手机号或验证码不能为空");
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "手机号或验证码不能为空");
         }
         String mobile = request.getMobile().trim();
         String code = request.getVerifyCode().trim();
         if (!mobile.matches("^1\\d{10}$")) {
-            throw new IllegalArgumentException("手机号格式不正确");
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "手机号格式不正确");
         }
         if (!code.matches("^\\d{4,8}$")) {
-            throw new IllegalArgumentException("验证码格式不正确");
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码格式不正确");
         }
 
         // 2. 读取该手机号最近一次注册申请并提取验证码信息。
@@ -133,34 +135,34 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
             .last("limit 1");
         UserRegistrationApplication latest = applicationMapper.selectOne(wrapper);
         if (latest == null || !StringUtils.hasText(latest.getExtInfo())) {
-            throw new IllegalArgumentException("请先获取验证码");
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "请先获取验证码");
         }
 
         JSONObject ext;
         try {
             ext = JSON.parseObject(latest.getExtInfo());
         } catch (Exception e) {
-            throw new IllegalArgumentException("验证码信息异常，请重新获取");
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码信息异常，请重新获取");
         }
 
         // 3. 校验验证码与过期时间。
         String expected = ext == null ? "" : ext.getString("verifyCode");
         String expireAtStr = ext == null ? "" : ext.getString("codeExpireAt");
         if (!StringUtils.hasText(expected) || !StringUtils.hasText(expireAtStr)) {
-            throw new IllegalArgumentException("验证码信息缺失，请重新获取");
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码信息缺失，请重新获取");
         }
         if (!expected.equals(code)) {
-            throw new IllegalArgumentException("验证码错误");
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码错误");
         }
         try {
             LocalDateTime expireAt = LocalDateTime.parse(expireAtStr);
             if (LocalDateTime.now().isAfter(expireAt)) {
-                throw new IllegalArgumentException("验证码已过期，请重新获取");
+                throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码已过期，请重新获取");
             }
-        } catch (IllegalArgumentException e) {
+        } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            throw new IllegalArgumentException("验证码过期时间异常，请重新获取");
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码过期时间异常，请重新获取");
         }
 
         // 4. 再次确认手机号未注册（兜底并发场景）。
@@ -168,7 +170,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
         existsWrapper.eq(UserRegistrationResult::getAccountType, ACCOUNT_TYPE_MOBILE)
             .eq(UserRegistrationResult::getAccount, mobile);
         if (resultMapper.selectCount(existsWrapper) > 0) {
-            throw new IllegalArgumentException("该手机号已注册");
+            throw new BusinessException(ResultCode.USER_MOBILE_ALREADY_REGISTERED, "该手机号已注册");
         }
 
         // 生成反爬 user_id：以 2688 开头 + 16位不含4的数字（共20位）
@@ -221,7 +223,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
         // 冷却时间：同一 IP 在冷却窗口内不允许再次申请。
         Long last = IP_LAST_APPLY_AT.get(clientIp);
         if (last != null && now - last < IP_COOLDOWN_MS) {
-            throw new IllegalArgumentException("操作过于频繁，请稍后再试");
+            throw new BusinessException(ResultCode.USER_REGISTER_RATE_LIMITED, "操作过于频繁，请稍后再试");
         }
 
         // 固定时间窗口限流：1小时最多 N 次。
@@ -232,7 +234,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
                 counter.count = 0;
             }
             if (counter.count >= IP_MAX_PER_WINDOW) {
-                throw new IllegalArgumentException("请求次数过多，请稍后再试");
+                throw new BusinessException(ResultCode.USER_REGISTER_RATE_LIMITED, "请求次数过多，请稍后再试");
             }
             counter.count += 1;
         }

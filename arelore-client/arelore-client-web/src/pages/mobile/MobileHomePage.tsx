@@ -125,15 +125,18 @@ const MobileHomePage: React.FC = () => {
           <Card
             size="small"
             title="MBTI 结果"
+            hoverable={Boolean(currentMbti)}
+            style={{ cursor: currentMbti ? 'pointer' : 'default' }}
+            onClick={() => {
+              if (currentMbti) {
+                setMbtiDetailOpen((v) => !v);
+              }
+            }}
             extra={
               currentMbti ? (
-                <Button
-                  type="text"
-                  size="small"
-                  style={{ paddingInline: 4 }}
-                  onClick={() => setMbtiDetailOpen((v) => !v)}
-                  icon={mbtiDetailOpen ? <UpOutlined /> : <DownOutlined />}
-                />
+                <span style={{ color: '#999' }}>
+                  {mbtiDetailOpen ? <UpOutlined /> : <DownOutlined />}
+                </span>
               ) : null
             }
           >
@@ -156,15 +159,18 @@ const MobileHomePage: React.FC = () => {
           <Card
             size="small"
             title="性格色彩结果"
+            hoverable={Boolean(currentColor)}
+            style={{ cursor: currentColor ? 'pointer' : 'default' }}
+            onClick={() => {
+              if (currentColor) {
+                setColorDetailOpen((v) => !v);
+              }
+            }}
             extra={
               currentColor ? (
-                <Button
-                  type="text"
-                  size="small"
-                  style={{ paddingInline: 4 }}
-                  onClick={() => setColorDetailOpen((v) => !v)}
-                  icon={colorDetailOpen ? <UpOutlined /> : <DownOutlined />}
-                />
+                <span style={{ color: '#999' }}>
+                  {colorDetailOpen ? <UpOutlined /> : <DownOutlined />}
+                </span>
               ) : null
             }
           >

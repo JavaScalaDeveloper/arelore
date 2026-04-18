@@ -34,6 +34,10 @@ public enum ResultCode {
     USER_PASSWORD_ERROR(2003, "用户名或密码错误"),
     USER_TOKEN_EXPIRED(2004, "Token 已过期"),
     USER_TOKEN_INVALID(2005, "Token 无效"),
+    USER_REGISTER_APPLY_FAILED(2006, "注册申请失败"),
+    USER_MOBILE_ALREADY_REGISTERED(2007, "该手机号已注册"),
+    USER_REGISTER_RATE_LIMITED(2008, "操作过于频繁，请稍后再试"),
+    USER_REGISTER_PARAM_INVALID(2009, "注册参数不合法"),
     
     // 系统相关
     SYSTEM_BUSY(3001, "系统繁忙，请稍后再试"),
