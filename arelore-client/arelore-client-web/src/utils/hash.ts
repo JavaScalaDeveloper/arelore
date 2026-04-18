@@ -1,23 +1,12 @@
 import CryptoJS from 'crypto-js';
 
-const toHex = (buffer: ArrayBuffer): string => {
-  const bytes = Array.from(new Uint8Array(buffer));
-  return bytes.map((b) => b.toString(16).padStart(2, '0')).join('');
-};
-
 /**
- * 优先使用 Web Crypto；在不支持 subtle.digest 的运行环境（如部分内嵌 WebView）回退到 crypto-js。
+ * 对字符串做 SHA-256 十六进制摘要。
+ *
+ * 说明：微信/部分内嵌 WebView 中 `crypto.subtle` 可能不完整或调用时抛错
+ *（典型报错：Cannot read properties of undefined (reading 'digest')），
+ * 因此本函数**统一使用 crypto-js 纯 JS 实现**，避免依赖 Web Crypto API。
  */
 export const sha256Hex = async (text: string): Promise<string> => {
-  const globalCrypto = (globalThis as { crypto?: Crypto }).crypto;
-  if (globalCrypto?.subtle && typeof globalCrypto.subtle.digest === 'function') {
-    try {
-      const data = new TextEncoder().encode(text);
-      const hashBuffer = await globalCrypto.subtle.digest('SHA-256', data);
-      return toHex(hashBuffer);
-    } catch (error) {
-      // WebView 对 subtle.digest 实现不完整时回退到 crypto-js。
-    }
-  }
   return CryptoJS.SHA256(text).toString(CryptoJS.enc.Hex);
 };

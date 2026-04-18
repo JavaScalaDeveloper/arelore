@@ -47,7 +47,9 @@ const MobileLoginPage: React.FC = () => {
       try {
         passwordHash = await sha256Hex(values.password);
       } catch (hashError: any) {
-        await reportClientLog('ERROR', 'mobile login hash failed', hashError?.message || '');
+        // eslint-disable-next-line no-console
+        console.error('[MobileLogin] sha256Hex failed', hashError);
+        await reportClientLog('ERROR', 'mobile login hash failed', String(hashError?.stack || hashError?.message || hashError));
         message.error('当前浏览器环境加密能力异常，请升级后重试');
         return;
       }
@@ -62,7 +64,13 @@ const MobileLoginPage: React.FC = () => {
         navigate(getRedirectPath(), { replace: true });
       }
     } catch (error: any) {
-      await reportClientLog('ERROR', 'mobile login request failed', error?.message || '');
+      // eslint-disable-next-line no-console
+      console.error('[MobileLogin] request failed', error);
+      await reportClientLog(
+        'ERROR',
+        'mobile login request failed',
+        String(error?.stack || error?.message || error)
+      );
       message.error(error?.message || '登录失败，请检查账号密码');
     } finally {
       setLoading(false);

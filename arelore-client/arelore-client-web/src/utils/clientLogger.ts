@@ -7,6 +7,18 @@ export const reportClientLog = async (
   message: string,
   detail?: string
 ): Promise<void> => {
+  // 同步打印，便于微信内嵌页用 vConsole 排查（异步上报失败时仍能看到）
+  const line = `[CLIENT_LOG ${level}] ${message}${detail ? ` | ${detail}` : ''}`;
+  if (level === 'ERROR') {
+    // eslint-disable-next-line no-console
+    console.error(line);
+  } else if (level === 'WARN') {
+    // eslint-disable-next-line no-console
+    console.warn(line);
+  } else {
+    // eslint-disable-next-line no-console
+    console.info(line);
+  }
   try {
     await request.post('/user/client-log/report', {
       level,
