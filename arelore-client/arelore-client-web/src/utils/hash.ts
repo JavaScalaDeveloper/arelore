@@ -10,10 +10,14 @@ const toHex = (buffer: ArrayBuffer): string => {
  */
 export const sha256Hex = async (text: string): Promise<string> => {
   const globalCrypto = (globalThis as { crypto?: Crypto }).crypto;
-  if (globalCrypto?.subtle) {
-    const data = new TextEncoder().encode(text);
-    const hashBuffer = await globalCrypto.subtle.digest('SHA-256', data);
-    return toHex(hashBuffer);
+  if (globalCrypto?.subtle && typeof globalCrypto.subtle.digest === 'function') {
+    try {
+      const data = new TextEncoder().encode(text);
+      const hashBuffer = await globalCrypto.subtle.digest('SHA-256', data);
+      return toHex(hashBuffer);
+    } catch (error) {
+      // WebView 对 subtle.digest 实现不完整时回退到 crypto-js。
+    }
   }
   return CryptoJS.SHA256(text).toString(CryptoJS.enc.Hex);
 };

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Form, Input, message, Space } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { authApi } from '../../api/auth';
+import { reportClientLog } from '../../utils/clientLogger';
 import { sha256Hex } from '../../utils/hash';
 import './MobileLoginPage.css';
 
@@ -42,7 +43,14 @@ const MobileLoginPage: React.FC = () => {
   const onFinish = async (values: LoginFormData) => {
     try {
       setLoading(true);
-      const passwordHash = await sha256Hex(values.password);
+      let passwordHash = '';
+      try {
+        passwordHash = await sha256Hex(values.password);
+      } catch (hashError: any) {
+        await reportClientLog('ERROR', 'mobile login hash failed', hashError?.message || '');
+        message.error('当前浏览器环境加密能力异常，请升级后重试');
+        return;
+      }
       const res = await authApi.mobileLogin({
         username: values.username,
         passwordHash
@@ -54,6 +62,7 @@ const MobileLoginPage: React.FC = () => {
         navigate(getRedirectPath(), { replace: true });
       }
     } catch (error: any) {
+      await reportClientLog('ERROR', 'mobile login request failed', error?.message || '');
       message.error(error?.message || '登录失败，请检查账号密码');
     } finally {
       setLoading(false);

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button, Card, Form, Input, Progress, Space, Typography, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { userApi } from '../../api/user';
+import { reportClientLog } from '../../utils/clientLogger';
 import { sha256Hex } from '../../utils/hash';
 
 const { Title, Paragraph } = Typography;
@@ -67,7 +68,14 @@ const MobileForgotPasswordPage: React.FC = () => {
   const handleConfirmReset = async (values: ForgotPasswordForm) => {
     try {
       setSubmitLoading(true);
-      const newPasswordHash = await sha256Hex(values.newPassword);
+      let newPasswordHash = '';
+      try {
+        newPasswordHash = await sha256Hex(values.newPassword);
+      } catch (hashError: any) {
+        await reportClientLog('ERROR', 'mobile reset password hash failed', hashError?.message || '');
+        message.error('当前浏览器环境加密能力异常，请升级后重试');
+        return;
+      }
       await userApi.mobileResetPasswordConfirm({
         mobile: values.mobile,
         verifyCode: values.verifyCode,
@@ -76,6 +84,7 @@ const MobileForgotPasswordPage: React.FC = () => {
       message.success('密码重置成功，请重新登录');
       navigate('/mobile/login', { replace: true });
     } catch (error: any) {
+      await reportClientLog('ERROR', 'mobile reset password confirm failed', error?.message || '');
       message.error(error?.message || '重置失败');
     } finally {
       setSubmitLoading(false);

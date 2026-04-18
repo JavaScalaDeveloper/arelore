@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button, Card, Form, Input, Progress, message, Space, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { userApi } from '../../api/user';
+import { reportClientLog } from '../../utils/clientLogger';
 import { sha256Hex } from '../../utils/hash';
 
 const { Title, Paragraph } = Typography;
@@ -67,7 +68,14 @@ const MobileRegisterPage: React.FC = () => {
     try {
       const values = await form.validateFields(['mobile', 'password']);
       setApplyLoading(true);
-      const passwordHash = await sha256Hex(values.password);
+      let passwordHash = '';
+      try {
+        passwordHash = await sha256Hex(values.password);
+      } catch (hashError: any) {
+        await reportClientLog('ERROR', 'mobile register hash failed', hashError?.message || '');
+        message.error('当前浏览器环境加密能力异常，请升级后重试');
+        return;
+      }
       await userApi.mobileRegisterApply({
         mobile: values.mobile,
         password: passwordHash
@@ -75,6 +83,7 @@ const MobileRegisterPage: React.FC = () => {
       setCodeSent(true);
       message.success('验证码已发送');
     } catch (error: any) {
+      await reportClientLog('ERROR', 'mobile register apply failed', error?.message || '');
       message.error(error?.message || '发送失败');
     } finally {
       setApplyLoading(false);
