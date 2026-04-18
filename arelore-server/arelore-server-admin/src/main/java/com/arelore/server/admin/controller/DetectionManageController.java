@@ -1,8 +1,8 @@
 package com.arelore.server.admin.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.arelore.server.common.dto.PageResult;
-import com.arelore.server.common.result.Result;
+import com.arelore.server.core.common.dto.PageResult;
+import com.arelore.server.core.common.result.Result;
 import com.arelore.server.core.detection.dto.DetectionQuestionQueryRequest;
 import com.arelore.server.core.detection.dto.DetectionTypeQueryRequest;
 import com.arelore.server.core.detection.entity.UserDetectionQuestion;

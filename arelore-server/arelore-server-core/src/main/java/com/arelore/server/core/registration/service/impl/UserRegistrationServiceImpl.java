@@ -4,10 +4,12 @@ import cn.hutool.core.util.RandomUtil;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.arelore.server.common.exception.BusinessException;
-import com.arelore.server.common.result.ResultCode;
+import com.arelore.server.core.common.exception.BusinessException;
+import com.arelore.server.core.common.result.ResultCode;
 import com.arelore.server.core.registration.dto.MobileRegisterApplyRequest;
 import com.arelore.server.core.registration.dto.MobileRegisterVerifyRequest;
+import com.arelore.server.core.registration.dto.MobileResetPasswordApplyRequest;
+import com.arelore.server.core.registration.dto.MobileResetPasswordConfirmRequest;
 import com.arelore.server.core.registration.entity.UserRegistrationApplication;
 import com.arelore.server.core.registration.entity.UserRegistrationResult;
 import com.arelore.server.core.registration.enums.AccountTypeEnum;
@@ -31,7 +33,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class UserRegistrationServiceImpl implements UserRegistrationService {
     // 账号类型统一从枚举获取，避免散落的魔法字符串。
     private static final String ACCOUNT_TYPE_MOBILE = AccountTypeEnum.MOBILE.code();
+    private static final String ACCOUNT_TYPE_MOBILE_PASSWORD_RESET = AccountTypeEnum.MOBILE_PASSWORD_RESET.code();
     private static final int CODE_VALID_MINUTES = 5;
+    private static final long RESET_APPLY_COOLDOWN_SECONDS = 60L;
     private static final long IP_COOLDOWN_MS = 60_000L; // 60s
     private static final long IP_WINDOW_MS = 60 * 60_000L; // 1h
     private static final int IP_MAX_PER_WINDOW = 5;
@@ -203,6 +207,111 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
         throw new IllegalStateException("注册失败，请重试");
     }
 
+    @Override
+    @Transactional(transactionManager = "userTransactionManager", rollbackFor = Exception.class)
+    public void applyMobileResetPassword(MobileResetPasswordApplyRequest request, String clientIp) {
+        if (request == null || !StringUtils.hasText(request.getMobile())) {
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "手机号不能为空");
+        }
+        String mobile = request.getMobile().trim();
+        if (!mobile.matches("^1\\d{10}$")) {
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "手机号格式不正确");
+        }
+        if (!StringUtils.hasText(clientIp) || "unknown".equalsIgnoreCase(clientIp)) {
+            clientIp = "unknown";
+        }
+
+        UserRegistrationResult result = findRegisteredMobileResult(mobile);
+        enforceResetApplyCooldown(mobile);
+
+        String verifyCode = RandomUtil.randomNumbers(6);
+        LocalDateTime expireAt = LocalDateTime.now().plusMinutes(CODE_VALID_MINUTES);
+
+        // 1) 新增申请流水，作为验证码请求频控依据。
+        JSONObject applyExt = new JSONObject();
+        applyExt.put("scene", "RESET_PASSWORD");
+        applyExt.put("verifyCode", verifyCode);
+        applyExt.put("codeExpireAt", expireAt.toString());
+        applyExt.put("codeValidMinutes", CODE_VALID_MINUTES);
+        UserRegistrationApplication application = new UserRegistrationApplication();
+        application.setAccountType(ACCOUNT_TYPE_MOBILE_PASSWORD_RESET);
+        application.setAccount(mobile);
+        application.setClientIp(clientIp);
+        application.setExtInfo(JSON.toJSONString(applyExt));
+        applicationMapper.insert(application);
+
+        // 2) 同步把验证码写入注册结果 ext_info，供找回确认时校验。
+        JSONObject resultExt = parseExtInfo(result.getExtInfo());
+        resultExt.put("resetVerifyCode", verifyCode);
+        resultExt.put("resetCodeExpireAt", expireAt.toString());
+        resultExt.put("resetApplyIp", clientIp);
+        result.setExtInfo(JSON.toJSONString(resultExt));
+        resultMapper.updateById(result);
+
+        int minutes = CODE_VALID_MINUTES;
+        if (smsSender instanceof AliyunSmsSender aliyun) {
+            minutes = aliyun.getDefaultValidMinutes();
+        }
+        smsSender.sendVerifyCode(mobile, verifyCode, minutes);
+    }
+
+    @Override
+    @Transactional(transactionManager = "userTransactionManager", rollbackFor = Exception.class)
+    public void confirmMobileResetPassword(MobileResetPasswordConfirmRequest request, String clientIp) {
+        if (request == null
+            || !StringUtils.hasText(request.getMobile())
+            || !StringUtils.hasText(request.getVerifyCode())
+            || !StringUtils.hasText(request.getNewPassword())) {
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "手机号、验证码、新密码不能为空");
+        }
+        String mobile = request.getMobile().trim();
+        String verifyCode = request.getVerifyCode().trim();
+        String newPassword = request.getNewPassword().trim();
+        if (!mobile.matches("^1\\d{10}$")) {
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "手机号格式不正确");
+        }
+        if (!verifyCode.matches("^\\d{4,8}$")) {
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码格式不正确");
+        }
+        if (newPassword.length() < 8) {
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "新密码长度至少8位");
+        }
+
+        UserRegistrationResult result = findRegisteredMobileResult(mobile);
+        JSONObject resultExt = parseExtInfo(result.getExtInfo());
+        String expectedCode = resultExt.getString("resetVerifyCode");
+        String expireAtStr = resultExt.getString("resetCodeExpireAt");
+        if (!StringUtils.hasText(expectedCode) || !StringUtils.hasText(expireAtStr)) {
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "请先获取验证码");
+        }
+        if (!expectedCode.equals(verifyCode)) {
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码错误");
+        }
+        try {
+            LocalDateTime expireAt = LocalDateTime.parse(expireAtStr);
+            if (LocalDateTime.now().isAfter(expireAt)) {
+                throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码已过期，请重新获取");
+            }
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码过期时间异常，请重新获取");
+        }
+
+        // 重置成功后更新 ext_info 中密码哈希，并清理找回验证码字段。
+        String salt = PasswordHashUtils.randomSaltBase64Url(16);
+        String passwordHash = PasswordHashUtils.sha256(salt + ":" + newPassword);
+        resultExt.put("passwordSalt", salt);
+        resultExt.put("passwordHash", passwordHash);
+        resultExt.put("passwordResetAt", LocalDateTime.now().toString());
+        resultExt.put("passwordResetIp", clientIp == null ? "" : clientIp);
+        resultExt.remove("resetVerifyCode");
+        resultExt.remove("resetCodeExpireAt");
+        resultExt.remove("resetApplyIp");
+        result.setExtInfo(JSON.toJSONString(resultExt));
+        resultMapper.updateById(result);
+    }
+
     /**
      * 生成 20 位 user_id：
      * - 固定前缀 2688
@@ -239,6 +348,54 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
             counter.count += 1;
         }
         IP_LAST_APPLY_AT.put(clientIp, now);
+    }
+
+    /**
+     * 查找已注册的手机号账号，供找回密码流程使用。
+     */
+    private UserRegistrationResult findRegisteredMobileResult(String mobile) {
+        LambdaQueryWrapper<UserRegistrationResult> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserRegistrationResult::getAccountType, ACCOUNT_TYPE_MOBILE)
+            .eq(UserRegistrationResult::getAccount, mobile)
+            .eq(UserRegistrationResult::getStatus, 1)
+            .orderByDesc(UserRegistrationResult::getId)
+            .last("limit 1");
+        UserRegistrationResult result = resultMapper.selectOne(wrapper);
+        if (result == null) {
+            throw new BusinessException(ResultCode.DATA_NOT_FOUND, "用户不存在");
+        }
+        return result;
+    }
+
+    /**
+     * 限制同一手机号在短时间内连续申请找回验证码。
+     */
+    private void enforceResetApplyCooldown(String mobile) {
+        LambdaQueryWrapper<UserRegistrationApplication> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserRegistrationApplication::getAccountType, ACCOUNT_TYPE_MOBILE_PASSWORD_RESET)
+            .eq(UserRegistrationApplication::getAccount, mobile)
+            .orderByDesc(UserRegistrationApplication::getId)
+            .last("limit 1");
+        UserRegistrationApplication latest = applicationMapper.selectOne(wrapper);
+        if (latest == null || latest.getCreateTime() == null) {
+            return;
+        }
+        LocalDateTime nextAllowedTime = latest.getCreateTime().plusSeconds(RESET_APPLY_COOLDOWN_SECONDS);
+        if (LocalDateTime.now().isBefore(nextAllowedTime)) {
+            throw new BusinessException(ResultCode.USER_REGISTER_RATE_LIMITED, "验证码请求过于频繁，请稍后再试");
+        }
+    }
+
+    private JSONObject parseExtInfo(String extInfo) {
+        if (!StringUtils.hasText(extInfo)) {
+            return new JSONObject();
+        }
+        try {
+            JSONObject parsed = JSON.parseObject(extInfo);
+            return parsed == null ? new JSONObject() : parsed;
+        } catch (Exception e) {
+            return new JSONObject();
+        }
     }
 
     private static class WindowCounter {

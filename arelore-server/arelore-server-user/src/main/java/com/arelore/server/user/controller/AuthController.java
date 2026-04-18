@@ -1,14 +1,14 @@
 package com.arelore.server.user.controller;
 
-import com.arelore.server.common.result.Result;
-import com.arelore.server.user.dto.WechatQrCodeResponse;
-import com.arelore.server.user.dto.WechatQrCodeStatusResponse;
-import com.arelore.server.user.dto.WechatQuickLoginRequest;
-import com.arelore.server.user.dto.MobileLoginRequest;
-import com.arelore.server.user.dto.AuthLoginResponse;
-import com.arelore.server.user.dto.AuthUserInfoResponse;
-import com.arelore.server.user.dto.SceneIdRequest;
-import com.arelore.server.user.service.AuthService;
+import com.arelore.server.core.common.result.Result;
+import com.arelore.server.core.user.dto.WechatQrCodeResponse;
+import com.arelore.server.core.user.dto.WechatQrCodeStatusResponse;
+import com.arelore.server.core.user.dto.WechatQuickLoginRequest;
+import com.arelore.server.core.user.dto.MobileLoginRequest;
+import com.arelore.server.core.user.dto.AuthLoginResponse;
+import com.arelore.server.core.user.dto.AuthUserInfoResponse;
+import com.arelore.server.core.user.dto.SceneIdRequest;
+import com.arelore.server.core.user.service.AuthService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -47,6 +47,7 @@ public class AuthController {
             WechatQrCodeStatusResponse response = authService.checkWechatQrCodeStatus(sceneId);
             return Result.success(response);
         } catch (IllegalArgumentException e) {
+            log.warn("checkWechatQrCodeStatus failed, sceneId={}, message={}", sceneId, e.getMessage(), e);
             return Result.error(e.getMessage());
         }
     }
@@ -60,6 +61,7 @@ public class AuthController {
             AuthLoginResponse responseData = authService.wechatQuickLogin(request);
             return Result.success(responseData);
         } catch (IllegalArgumentException e) {
+            log.warn("wechatQuickLogin failed, message={}", e.getMessage(), e);
             return Result.error(e.getMessage());
         }
     }
@@ -75,6 +77,7 @@ public class AuthController {
             AuthLoginResponse responseData = authService.mobileLogin(request);
             return Result.success(responseData);
         } catch (IllegalArgumentException e) {
+            log.warn("mobileLogin failed, username={}, message={}", request == null ? "" : request.getUsername(), e.getMessage(), e);
             return Result.error(2003, e.getMessage());
         }
     }

@@ -14,9 +14,9 @@ export const authApi = {
   },
 
   /**
-   * 移动端账号密码登录（测试）
+   * 移动端账号密码登录（传输密码摘要，避免明文）
    */
-  mobileLogin: (data: { username: string; password: string }): Promise<ApiResponse<LoginResponse>> => {
+  mobileLogin: (data: { username: string; passwordHash: string }): Promise<ApiResponse<LoginResponse>> => {
     return request.post('/user/auth/mobile/login', data);
   },
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Form, Input, message, Space } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { authApi } from '../../api/auth';
@@ -9,12 +9,19 @@ interface LoginFormData {
   password: string;
 }
 
+const sha256Hex = async (text: string): Promise<string> => {
+  const data = new TextEncoder().encode(text);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const bytes = Array.from(new Uint8Array(hashBuffer));
+  return bytes.map((b) => b.toString(16).padStart(2, '0')).join('');
+};
+
 const MobileLoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState<boolean>(false);
 
-  const getRedirectPath = () => {
+  const getRedirectPath = useCallback(() => {
     const params = new URLSearchParams(location.search);
     const redirect = params.get('redirect');
     if (!redirect) {
@@ -29,19 +36,23 @@ const MobileLoginPage: React.FC = () => {
     } catch (error) {
       return '/mobile/home';
     }
-  };
+  }, [location.search]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
       navigate(getRedirectPath(), { replace: true });
     }
-  }, [location.search, navigate]);
+  }, [getRedirectPath, navigate]);
 
   const onFinish = async (values: LoginFormData) => {
     try {
       setLoading(true);
-      const res = await authApi.mobileLogin(values);
+      const passwordHash = await sha256Hex(values.password);
+      const res = await authApi.mobileLogin({
+        username: values.username,
+        passwordHash
+      });
       if (res.code === 200 && res.data) {
         localStorage.setItem('token', res.data.token);
         localStorage.setItem('currentUser', JSON.stringify(res.data.user));
@@ -80,6 +91,9 @@ const MobileLoginPage: React.FC = () => {
           </Button>
         </Form>
         <Space style={{ marginTop: 12, width: '100%', justifyContent: 'space-between' }}>
+          <Button type="link" onClick={() => navigate('/mobile/forgot-password')}>
+            找回密码
+          </Button>
           <Button type="link" onClick={() => navigate('/mobile/register')}>
             去注册
           </Button>

@@ -81,4 +81,16 @@ export const userApi = {
   mobileRegisterVerify: (data: { mobile: string; verifyCode: string }): Promise<ApiResponse<any>> => {
     return request.post('/user/register/mobile/verify', data);
   },
+
+  mobileResetPasswordApply: (data: { mobile: string }): Promise<ApiResponse<any>> => {
+    return request.post('/user/register/mobile/password-reset/apply', data);
+  },
+
+  mobileResetPasswordConfirm: (data: {
+    mobile: string;
+    verifyCode: string;
+    newPassword: string;
+  }): Promise<ApiResponse<any>> => {
+    return request.post('/user/register/mobile/password-reset/confirm', data);
+  },
 };

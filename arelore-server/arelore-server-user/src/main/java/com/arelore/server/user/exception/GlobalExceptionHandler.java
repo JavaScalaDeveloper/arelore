@@ -1,26 +1,31 @@
 package com.arelore.server.user.exception;
 
-import com.arelore.server.common.exception.BusinessException;
-import com.arelore.server.common.result.Result;
-import com.arelore.server.common.result.ResultCode;
+import com.arelore.server.core.common.exception.BusinessException;
+import com.arelore.server.core.common.result.Result;
+import com.arelore.server.core.common.result.ResultCode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public Result<Void> handleBusinessException(BusinessException e) {
+        log.warn("Business exception: code={}, message={}", e.getCode(), e.getMessage(), e);
         return Result.error(e.getCode(), sanitizeMessage(e.getMessage()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public Result<Void> handleIllegalArgumentException(IllegalArgumentException e) {
+        log.warn("Illegal argument exception: {}", e.getMessage(), e);
         return Result.error(ResultCode.USER_REGISTER_PARAM_INVALID, sanitizeMessage(e.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)
     public Result<Void> handleException(Exception e) {
+        log.error("Unhandled system exception", e);
         return Result.error(ResultCode.INTERNAL_SERVER_ERROR, "系统繁忙，请稍后再试");
     }
 

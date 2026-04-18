@@ -1,7 +1,7 @@
 package com.arelore.server.admin.controller;
 
-import com.arelore.server.common.result.Result;
-import com.arelore.server.common.dto.PageResult;
+import com.arelore.server.core.common.result.Result;
+import com.arelore.server.core.common.dto.PageResult;
 import com.arelore.server.admin.dto.AdminLoginRequest;
 import com.arelore.server.admin.dto.AdminUserQueryRequest;
 import com.arelore.server.admin.dto.SystemSettingsRequest;

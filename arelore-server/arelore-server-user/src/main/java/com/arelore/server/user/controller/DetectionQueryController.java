@@ -1,6 +1,6 @@
 package com.arelore.server.user.controller;
 
-import com.arelore.server.common.result.Result;
+import com.arelore.server.core.common.result.Result;
 import com.arelore.server.core.detection.dto.DetectionResultSaveRequest;
 import com.arelore.server.core.detection.dto.DetectionResultSaveResponse;
 import com.arelore.server.core.detection.entity.UserDetectResult;

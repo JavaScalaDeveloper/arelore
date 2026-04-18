@@ -1,6 +1,6 @@
 package com.arelore.server.core.common.service;
 
-import com.arelore.server.common.dto.PageResult;
+import com.arelore.server.core.common.dto.PageResult;
 
 import java.util.List;
 

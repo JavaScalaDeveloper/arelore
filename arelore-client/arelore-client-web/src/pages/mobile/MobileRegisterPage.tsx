@@ -11,6 +11,13 @@ interface RegisterForm {
   verifyCode: string;
 }
 
+const sha256Hex = async (text: string): Promise<string> => {
+  const data = new TextEncoder().encode(text);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const bytes = Array.from(new Uint8Array(hashBuffer));
+  return bytes.map((b) => b.toString(16).padStart(2, '0')).join('');
+};
+
 const MobileRegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm<RegisterForm>();
@@ -66,9 +73,10 @@ const MobileRegisterPage: React.FC = () => {
     try {
       const values = await form.validateFields(['mobile', 'password']);
       setApplyLoading(true);
+      const passwordHash = await sha256Hex(values.password);
       await userApi.mobileRegisterApply({
         mobile: values.mobile,
-        password: values.password
+        password: passwordHash
       });
       setCodeSent(true);
       message.success('验证码已发送');

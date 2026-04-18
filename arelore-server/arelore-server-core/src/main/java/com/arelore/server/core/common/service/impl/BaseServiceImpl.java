@@ -3,7 +3,7 @@ package com.arelore.server.core.common.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.arelore.server.common.dto.PageResult;
+import com.arelore.server.core.common.dto.PageResult;
 import com.arelore.server.core.common.service.BaseService;
 import org.springframework.util.ReflectionUtils;
 

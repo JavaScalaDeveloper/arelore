@@ -19,6 +19,7 @@ import TextMaskingPage from './pages/TextMaskingPage';
 import FileDetectionPage from './pages/FileDetectionPage';
 import MobileLoginPage from './pages/mobile/MobileLoginPage';
 import MobileRegisterPage from './pages/mobile/MobileRegisterPage';
+import MobileForgotPasswordPage from './pages/mobile/MobileForgotPasswordPage';
 import MobileHomePage from './pages/mobile/MobileHomePage';
 import MobileAuthGuard from './pages/mobile/MobileAuthGuard';
 import MobileLayout from './pages/mobile/MobileLayout';
@@ -383,6 +384,7 @@ function App() {
           <Route path="/mobile" element={<Navigate to="/mobile/home" replace />} />
           <Route path="/mobile/login" element={<MobileLoginPage />} />
           <Route path="/mobile/register" element={<MobileRegisterPage />} />
+          <Route path="/mobile/forgot-password" element={<MobileForgotPasswordPage />} />
           <Route
             path="/mobile"
             element={

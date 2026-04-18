@@ -1,9 +1,9 @@
 package com.arelore.server.user.controller;
 
 import cn.hutool.json.JSONUtil;
-import com.arelore.server.common.result.Result;
-import com.arelore.server.user.dto.FileDetectionResponse;
-import com.arelore.server.user.service.FileDetectionService;
+import com.arelore.server.core.common.result.Result;
+import com.arelore.server.core.user.dto.FileDetectionResponse;
+import com.arelore.server.core.user.service.FileDetectionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
