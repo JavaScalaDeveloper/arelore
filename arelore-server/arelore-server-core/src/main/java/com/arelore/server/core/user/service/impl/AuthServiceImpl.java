@@ -5,8 +5,10 @@ import cn.hutool.core.util.RandomUtil;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.arelore.server.core.registration.entity.UserRegistrationApplication;
 import com.arelore.server.core.registration.entity.UserRegistrationResult;
 import com.arelore.server.core.registration.enums.AccountTypeEnum;
+import com.arelore.server.core.registration.mapper.UserRegistrationApplicationMapper;
 import com.arelore.server.core.registration.mapper.UserRegistrationResultMapper;
 import com.arelore.server.core.registration.support.PasswordHashUtils;
 import com.arelore.server.core.user.dto.AuthLoginResponse;
@@ -18,6 +20,7 @@ import com.arelore.server.core.user.dto.MobileLoginRequest;
 import com.arelore.server.core.user.entity.QrCodeScene;
 import com.arelore.server.core.user.service.AuthService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -35,12 +38,18 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Service
 public class AuthServiceImpl implements AuthService {
+    private static final String ACCOUNT_TYPE_WECHAT = AccountTypeEnum.WECHAT.code();
     /**
      * 用户注册结果表访问器，用于手机号登录校验。
      */
+    private final UserRegistrationApplicationMapper userRegistrationApplicationMapper;
     private final UserRegistrationResultMapper userRegistrationResultMapper;
 
-    public AuthServiceImpl(UserRegistrationResultMapper userRegistrationResultMapper) {
+    public AuthServiceImpl(
+        UserRegistrationApplicationMapper userRegistrationApplicationMapper,
+        UserRegistrationResultMapper userRegistrationResultMapper
+    ) {
+        this.userRegistrationApplicationMapper = userRegistrationApplicationMapper;
         this.userRegistrationResultMapper = userRegistrationResultMapper;
     }
 
@@ -175,6 +184,10 @@ public class AuthServiceImpl implements AuthService {
         // 获取或创建用户
         String openid = request.getUserInfo() != null ? 
             request.getUserInfo().getOpenid() : "default_openid";
+
+        // 微信一键登录成功后自动注册兜底：
+        // 若 application/result 表中不存在该微信账号数据，则自动插入。
+        ensureWechatAutoRegistered(openid, request);
         
         // 生成 Token（实际应该使用 JWT）
         String token = "Bearer " + IdUtil.fastSimpleUUID();
@@ -196,6 +209,72 @@ public class AuthServiceImpl implements AuthService {
         
         log.info("微信登录成功，userId: {}", openid);
         return responseData;
+    }
+
+    /**
+     * 检查并自动补齐微信账号的注册流水与注册结果。
+     */
+    private void ensureWechatAutoRegistered(String openid, WechatQuickLoginRequest request) {
+        if (openid == null || openid.isBlank()) {
+            return;
+        }
+
+        LambdaQueryWrapper<UserRegistrationApplication> appWrapper = new LambdaQueryWrapper<>();
+        appWrapper.eq(UserRegistrationApplication::getAccountType, ACCOUNT_TYPE_WECHAT)
+            .eq(UserRegistrationApplication::getAccount, openid)
+            .last("limit 1");
+        UserRegistrationApplication existingApp = userRegistrationApplicationMapper.selectOne(appWrapper);
+        if (existingApp == null) {
+            UserRegistrationApplication app = new UserRegistrationApplication();
+            app.setAccountType(ACCOUNT_TYPE_WECHAT);
+            app.setAccount(openid);
+            app.setClientIp("wechat_quick_login");
+            JSONObject ext = new JSONObject();
+            ext.put("scene", "WECHAT_QUICK_LOGIN");
+            if (request != null && request.getUserInfo() != null) {
+                ext.put("nickname", request.getUserInfo().getNickname());
+                ext.put("avatar", request.getUserInfo().getAvatar());
+            }
+            app.setExtInfo(JSON.toJSONString(ext));
+            userRegistrationApplicationMapper.insert(app);
+        }
+
+        LambdaQueryWrapper<UserRegistrationResult> resultWrapper = new LambdaQueryWrapper<>();
+        resultWrapper.eq(UserRegistrationResult::getAccountType, ACCOUNT_TYPE_WECHAT)
+            .eq(UserRegistrationResult::getAccount, openid)
+            .last("limit 1");
+        UserRegistrationResult existingResult = userRegistrationResultMapper.selectOne(resultWrapper);
+        if (existingResult != null) {
+            return;
+        }
+
+        JSONObject resultExt = new JSONObject();
+        resultExt.put("source", "WECHAT_QUICK_LOGIN");
+        if (request != null && request.getUserInfo() != null) {
+            resultExt.put("nickname", request.getUserInfo().getNickname());
+            resultExt.put("avatar", request.getUserInfo().getAvatar());
+            resultExt.put("gender", request.getUserInfo().getGender());
+            resultExt.put("country", request.getUserInfo().getCountry());
+            resultExt.put("province", request.getUserInfo().getProvince());
+            resultExt.put("city", request.getUserInfo().getCity());
+        }
+
+        for (int i = 0; i < 5; i++) {
+            UserRegistrationResult result = new UserRegistrationResult();
+            result.setUserId(new BigDecimal(generateCrawlerResistantUserId()));
+            result.setMergedToUserId(null);
+            result.setAccountType(ACCOUNT_TYPE_WECHAT);
+            result.setAccount(openid);
+            result.setStatus(1);
+            result.setExtInfo(JSON.toJSONString(resultExt));
+            try {
+                userRegistrationResultMapper.insert(result);
+                return;
+            } catch (DuplicateKeyException e) {
+                // user_id 或 account 冲突时重试
+            }
+        }
+        log.warn("微信自动注册重试后仍失败，openid={}", openid);
     }
 
     @Override
@@ -359,5 +438,17 @@ public class AuthServiceImpl implements AuthService {
             }
         }
         return false;
+    }
+
+    /**
+     * 生成 20 位 user_id：2688 + 16位不含4数字。
+     */
+    private String generateCrawlerResistantUserId() {
+        final char[] digitsWithoutFour = {'0', '1', '2', '3', '5', '6', '7', '8', '9'};
+        StringBuilder sb = new StringBuilder("2688");
+        for (int i = 0; i < 16; i++) {
+            sb.append(digitsWithoutFour[RandomUtil.randomInt(digitsWithoutFour.length)]);
+        }
+        return sb.toString();
     }
 }

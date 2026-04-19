@@ -6,10 +6,15 @@ package com.arelore.server.core.registration.enums;
  */
 public enum AccountTypeEnum {
     MOBILE("MOBILE"),
+    WECHAT("WECHAT"),
     /**
      * 用于 user_registration_application 中记录找回密码验证码申请流水。
      */
-    MOBILE_PASSWORD_RESET("MOBILE_PASSWORD_RESET");
+    MOBILE_PASSWORD_RESET("MOBILE_PASSWORD_RESET"),
+    /**
+     * 小程序“手册登录”（手机号+密码）登录流水。
+     */
+    MOBILE_MINI_MANUAL_LOGIN("MOBILE_MINI_MANUAL_LOGIN");
 
     private final String code;
 

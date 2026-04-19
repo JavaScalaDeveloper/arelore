@@ -1,2 +1,5 @@
 /.idea/
 /logs/
+/arelore-client/arelore-client-mini/*/dist/
+/arelore-client/arelore-client-mini/*/node_modules/
+/arelore-client/arelore-client-mini/*/.swc/

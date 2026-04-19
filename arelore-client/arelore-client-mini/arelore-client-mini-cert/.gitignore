@@ -1,0 +1,20 @@
+# Taro build outputs
+dist/
+node_modules/
+.swc/
+.taro-dev.pid
+
+# Local IDE / temp
+*.log
+.DS_Store
+
+# Legacy native mini-program scaffold (unused after migrating to Taro+React)
+app.js
+app.json
+app.wxss
+components/
+pages/
+utils/
+sitemap.json
+project.config.json
+project.private.config.json
