@@ -1,4 +1,4 @@
-package com.arelore.server.user.dto;
+package com.arelore.server.core.user.dto;
 
 import lombok.Data;
 

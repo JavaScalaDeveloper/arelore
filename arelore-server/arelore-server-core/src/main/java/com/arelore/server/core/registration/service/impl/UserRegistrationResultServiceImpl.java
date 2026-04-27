@@ -1,7 +1,6 @@
 package com.arelore.server.core.registration.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.arelore.server.core.common.service.impl.BaseServiceImpl;
 import com.arelore.server.core.registration.dto.UserRegistrationResultRequest;
 import com.arelore.server.core.registration.dto.UserRegistrationResultResponse;
@@ -13,7 +12,7 @@ import org.springframework.util.StringUtils;
 
 @Service
 public class UserRegistrationResultServiceImpl
-    extends BaseServiceImpl<UserRegistrationResultRequest, UserRegistrationResultResponse>
+    extends BaseServiceImpl<UserRegistrationResultRequest, UserRegistrationResultResponse, UserRegistrationResult>
     implements UserRegistrationResultService {
 
     private final UserRegistrationResultMapper mapper;
@@ -23,16 +22,18 @@ public class UserRegistrationResultServiceImpl
     }
 
     @Override
-    protected BaseMapper<UserRegistrationResultResponse> mapper() {
-        // 由于 Response 继承自 Entity，直接复用同一张表 Mapper
-        @SuppressWarnings("unchecked")
-        BaseMapper<UserRegistrationResultResponse> m = (BaseMapper<UserRegistrationResultResponse>) (BaseMapper<?>) mapper;
-        return m;
+    protected UserRegistrationResultMapper mapper() {
+        return mapper;
     }
 
     @Override
-    protected LambdaQueryWrapper<UserRegistrationResultResponse> buildWrapper(UserRegistrationResultRequest request) {
-        LambdaQueryWrapper<UserRegistrationResultResponse> w = new LambdaQueryWrapper<>();
+    protected Class<UserRegistrationResultResponse> responseClass() {
+        return UserRegistrationResultResponse.class;
+    }
+
+    @Override
+    protected LambdaQueryWrapper<UserRegistrationResult> buildWrapper(UserRegistrationResultRequest request) {
+        LambdaQueryWrapper<UserRegistrationResult> w = new LambdaQueryWrapper<>();
         if (request == null) {
             return w;
         }

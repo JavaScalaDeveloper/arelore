@@ -15,7 +15,7 @@ import com.arelore.server.core.registration.mapper.UserRegistrationResultMapper;
 import com.arelore.server.core.registration.support.PasswordHashUtils;
 import com.arelore.server.core.user.dto.AuthLoginResponse;
 import com.arelore.server.core.user.dto.AuthUserInfoResponse;
-import com.arelore.server.user.dto.MiniManualLoginRequest;
+import com.arelore.server.core.user.dto.MiniManualLoginRequest;
 import com.arelore.server.user.service.MiniAuthService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;

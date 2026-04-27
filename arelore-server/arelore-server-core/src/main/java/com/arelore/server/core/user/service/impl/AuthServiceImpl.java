@@ -2,6 +2,7 @@ package com.arelore.server.core.user.service.impl;
 
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -62,6 +63,16 @@ public class AuthServiceImpl implements AuthService {
     
     @Value("${wechat.scope:snsapi_login}")
     private String wechatScope;
+
+    /**
+     * 微信小程序 code2session 配置（用于获取真实 openid，保证同一用户不会反复注册）。
+     * 若不配置，则降级使用前端传入的 openid（仅适用于本地调试）。
+     */
+    @Value("${wechat.mini.appid:}")
+    private String wechatMiniAppId;
+
+    @Value("${wechat.mini.secret:}")
+    private String wechatMiniSecret;
 
     @Value("${mobile.test-login.username:testuser}")
     private String mobileTestUsername;
@@ -173,17 +184,24 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthLoginResponse wechatQuickLogin(WechatQuickLoginRequest request) {
-        log.info("微信一键登录，openid: {}", 
-            request.getUserInfo() != null ? request.getUserInfo().getOpenid() : "unknown");
+        log.info("微信一键登录，requestOpenid: {}",
+            request.getUserInfo() != null ? request.getUserInfo().getOpenid() : "null");
         
         // 验证授权码（实际应该调用微信 API 验证）
         if (request.getCode() == null || request.getCode().isEmpty()) {
             throw new IllegalArgumentException("授权码不能为空");
         }
         
-        // 获取或创建用户
-        String openid = request.getUserInfo() != null ? 
-            request.getUserInfo().getOpenid() : "default_openid";
+        String requestOpenid = request.getUserInfo() != null ? request.getUserInfo().getOpenid() : "";
+        requestOpenid = requestOpenid == null ? "" : requestOpenid.trim();
+
+        // 小程序登录：优先通过 code2session 获取真实 openid（稳定且可判重），否则降级使用前端 openid（仅本地调试）
+        String openid = resolveMiniOpenidByCode2Session(request.getCode(), requestOpenid);
+        openid = openid == null ? "" : openid.trim();
+        if (openid.isEmpty()) {
+            throw new IllegalArgumentException("openid不能为空");
+        }
+        log.info("微信一键登录，resolvedOpenid={}", openid);
 
         // 微信一键登录成功后自动注册兜底：
         // 若 application/result 表中不存在该微信账号数据，则自动插入。
@@ -212,10 +230,47 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
+     * 小程序登录：通过微信 code2session 获取 openid（真实环境），避免前端 openid 不稳定导致重复注册。
+     * 若未配置小程序 appid/secret 或调用失败，则降级使用前端传入的 openid（仅本地调试）。
+     */
+    private String resolveMiniOpenidByCode2Session(String jsCode, String fallbackOpenid) {
+        String appid = wechatMiniAppId == null ? "" : wechatMiniAppId.trim();
+        String secret = wechatMiniSecret == null ? "" : wechatMiniSecret.trim();
+
+        if (!appid.isEmpty() && !secret.isEmpty()) {
+            try {
+                String url = "https://api.weixin.qq.com/sns/jscode2session" +
+                    "?appid=" + appid +
+                    "&secret=" + secret +
+                    "&js_code=" + (jsCode == null ? "" : jsCode.trim()) +
+                    "&grant_type=authorization_code";
+                String resp = HttpUtil.get(url);
+                JSONObject json = JSON.parseObject(resp);
+                String openid = json == null ? "" : json.getString("openid");
+                openid = openid == null ? "" : openid.trim();
+                if (!openid.isEmpty()) {
+                    return openid;
+                }
+                String errcode = json == null ? "" : json.getString("errcode");
+                String errmsg = json == null ? "" : json.getString("errmsg");
+                log.warn("code2session did not return openid, errcode={}, errmsg={}", errcode, errmsg);
+            } catch (Exception e) {
+                log.warn("code2session call failed, fallback to request openid. message={}", e.getMessage(), e);
+            }
+        }
+
+        return fallbackOpenid == null ? "" : fallbackOpenid.trim();
+    }
+
+    /**
      * 检查并自动补齐微信账号的注册流水与注册结果。
      */
     private void ensureWechatAutoRegistered(String openid, WechatQuickLoginRequest request) {
         if (openid == null || openid.isBlank()) {
+            return;
+        }
+        openid = openid.trim();
+        if (openid.isEmpty()) {
             return;
         }
 
@@ -242,9 +297,29 @@ public class AuthServiceImpl implements AuthService {
         LambdaQueryWrapper<UserRegistrationResult> resultWrapper = new LambdaQueryWrapper<>();
         resultWrapper.eq(UserRegistrationResult::getAccountType, ACCOUNT_TYPE_WECHAT)
             .eq(UserRegistrationResult::getAccount, openid)
+            .orderByDesc(UserRegistrationResult::getId)
             .last("limit 1");
         UserRegistrationResult existingResult = userRegistrationResultMapper.selectOne(resultWrapper);
         if (existingResult != null) {
+            log.info("微信自动注册：账号已存在，skip insert. openid={}, id={}", openid, existingResult.getId());
+            // 若用户信息有更新（头像/昵称），尽量同步到 ext_info，不新增账号记录
+            if (request != null && request.getUserInfo() != null) {
+                try {
+                    String extInfo = existingResult.getExtInfo();
+                    JSONObject ext = extInfo == null || extInfo.isBlank() ? new JSONObject() : JSON.parseObject(extInfo);
+                    ext.put("source", "WECHAT_QUICK_LOGIN");
+                    ext.put("nickname", request.getUserInfo().getNickname());
+                    ext.put("avatar", request.getUserInfo().getAvatar());
+                    ext.put("gender", request.getUserInfo().getGender());
+                    ext.put("country", request.getUserInfo().getCountry());
+                    ext.put("province", request.getUserInfo().getProvince());
+                    ext.put("city", request.getUserInfo().getCity());
+                    existingResult.setExtInfo(JSON.toJSONString(ext));
+                    userRegistrationResultMapper.updateById(existingResult);
+                } catch (Exception ignore) {
+                    // ext_info 更新失败不影响登录
+                }
+            }
             return;
         }
 

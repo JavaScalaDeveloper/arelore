@@ -4,8 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.arelore.server.core.common.service.impl.BaseServiceImpl;
 import com.arelore.server.core.detection.dto.DetectionResultSaveRequest;
 import com.arelore.server.core.detection.dto.DetectionResultSaveResponse;
+import com.arelore.server.core.detection.dto.UserDetectResultRequest;
+import com.arelore.server.core.detection.dto.UserDetectResultResponse;
 import com.arelore.server.core.detection.entity.UserDetectResult;
 import com.arelore.server.core.detection.entity.UserDetectResultHistory;
 import com.arelore.server.core.detection.entity.UserDetectionQuestion;
@@ -28,7 +31,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
-public class UserDetectionResultServiceImpl implements UserDetectionResultService {
+public class UserDetectionResultServiceImpl
+    extends BaseServiceImpl<UserDetectResultRequest, UserDetectResultResponse, UserDetectResult>
+    implements UserDetectionResultService {
     private final UserDetectResultMapper resultMapper;
     private final UserDetectResultHistoryMapper historyMapper;
     private final UserDetectionTypeMapper typeMapper;
@@ -48,6 +53,35 @@ public class UserDetectionResultServiceImpl implements UserDetectionResultServic
         this.questionMapper = questionMapper;
         this.scoringStrategies = scoringStrategyList.stream()
             .collect(Collectors.toMap(DetectionScoringStrategy::mode, s -> s));
+    }
+
+    @Override
+    protected UserDetectResultMapper mapper() {
+        return resultMapper;
+    }
+
+    @Override
+    protected Class<UserDetectResultResponse> responseClass() {
+        return UserDetectResultResponse.class;
+    }
+
+    @Override
+    protected LambdaQueryWrapper<UserDetectResult> buildWrapper(UserDetectResultRequest request) {
+        LambdaQueryWrapper<UserDetectResult> w = new LambdaQueryWrapper<>();
+        if (request == null) {
+            return w;
+        }
+        if (StringUtils.hasText(request.getUserId())) {
+            w.eq(UserDetectResult::getUserId, request.getUserId());
+        }
+        if (StringUtils.hasText(request.getUserDetectTypeCode())) {
+            w.eq(UserDetectResult::getUserDetectTypeCode, request.getUserDetectTypeCode());
+        }
+        if (StringUtils.hasText(request.getUserDetectResult())) {
+            w.eq(UserDetectResult::getUserDetectResult, request.getUserDetectResult());
+        }
+        w.orderByDesc(UserDetectResult::getModifyTime).orderByDesc(UserDetectResult::getId);
+        return w;
     }
 
     @Override
@@ -106,14 +140,14 @@ public class UserDetectionResultServiceImpl implements UserDetectionResultServic
     }
 
     @Override
-    public UserDetectResult getCurrentResult(String userId, String detectTypeCode) {
+    public UserDetectResultResponse getCurrentResult(String userId, String detectTypeCode) {
         if (!StringUtils.hasText(userId) || !StringUtils.hasText(detectTypeCode)) {
             return null;
         }
         LambdaQueryWrapper<UserDetectResult> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(UserDetectResult::getUserId, userId)
             .eq(UserDetectResult::getUserDetectTypeCode, detectTypeCode);
-        return resultMapper.selectOne(wrapper);
+        return toResponse(resultMapper.selectOne(wrapper));
     }
 
     @Override

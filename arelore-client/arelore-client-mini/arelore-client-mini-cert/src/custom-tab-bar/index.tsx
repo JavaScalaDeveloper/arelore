@@ -5,7 +5,7 @@ import './index.scss';
 
 const tabs = [
   { pagePath: '/pages/home/index', text: '首页', icon: '⌂' },
-  { pagePath: '/pages/quiz/index', text: '刷题', icon: '✎' },
+  { pagePath: '/pages/quiz/index', text: '刷题', icon: '📚' },
   { pagePath: '/pages/profile/index', text: '个人', icon: '☺' }
 ];
 

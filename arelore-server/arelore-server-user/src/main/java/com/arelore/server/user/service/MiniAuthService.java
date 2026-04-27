@@ -1,6 +1,6 @@
 package com.arelore.server.user.service;
 
-import com.arelore.server.user.dto.MiniManualLoginRequest;
+import com.arelore.server.core.user.dto.MiniManualLoginRequest;
 import com.arelore.server.core.user.dto.AuthLoginResponse;
 
 public interface MiniAuthService {

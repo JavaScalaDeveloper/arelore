@@ -10,8 +10,15 @@ case "$ENV_NAME" in
   dev)
     API_BASE_URL="http://localhost:8081/api"
     ;;
-  prd|prod)
-    API_BASE_URL="${TARO_APP_API_BASE_URL:-}"
+  test)
+    API_BASE_URL="${TARO_APP_API_BASE_URL:-http://localhost:8081/api}"
+    ;;
+  pre)
+    API_BASE_URL="${TARO_APP_API_BASE_URL:-http://localhost:8081/api}"
+    ;;
+  prd)
+    # 生产环境默认走正式域名；仍允许通过环境变量覆盖
+    API_BASE_URL="${TARO_APP_API_BASE_URL:-https://www.arelore.com/api}"
     ;;
   *)
     # 允许直接传入自定义 baseUrl，如：./start.sh "http://1.2.3.4:8081/api"

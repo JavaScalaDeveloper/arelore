@@ -1,8 +1,9 @@
 package com.arelore.server.core.detection.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.arelore.server.core.detection.dto.DetectionTypeQueryRequest;
+import com.arelore.server.core.common.service.impl.BaseServiceImpl;
+import com.arelore.server.core.detection.dto.UserDetectionTypeRequest;
+import com.arelore.server.core.detection.dto.UserDetectionTypeResponse;
 import com.arelore.server.core.detection.entity.UserDetectionType;
 import com.arelore.server.core.detection.mapper.UserDetectionTypeMapper;
 import com.arelore.server.core.detection.service.UserDetectionTypeService;
@@ -13,7 +14,9 @@ import org.springframework.util.StringUtils;
 import java.util.List;
 
 @Service
-public class UserDetectionTypeServiceImpl implements UserDetectionTypeService {
+public class UserDetectionTypeServiceImpl
+    extends BaseServiceImpl<UserDetectionTypeRequest, UserDetectionTypeResponse, UserDetectionType>
+    implements UserDetectionTypeService {
     private final UserDetectionTypeMapper mapper;
 
     public UserDetectionTypeServiceImpl(UserDetectionTypeMapper mapper) {
@@ -21,9 +24,21 @@ public class UserDetectionTypeServiceImpl implements UserDetectionTypeService {
     }
 
     @Override
-    public Page<UserDetectionType> pageQuery(DetectionTypeQueryRequest request) {
-        Page<UserDetectionType> page = new Page<>(request.getPageNum(), request.getPageSize());
+    protected UserDetectionTypeMapper mapper() {
+        return mapper;
+    }
+
+    @Override
+    protected Class<UserDetectionTypeResponse> responseClass() {
+        return UserDetectionTypeResponse.class;
+    }
+
+    @Override
+    protected LambdaQueryWrapper<UserDetectionType> buildWrapper(UserDetectionTypeRequest request) {
         LambdaQueryWrapper<UserDetectionType> wrapper = new LambdaQueryWrapper<>();
+        if (request == null) {
+            return wrapper;
+        }
         if (StringUtils.hasText(request.getTypeCode())) {
             wrapper.like(UserDetectionType::getTypeCode, request.getTypeCode());
         }
@@ -31,41 +46,35 @@ public class UserDetectionTypeServiceImpl implements UserDetectionTypeService {
             wrapper.like(UserDetectionType::getTypeName, request.getTypeName());
         }
         wrapper.orderByDesc(UserDetectionType::getId);
-        return mapper.selectPage(page, wrapper);
+        return wrapper;
     }
 
     @Override
-    public List<UserDetectionType> listAll() {
-        LambdaQueryWrapper<UserDetectionType> wrapper = new LambdaQueryWrapper<>();
-        wrapper.orderByDesc(UserDetectionType::getId);
-        return mapper.selectList(wrapper);
+    public List<UserDetectionTypeResponse> listAll() {
+        UserDetectionTypeRequest request = new UserDetectionTypeRequest();
+        return list(request);
     }
 
     @Override
-    public UserDetectionType getById(Long id) {
-        return mapper.selectById(id);
+    public int create(UserDetectionTypeRequest request) {
+        request.setModifier(DetectionOperatorContext.getCurrentOperator());
+        return super.create(request);
     }
 
     @Override
-    public void create(UserDetectionType entity) {
-        entity.setModifier(DetectionOperatorContext.getCurrentOperator());
-        mapper.insert(entity);
+    public int update(UserDetectionTypeRequest request) {
+        request.setModifier(DetectionOperatorContext.getCurrentOperator());
+        return super.update(request);
     }
 
     @Override
-    public void update(UserDetectionType entity) {
-        entity.setModifier(DetectionOperatorContext.getCurrentOperator());
-        mapper.updateById(entity);
-    }
-
-    @Override
-    public void delete(Long id) {
+    public int deleteById(Long id) {
         String operator = DetectionOperatorContext.getCurrentOperator();
         UserDetectionType exists = mapper.selectById(id);
         if (exists != null) {
             exists.setModifier(operator);
             mapper.updateById(exists);
         }
-        mapper.deleteById(id);
+        return super.deleteById(id);
     }
 }

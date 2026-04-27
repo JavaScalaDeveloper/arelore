@@ -1,5 +1,12 @@
 export default defineAppConfig({
-  pages: ['pages/home/index', 'pages/quiz/index', 'pages/profile/index', 'pages/login/index'],
+  pages: [
+    'pages/home/index',
+    'pages/quiz/index',
+    'pages/profile/index',
+    'pages/quiz-paper-list/index',
+    'pages/quiz-do/index',
+    'pages/login/index'
+  ],
   window: {
     navigationBarTitleText: '考证宝',
     navigationBarTextStyle: 'black',
