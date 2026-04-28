@@ -25,8 +25,8 @@ spring:
     user:
       # 用户注册相关库
       url: jdbc:mysql://localhost:3306/arelore_user?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-      username: ${ARELORE_USER_DB_USERNAME:root}
-      password: ${ARELORE_USER_DB_PASSWORD:123456}
+      username: ${ARELORE_MYSQL_USERNAME:root}
+      password: ${ARELORE_MYSQL_PASSWORD:123456}
       driver-class-name: com.mysql.cj.jdbc.Driver
 
 logging:

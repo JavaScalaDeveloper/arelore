@@ -12,9 +12,6 @@ node_modules/
 app.js
 app.json
 app.wxss
-components/
-pages/
-utils/
 sitemap.json
 project.config.json
 project.private.config.json

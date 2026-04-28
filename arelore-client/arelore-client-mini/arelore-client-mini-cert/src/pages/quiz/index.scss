@@ -1,0 +1,192 @@
+.page {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #eafff3 0%, #f5f7fb 55%, #f5f7fb 100%);
+  padding: 32px 24px 160px;
+  box-sizing: border-box;
+}
+
+.header {
+  margin-bottom: 18px;
+}
+
+.title {
+  font-size: 42px;
+  font-weight: 800;
+  color: #101828;
+  letter-spacing: 1px;
+}
+
+.loginTip {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(13, 38, 76, 0.06);
+  color: #475467;
+  font-size: 24px;
+}
+
+.loginBtn {
+  border-radius: 999px;
+}
+
+.layout {
+  display: flex;
+  gap: 16px;
+}
+
+.left {
+  width: 220px;
+  flex-shrink: 0;
+}
+
+.rootItem {
+  padding: 18px 16px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 18px;
+  box-shadow: 0 10px 24px rgba(13, 38, 76, 0.06);
+  margin-bottom: 14px;
+  border: 2px solid transparent;
+}
+
+.rootItem.active {
+  background: #ffffff;
+  border-color: rgba(7, 193, 96, 0.35);
+}
+
+.rootTitle {
+  font-size: 28px;
+  font-weight: 700;
+  color: #101828;
+}
+
+.rootSub {
+  margin-top: 8px;
+  font-size: 22px;
+  color: #667085;
+  line-height: 1.2;
+}
+
+.right {
+  flex: 1;
+  min-width: 0;
+}
+
+.panel {
+  background: #ffffff;
+  border-radius: 22px;
+  padding: 18px 18px 10px;
+  box-shadow: 0 16px 40px rgba(13, 38, 76, 0.10);
+}
+
+.panelTitle {
+  font-size: 28px;
+  font-weight: 800;
+  color: #101828;
+  margin-bottom: 10px;
+}
+
+.group {
+  padding: 14px 0;
+  border-top: 1px solid rgba(16, 24, 40, 0.06);
+}
+
+.group:first-child {
+  border-top: none;
+}
+
+.groupTitle {
+  font-size: 24px;
+  font-weight: 700;
+  color: #344054;
+  margin-bottom: 10px;
+}
+
+.accordionTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: rgba(7, 193, 96, 0.06);
+  border-radius: 14px;
+}
+
+.accordionText {
+  font-size: 24px;
+  font-weight: 800;
+  color: #14532d;
+}
+
+.accordionArrow {
+  font-size: 26px;
+  color: #14532d;
+}
+
+.list {
+  margin-top: 12px;
+}
+
+.listItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 8px;
+  border-radius: 12px;
+}
+
+.listItem:active {
+  background: rgba(16, 24, 40, 0.04);
+}
+
+.bullet {
+  font-size: 22px;
+  line-height: 30px;
+  color: #98a2b3;
+}
+
+.listText {
+  flex: 1;
+  min-width: 0;
+  font-size: 24px;
+  line-height: 30px;
+  color: #344054;
+}
+
+.clickable {
+  color: #14532d;
+  text-decoration: underline;
+}
+
+.tipLine {
+  margin-top: 8px;
+  font-size: 22px;
+  color: #667085;
+}
+
+.tipLine.error {
+  color: #b42318;
+}
+
+.paperItem {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f9fafb;
+}
+
+.paperName {
+  display: block;
+  font-size: 22px;
+  color: #1d2939;
+}
+
+.paperCode {
+  display: block;
+  margin-top: 4px;
+  font-size: 20px;
+  color: #667085;
+}
+
