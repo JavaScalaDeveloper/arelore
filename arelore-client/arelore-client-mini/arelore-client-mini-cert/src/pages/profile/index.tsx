@@ -52,7 +52,20 @@ const ProfilePage = () => {
     Taro.navigateTo({ url: '/pages/login/index' });
   };
 
-  const onLogout = () => {
+  const onGoExamHistory = () => {
+    Taro.navigateTo({ url: '/pages/exam-history/index' });
+  };
+
+  const onGoFavorites = () => {
+    Taro.navigateTo({ url: '/pages/favorites/index' });
+  };
+
+  const onLogout = async () => {
+    const res = await Taro.showModal({
+      title: '退出登录',
+      content: '确定要退出当前账号吗？'
+    });
+    if (!res.confirm) return;
     Taro.removeStorageSync('token');
     Taro.removeStorageSync('currentUser');
     setToken('');
@@ -81,20 +94,42 @@ const ProfilePage = () => {
           </>
         ) : (
           <>
-            <View className='row'>
-              <Text>昵称：{currentUserName}</Text>
+            <View className='userBlock'>
+              <View className='avatar'>
+                <Text className='avatarText'>{String(currentUserName).slice(0, 1)}</Text>
+              </View>
+              <View className='userMeta'>
+                <Text className='userName'>{currentUserName}</Text>
+                <Text className='userStatus'>{loading ? '登录态校验中…' : '已登录'}</Text>
+              </View>
             </View>
-            <View className='row'>
-              <Text>登录态：{loading ? '校验中…' : '已登录'}</Text>
+
+            <View className='iconGrid'>
+              <View className='iconItem' onClick={onGoExamHistory}>
+                <View className='iconCircle iconCircleExam'>
+                  <Text className='iconEmoji'>📝</Text>
+                </View>
+                <Text className='iconLabel'>考试记录</Text>
+              </View>
+              <View className='iconItem' onClick={onGoFavorites}>
+                <View className='iconCircle iconCircleFav'>
+                  <Text className='iconEmoji'>⭐</Text>
+                </View>
+                <Text className='iconLabel'>收藏夹</Text>
+              </View>
+              <View className='iconItem' onClick={onLogout}>
+                <View className='iconCircle iconCircleOut'>
+                  <Text className='iconEmoji'>🚪</Text>
+                </View>
+                <Text className='iconLabel'>退出</Text>
+              </View>
             </View>
+
             {errMsg ? (
-              <View className='row'>
+              <View className='row errRow'>
                 <Text>{errMsg}</Text>
               </View>
             ) : null}
-            <Button className='btn' onClick={onLogout}>
-              退出登录
-            </Button>
           </>
         )}
       </View>
@@ -103,4 +138,3 @@ const ProfilePage = () => {
 };
 
 export default ProfilePage;
-

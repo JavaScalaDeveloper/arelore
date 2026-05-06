@@ -28,6 +28,7 @@ export async function post(path, data) {
       url: requestUrl,
       method: 'POST',
       data: data || {},
+      timeout: 20000,
       header: {
         'content-type': 'application/json',
         Authorization: token

@@ -39,11 +39,11 @@ const QuizDoPage = () => {
         if (resp && resp.code === 200) {
           const list = resp.data || [];
           setQuestions(list);
-          setCurrentIndex(0);
-          setAnswers({});
-          setFavoriteMap({});
+          clearLocalProgress();
           setImageSrcMap({});
           setImageLoadingMap({});
+          await loadFavoriteMap(tc);
+          await restoreOrResetProgress(tc, list);
           return;
         }
         setQuestions([]);
@@ -61,12 +61,218 @@ const QuizDoPage = () => {
     setAnswers((prev) => ({ ...prev, [questionCode]: optionKey }));
   };
 
-  const goPrev = () => {
+  const buildAnsweredQuestions = () =>
+    questions
+      .map((q, idx) => {
+        const code = q?.questionCode || `q_${idx}`;
+        const selectedOptionKey = answers[code];
+        if (!selectedOptionKey) return null;
+        return {
+          questionId: q?.id,
+          questionCode: q?.questionCode,
+          selectedOptionKey
+        };
+      })
+      .filter(Boolean);
+
+  const getCurrentUserId = () => {
+    const currentUser = Taro.getStorageSync('currentUser') || {};
+    return String(currentUser?.userId || currentUser?.id || '');
+  };
+
+  const clearLocalProgress = () => {
+    setAnswers({});
+    setCurrentIndex(0);
+    setShowAnswerCard(false);
+  };
+
+  const parseExtraInfo = (extraInfo) => {
+    if (!extraInfo) return {};
+    try {
+      return JSON.parse(extraInfo) || {};
+    } catch (e) {
+      return {};
+    }
+  };
+
+  const buildAnswerMapByExtraInfo = (extra) => {
+    const list = Array.isArray(extra?.answeredQuestions) ? extra.answeredQuestions : [];
+    const answerMap = {};
+    list.forEach((item) => {
+      const code = item?.questionCode;
+      const selected = item?.selectedOptionKey;
+      if (code && selected) {
+        answerMap[code] = selected;
+      }
+    });
+    return answerMap;
+  };
+
+  const getRestoreIndex = (extra, list, answerMap) => {
+    const idxFromProgress = Number(extra?.progress?.currentIndex);
+    if (Number.isInteger(idxFromProgress) && idxFromProgress >= 0) {
+      return Math.min(idxFromProgress, Math.max(list.length - 1, 0));
+    }
+    const answeredCodes = Object.keys(answerMap);
+    if (answeredCodes.length === 0) return 0;
+    const lastCode = answeredCodes[answeredCodes.length - 1];
+    const idxByCode = list.findIndex((q, i) => (q?.questionCode || `q_${i}`) === lastCode);
+    return idxByCode >= 0 ? idxByCode : 0;
+  };
+
+  const redoCurrentResult = async (userId, tc) => {
+    const resp = await post('/user/detection/result/redo', { userId, typeCode: tc });
+    return !!(resp && resp.code === 200);
+  };
+
+  const loadFavoriteMap = async (tc) => {
+    const userId = getCurrentUserId();
+    if (!userId || !tc) {
+      setFavoriteMap({});
+      return;
+    }
+    const resp = await post('/user/detection/question/favorite/list', {
+      userId,
+      questionTypeCode: tc
+    });
+    if (!resp || resp.code !== 200 || !Array.isArray(resp.data)) {
+      setFavoriteMap({});
+      return;
+    }
+    const nextMap = {};
+    resp.data.forEach((code) => {
+      if (code) nextMap[code] = true;
+    });
+    setFavoriteMap(nextMap);
+  };
+
+  const toggleFavorite = async () => {
+    if (!currentQuestionCode || !typeCode) return;
+    const userId = getCurrentUserId();
+    if (!userId) {
+      Taro.showToast({ title: '请先登录后收藏', icon: 'none' });
+      return;
+    }
+    const nextFavorite = !currentFavorite;
+    const resp = await post('/user/detection/question/favorite/toggle', {
+      userId,
+      questionTypeCode: typeCode,
+      questionCode: currentQuestionCode,
+      favorite: nextFavorite,
+      extraInfo: JSON.stringify({ from: 'mini-quiz-do' })
+    });
+    if (!resp || resp.code !== 200) {
+      Taro.showToast({ title: resp?.message || '操作失败', icon: 'none' });
+      return;
+    }
+    setFavoriteMap((prev) => ({ ...prev, [currentQuestionCode]: nextFavorite }));
+    Taro.showToast({ title: nextFavorite ? '收藏成功' : '已取消收藏', icon: 'none' });
+  };
+
+  const restoreOrResetProgress = async (tc, list) => {
+    const userId = getCurrentUserId();
+    if (!userId || !tc || !Array.isArray(list) || list.length === 0) {
+      clearLocalProgress();
+      return;
+    }
+    const currentResp = await post('/user/detection/result/current', { userId, typeCode: tc });
+    const current = currentResp?.code === 200 ? currentResp?.data : null;
+    if (!current) {
+      clearLocalProgress();
+      return;
+    }
+    const hasSubmittedBefore = !!String(current?.userDetectResult || '').trim();
+    if (hasSubmittedBefore) {
+      await redoCurrentResult(userId, tc);
+      clearLocalProgress();
+      return;
+    }
+    const extra = parseExtraInfo(current?.extraInfo);
+    const answerMap = buildAnswerMapByExtraInfo(extra);
+    if (Object.keys(answerMap).length === 0) {
+      clearLocalProgress();
+      return;
+    }
+    const choice = await Taro.showModal({
+      title: '检测到历史进度',
+      content: '是否继续上次答题进度？',
+      confirmText: '继续做题',
+      cancelText: '重新做题'
+    });
+    if (choice.confirm) {
+      setAnswers(answerMap);
+      setCurrentIndex(getRestoreIndex(extra, list, answerMap));
+      return;
+    }
+    await redoCurrentResult(userId, tc);
+    clearLocalProgress();
+  };
+
+  const saveProgress = async (submitPaper) => {
+    if (!typeCode) return true;
+    const userId = getCurrentUserId();
+    if (!userId) {
+      Taro.showToast({ title: '请先登录后答题', icon: 'none' });
+      return false;
+    }
+    const payload = {
+      userId,
+      userDetectTypeCode: typeCode,
+      submitPaper,
+      answeredQuestions: buildAnsweredQuestions(),
+      extraInfo: JSON.stringify({
+        currentIndex,
+        total: questions.length,
+        answeredCount: Object.keys(answers).length,
+        submitPaper
+      })
+    };
+    const resp = await post('/user/detection/result/save', payload);
+    if (!resp || resp.code !== 200) {
+      Taro.showToast({ title: resp?.message || '保存进度失败', icon: 'none' });
+      return false;
+    }
+    return true;
+  };
+
+  const goPrev = async () => {
+    if (currentIndex <= 0) return;
+    const ok = await saveProgress(false);
+    if (!ok) return;
     setCurrentIndex((idx) => (idx <= 0 ? 0 : idx - 1));
   };
 
-  const goNext = () => {
+  const goNext = async () => {
+    if (currentIndex >= questions.length - 1) return;
+    const ok = await saveProgress(false);
+    if (!ok) return;
     setCurrentIndex((idx) => (idx >= questions.length - 1 ? idx : idx + 1));
+  };
+
+  const submitPaper = async () => {
+    const ok = await saveProgress(true);
+    if (!ok) return;
+    Taro.showToast({ title: '交卷成功', icon: 'success' });
+  };
+
+  const redoPaper = async () => {
+    const userId = getCurrentUserId();
+    if (!userId || !typeCode) {
+      Taro.showToast({ title: '缺少重做参数', icon: 'none' });
+      return;
+    }
+    const confirm = await Taro.showModal({
+      title: '确认重做',
+      content: '将清空当前考试进度并从第一题重新开始，是否继续？'
+    });
+    if (!confirm.confirm) return;
+    const resp = await post('/user/detection/result/redo', { userId, typeCode });
+    if (!resp || resp.code !== 200) {
+      Taro.showToast({ title: resp?.message || '重做失败', icon: 'none' });
+      return;
+    }
+    clearLocalProgress();
+    Taro.showToast({ title: '已重置当前进度', icon: 'success' });
   };
 
   const parseOptions = (q) => {
@@ -98,6 +304,30 @@ const QuizDoPage = () => {
       .replace(/【img:[0-9a-fA-F]{64}】/g, '')
       .replace(/\(img:[0-9a-fA-F]{64}\)/g, '')
       .trim();
+  };
+
+  /** 将含 【img:hash】 / (img:hash) 的字符串拆成文本与图片片段，供解析等区域渲染 */
+  const splitTextWithImageMarkers = (text) => {
+    if (!text) return [{ type: 'text', content: '' }];
+    const parts = [];
+    let lastIndex = 0;
+    IMG_HASH_REGEX.lastIndex = 0;
+    let m = IMG_HASH_REGEX.exec(text);
+    while (m) {
+      if (m.index > lastIndex) {
+        parts.push({ type: 'text', content: text.slice(lastIndex, m.index) });
+      }
+      const hash = (m[1] || m[2] || '').toLowerCase();
+      if (hash) parts.push({ type: 'img', hash });
+      lastIndex = m.index + m[0].length;
+      m = IMG_HASH_REGEX.exec(text);
+    }
+    IMG_HASH_REGEX.lastIndex = 0;
+    if (lastIndex < text.length) {
+      parts.push({ type: 'text', content: text.slice(lastIndex) });
+    }
+    if (parts.length === 0) parts.push({ type: 'text', content: text });
+    return parts;
   };
 
   const loadImagesByHashes = async (hashes) => {
@@ -149,7 +379,18 @@ const QuizDoPage = () => {
     if (!currentQuestion) return '';
     const selected = answers[currentQuestionCode];
     if (!selected) return '你尚未选择答案。';
-    return `你当前选择了 ${selected} 选项。该题暂未配置标准解析，后续可在题库中补充 explanation 字段。`;
+    let explanation = '';
+    try {
+      const ext = currentQuestion.extraInfo ? JSON.parse(currentQuestion.extraInfo) : {};
+      explanation = ext?.fullExplanation || ext?.explanation || '';
+    } catch (e) {
+      explanation = '';
+    }
+    const base = `你当前选择了 ${selected} 选项。`;
+    if (explanation) {
+      return `${base}\n\n【参考解析】\n${explanation}`;
+    }
+    return `${base}\n\n该题暂未配置解析。`;
   })();
 
   useEffect(() => {
@@ -159,6 +400,14 @@ const QuizDoPage = () => {
     parseOptions(currentQuestion).forEach((op) => {
       extractImageHashes(op?.text).forEach((h) => hashes.add(h));
     });
+    let explanation = '';
+    try {
+      const ext = currentQuestion.extraInfo ? JSON.parse(currentQuestion.extraInfo) : {};
+      explanation = ext?.fullExplanation || ext?.explanation || '';
+    } catch (e) {
+      explanation = '';
+    }
+    extractImageHashes(explanation).forEach((h) => hashes.add(h));
     loadImagesByHashes(Array.from(hashes));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestionCode]);
@@ -223,18 +472,21 @@ const QuizDoPage = () => {
             <View className={`navBtn ${currentIndex === 0 ? 'disabled' : ''}`} onClick={goPrev}>
               <Text className='navBtnText'>上一题</Text>
             </View>
-            <View className={`navBtn ${currentIndex === questions.length - 1 ? 'disabled' : ''}`} onClick={goNext}>
-              <Text className='navBtnText'>下一题</Text>
-            </View>
+            {currentIndex === questions.length - 1 ? (
+              <View className='navBtn' onClick={submitPaper}>
+                <Text className='navBtnText'>交卷</Text>
+              </View>
+            ) : (
+              <View className='navBtn' onClick={goNext}>
+                <Text className='navBtnText'>下一题</Text>
+              </View>
+            )}
           </View>
         </View>
       ) : null}
 
       <View className='bottomTools'>
-        <View
-          className='toolItem'
-          onClick={() => setFavoriteMap((prev) => ({ ...prev, [currentQuestionCode]: !prev[currentQuestionCode] }))}
-        >
+        <View className='toolItem' onClick={toggleFavorite}>
           <Text className='toolIcon'>{currentFavorite ? '★' : '☆'}</Text>
           <Text className='toolText'>收藏</Text>
         </View>
@@ -271,6 +523,9 @@ const QuizDoPage = () => {
                 );
               })}
             </View>
+            <View className='closeBtn' onClick={redoPaper}>
+              <Text className='closeBtnText'>重做本套题</Text>
+            </View>
           </View>
         </View>
       ) : null}
@@ -279,7 +534,30 @@ const QuizDoPage = () => {
         <View className='overlay' onClick={() => setShowAnalysis(false)}>
           <View className='sheet' onClick={(e) => e.stopPropagation()}>
             <View className='sheetTitle'>题目解析</View>
-            <View className='analysisText'>{analysisText}</View>
+            <View className='analysisText'>
+              {splitTextWithImageMarkers(analysisText).map((part, i) => {
+                if (part.type === 'text') {
+                  return (
+                    <Text key={`analysis_${i}`} className='analysisTextChunk'>
+                      {part.content}
+                    </Text>
+                  );
+                }
+                const src = imageSrcMap[part.hash];
+                return src ? (
+                  <Image
+                    key={`analysis_${i}_img`}
+                    className='questionImg'
+                    mode='widthFix'
+                    src={src}
+                  />
+                ) : (
+                  <Text key={`analysis_${i}_wait`} className='analysisImgHint'>
+                    图片加载中…
+                  </Text>
+                );
+              })}
+            </View>
             <View className='closeBtn' onClick={() => setShowAnalysis(false)}>
               <Text className='closeBtnText'>我知道了</Text>
             </View>

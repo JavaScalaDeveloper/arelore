@@ -1,13 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { Button, Text, View } from '@tarojs/components';
+import {
+  SOFT_EXAM_CATALOG,
+  softExamPaperIndexOfSubject
+} from '../../constants/softExamPaperNav';
 import './index.scss';
 
-const softExamData = [
-  { level: '高级', items: ['信息系统项目管理师', '系统分析师', '系统架构设计师'] },
-  { level: '中级', items: ['软件设计师', '网络工程师', '信息系统管理工程师', '系统集成项目管理工程师'] },
-  { level: '初级', items: ['程序员', '网络管理员', '信息处理技术员'] }
-];
+/** 与 quiz-paper-list 约定：无 paperIdx 时的回退 */
+const QUIZ_PAPER_LIST_EXAM_KEY = 'quizPaperListExamCategory';
+const QUIZ_PAPER_LIST_SUBJECT_KEY = 'quizPaperListSubject';
 
 const ncreData = [
   {
@@ -39,6 +41,35 @@ const QuizPage = () => {
 
   const onGoLogin = () => {
     Taro.navigateTo({ url: '/pages/login/index' });
+  };
+
+  const syncPaperListStorage = (subject) => {
+    try {
+      Taro.setStorageSync(QUIZ_PAPER_LIST_EXAM_KEY, '软考');
+      Taro.setStorageSync(QUIZ_PAPER_LIST_SUBJECT_KEY, subject);
+    } catch (_e) {
+      /* 试卷列表页仍可从 URL 参数解析，缓存失败不阻断导航 */
+    }
+  };
+
+  /** tab 页上不用 navigator（易与 React 事件冲突）；整行 View + 同步 navigateTo，URL 仅用 paperIdx */
+  const goQuizPaperList = (subject) => {
+    const paperIdx = softExamPaperIndexOfSubject(subject);
+    if (paperIdx < 0) {
+      void Taro.showToast({ title: '未知科目', icon: 'none' });
+      return;
+    }
+    syncPaperListStorage(subject);
+    const url = `/pages/quiz-paper-list/index?paperIdx=${paperIdx}`;
+    Taro.navigateTo({
+      url,
+      fail: (err) => {
+        void Taro.showToast({
+          title: err?.errMsg || '无法打开试卷列表',
+          icon: 'none'
+        });
+      }
+    });
   };
 
   const rightTitle = useMemo(() => {
@@ -85,25 +116,20 @@ const QuizPage = () => {
 
             {activeRoot === 'SOFT_EXAM' ? (
               <View className='groups'>
-                {softExamData.map((g) => (
+                {SOFT_EXAM_CATALOG.map((g) => (
                   <View key={g.level} className='group'>
                     <View className='groupTitle'>{g.level}</View>
                     <View className='list'>
                       {g.items.map((it) => (
-                        <View key={it} className='listItem'>
-                          <Text className='bullet'>•</Text>
-                          <Text
-                            className='listText clickable'
-                            onClick={() => {
-                              if (it.indexOf('软件设计师') >= 0) {
-                                Taro.navigateTo({
-                                  url: '/pages/quiz-paper-list/index?examCategory=软考&subject=软件设计师'
-                                });
-                              }
-                            }}
-                          >
-                            {it}
-                          </Text>
+                        <View
+                          key={it}
+                          className='softPaperRow'
+                          hoverClass='softPaperRowHover'
+                          hoverStayTime={70}
+                          onClick={() => goQuizPaperList(it)}
+                        >
+                          <View className='bullet'>•</View>
+                          <View className='listText clickable'>{it}</View>
                         </View>
                       ))}
                     </View>

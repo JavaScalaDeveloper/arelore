@@ -1,19 +1,74 @@
-import React, { useState } from 'react';
-import Taro, { useDidShow } from '@tarojs/taro';
+import React, { useRef, useState } from 'react';
+import Taro, { useDidShow, useLoad } from '@tarojs/taro';
 import { Text, View } from '@tarojs/components';
 import { post } from '../../utils/request';
+import { mergeWeappRouteParams } from '../../utils/weappRouteParams';
+import { softExamSubjectByPaperIndex } from '../../constants/softExamPaperNav';
 import './index.scss';
+
+/** 与 pages/quiz/index 约定：无 paperIdx 时从本地读取 */
+const QUIZ_PAPER_LIST_EXAM_KEY = 'quizPaperListExamCategory';
+const QUIZ_PAPER_LIST_SUBJECT_KEY = 'quizPaperListSubject';
 
 const QuizPaperListPage = () => {
   const [papers, setPapers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [subjectName, setSubjectName] = useState('软件设计师');
+  const loadQueryRef = useRef({});
+
+  useLoad((query) => {
+    loadQueryRef.current = { ...(query || {}) };
+  });
 
   useDidShow(() => {
-    const instance = Taro.getCurrentInstance();
-    const examCategory = instance?.router?.params?.examCategory || '软考';
-    const subject = instance?.router?.params?.subject || '软件设计师';
+    const params = { ...loadQueryRef.current, ...mergeWeappRouteParams() };
+    let examCategory = (params.examCategory || '').trim();
+
+    let subject = '';
+    const rawIdx = params.paperIdx;
+    if (rawIdx !== undefined && rawIdx !== null && String(rawIdx).trim() !== '') {
+      const i = parseInt(String(rawIdx), 10);
+      const resolved = softExamSubjectByPaperIndex(i);
+      if (resolved) {
+        subject = resolved;
+        if (!examCategory) {
+          examCategory = '软考';
+        }
+      }
+    }
+    if (!subject) {
+      let s = (params.subject || '').trim();
+      if (s) {
+        try {
+          s = decodeURIComponent(s);
+      } catch (_e) {
+        /* 已是明文 */
+      }
+        subject = s;
+      }
+    }
+
+    if (!subject) {
+      try {
+        const storedSub = (Taro.getStorageSync(QUIZ_PAPER_LIST_SUBJECT_KEY) || '').trim();
+        const storedExam = (Taro.getStorageSync(QUIZ_PAPER_LIST_EXAM_KEY) || '').trim();
+        if (storedSub) {
+          subject = storedSub;
+          if (!examCategory) {
+            examCategory = storedExam || '软考';
+          }
+        }
+      } catch (_e) {
+        /* ignore */
+      }
+    }
+    if (!examCategory) {
+      examCategory = '软考';
+    }
+    if (!subject) {
+      subject = '软件设计师';
+    }
     setSubjectName(subject);
 
     (async () => {
@@ -55,7 +110,7 @@ const QuizPaperListPage = () => {
           <View key={p.typeCode} className='paperItem' onClick={() => onGoDoPaper(p)}>
             <Text className='paperName'>{p.typeName || p.typeCode}</Text>
             <Text className='paperCode'>{p.typeCode}</Text>
-            <Text className='paperAction'>开始做题 ></Text>
+            <Text className='paperAction'>{'开始做题 >'}</Text>
           </View>
         ))}
       </View>

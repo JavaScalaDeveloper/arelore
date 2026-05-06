@@ -5,6 +5,9 @@ export default defineAppConfig({
     'pages/profile/index',
     'pages/quiz-paper-list/index',
     'pages/quiz-do/index',
+    'pages/exam-history/index',
+    'pages/favorites/index',
+    'pages/favorite-detail/index',
     'pages/login/index'
   ],
   window: {

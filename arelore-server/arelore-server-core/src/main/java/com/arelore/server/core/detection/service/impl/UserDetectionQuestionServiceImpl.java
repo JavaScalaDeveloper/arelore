@@ -60,6 +60,18 @@ public class UserDetectionQuestionServiceImpl
     }
 
     @Override
+    public UserDetectionQuestionResponse getByTypeAndQuestionCode(String typeCode, String questionCode) {
+        if (!StringUtils.hasText(typeCode) || !StringUtils.hasText(questionCode)) {
+            return null;
+        }
+        LambdaQueryWrapper<UserDetectionQuestion> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserDetectionQuestion::getTypeCode, typeCode)
+            .eq(UserDetectionQuestion::getQuestionCode, questionCode)
+            .last("limit 1");
+        return toResponse(mapper.selectOne(wrapper));
+    }
+
+    @Override
     public int create(UserDetectionQuestionRequest request) {
         request.setModifier(DetectionOperatorContext.getCurrentOperator());
         return super.create(request);

@@ -73,6 +73,8 @@
 .right {
   flex: 1;
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .panel {
@@ -127,6 +129,8 @@
 
 .list {
   margin-top: 12px;
+  position: relative;
+  z-index: 2;
 }
 
 .listItem {
@@ -135,6 +139,30 @@
   gap: 10px;
   padding: 10px 8px;
   border-radius: 12px;
+}
+
+.softPaperRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 8px;
+  min-height: 88rpx;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  text-align: left;
+  line-height: 30px;
+  font-size: 24px;
+  font-weight: 400;
+  box-sizing: border-box;
+  color: #344054;
+  text-decoration: none;
+}
+
+.softPaperRowHover {
+  background: rgba(16, 24, 40, 0.06);
 }
 
 .listItem:active {

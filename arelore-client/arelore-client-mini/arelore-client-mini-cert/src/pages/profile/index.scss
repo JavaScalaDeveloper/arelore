@@ -30,3 +30,104 @@
   border-radius: 999px;
 }
 
+.userBlock {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #22c55e 0%, #07c160 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(7, 193, 96, 0.35);
+}
+
+.avatarText {
+  font-size: 36px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.userMeta {
+  margin-left: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.userName {
+  font-size: 32px;
+  font-weight: 600;
+  color: #101828;
+}
+
+.userStatus {
+  font-size: 24px;
+  color: #667085;
+  margin-top: 6px;
+}
+
+.iconGrid {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px 4px 4px;
+  margin-top: 8px;
+}
+
+.iconItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+}
+
+.iconCircle {
+  width: 108px;
+  height: 108px;
+  border-radius: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+.iconCircleExam {
+  background: linear-gradient(145deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 1px solid #a7f3d0;
+}
+
+.iconCircleFav {
+  background: linear-gradient(145deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1px solid #fde68a;
+}
+
+.iconCircleOut {
+  background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%);
+  border: 1px solid #cbd5e1;
+}
+
+.iconEmoji {
+  font-size: 44px;
+  line-height: 1;
+}
+
+.iconLabel {
+  font-size: 24px;
+  color: #344054;
+  font-weight: 500;
+}
+
+.errRow {
+  margin-top: 16px;
+  color: #d92d20;
+}
+
