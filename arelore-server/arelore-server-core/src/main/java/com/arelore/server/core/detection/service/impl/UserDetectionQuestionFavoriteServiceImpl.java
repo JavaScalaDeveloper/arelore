@@ -1,6 +1,8 @@
 package com.arelore.server.core.detection.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.arelore.server.core.common.service.impl.BaseServiceImpl;
 import com.arelore.server.core.detection.dto.DetectionQuestionFavoriteToggleRequest;
 import com.arelore.server.core.detection.dto.UserDetectionQuestionFavoriteRequest;
@@ -118,5 +120,17 @@ public class UserDetectionQuestionFavoriteServiceImpl
         wrapper.eq(UserDetectionQuestionFavorite::getUserId, userId)
             .orderByDesc(UserDetectionQuestionFavorite::getId);
         return toResponses(mapper.selectList(wrapper));
+    }
+
+    @Override
+    public IPage<UserDetectionQuestionFavorite> pageFavorites(String userId, int pageNum, int pageSize) {
+        Page<UserDetectionQuestionFavorite> mpPage = new Page<>(Math.max(pageNum, 1), Math.max(pageSize, 1));
+        if (!StringUtils.hasText(userId)) {
+            return mpPage;
+        }
+        LambdaQueryWrapper<UserDetectionQuestionFavorite> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserDetectionQuestionFavorite::getUserId, userId)
+            .orderByDesc(UserDetectionQuestionFavorite::getId);
+        return mapper.selectPage(mpPage, wrapper);
     }
 }

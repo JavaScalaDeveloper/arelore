@@ -44,10 +44,6 @@
 }
 
 .groupTitle {
-  display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  flex-wrap: wrap;
   margin-bottom: 16px;
   padding: 0 4px;
 }
@@ -56,14 +52,7 @@
   font-size: 28px;
   font-weight: 600;
   color: #344054;
-  margin-right: 10px;
-}
-
-.groupTitleCode {
-  font-size: 30px;
-  font-weight: 700;
-  color: #07c160;
-  word-break: break-all;
+  line-height: 1.4;
 }
 
 .list {
@@ -83,24 +72,38 @@
 .itemTop {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 12px;
+  gap: 12px;
 }
 
-.itemCode {
-  font-size: 32px;
-  font-weight: 700;
+.itemStem {
+  font-size: 30px;
+  font-weight: 600;
   color: #101828;
   flex: 1;
-  margin-right: 16px;
-  word-break: break-all;
+  line-height: 1.45;
+  word-break: break-word;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  max-height: calc(1.45em * 3);
 }
 
 .itemHint {
   font-size: 26px;
   color: #07c160;
   flex-shrink: 0;
+  padding-top: 4px;
+}
+
+.footerTip {
+  text-align: center;
+  font-size: 24px;
+  color: #98a2b3;
+  margin-top: 8px;
 }
 
 .itemTime {

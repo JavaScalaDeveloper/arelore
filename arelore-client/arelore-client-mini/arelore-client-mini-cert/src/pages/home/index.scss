@@ -1,31 +1,177 @@
 .page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #eafff3 0%, #f5f7fb 55%, #f5f7fb 100%);
-  padding: 32px 24px 160px;
+  background: linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 18%, #f5f7fb 45%, #f5f7fb 100%);
+  padding: 28px 22px 180px;
   box-sizing: border-box;
 }
 
-.card {
-  background: #fff;
-  border-radius: 22px;
-  padding: 28px 24px;
-  box-shadow: 0 16px 40px rgba(13, 38, 76, 0.10);
+.hero {
+  margin-bottom: 22px;
+  padding: 8px 4px 4px;
 }
 
-.title {
-  font-size: 40px;
-  font-weight: 700;
+.heroBrand {
+  display: block;
+  font-size: 44px;
+  font-weight: 800;
   color: #101828;
+  letter-spacing: 0.02em;
 }
 
-.user {
-  margin-top: 16px;
-  color: #475467;
+.heroTagline {
+  display: block;
+  margin-top: 10px;
   font-size: 26px;
+  color: #667085;
+  line-height: 1.45;
 }
 
-.btn {
-  margin-top: 24px;
+.ctaCard {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #16a34a 0%, #07c160 100%);
+  border-radius: 20px;
+  padding: 26px 22px;
+  box-shadow: 0 16px 36px rgba(7, 193, 96, 0.35);
+  margin-bottom: 28px;
+}
+
+.ctaInner {
+  flex: 1;
+  min-width: 0;
+}
+
+.ctaTitle {
+  display: block;
+  font-size: 34px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.ctaDesc {
+  display: block;
+  margin-top: 8px;
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.4;
+}
+
+.ctaArrow {
+  font-size: 44px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 300;
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
+.section {
+  margin-bottom: 22px;
+}
+
+.sectionTitle {
+  display: block;
+  font-size: 26px;
+  font-weight: 600;
+  color: #344054;
+  margin-bottom: 14px;
+  padding-left: 4px;
+}
+
+.quickGrid {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.quickItem {
+  flex: 1;
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px 12px 18px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+  border: 1px solid #e4e7ec;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.quickIcon {
+  font-size: 36px;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.quickLabel {
+  font-size: 22px;
+  color: #475467;
+  font-weight: 500;
+  text-align: center;
+}
+
+.accountCard {
+  background: #fff;
+  border-radius: 18px;
+  padding: 22px 20px;
+  box-shadow: 0 12px 32px rgba(13, 38, 76, 0.08);
+  border: 1px solid #e4e7ec;
+}
+
+.accountLine {
+  display: block;
+  font-size: 26px;
+  color: #667085;
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.loginBtn {
   border-radius: 999px;
 }
 
+.accountRow {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.accountLabel {
+  font-size: 24px;
+  color: #667085;
+  flex-shrink: 0;
+}
+
+.accountName {
+  font-size: 28px;
+  font-weight: 600;
+  color: #101828;
+  text-align: right;
+  flex: 1;
+  word-break: break-all;
+}
+
+.accountActions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 4px;
+  border-top: 1px solid #f2f4f7;
+}
+
+.linkMuted {
+  font-size: 24px;
+  color: #667085;
+  padding: 8px 0;
+}
+
+.linkLogout {
+  font-size: 24px;
+  color: #98a2b3;
+  padding: 8px 0;
+}

@@ -117,12 +117,10 @@ const ProfilePage = () => {
                 </View>
                 <Text className='iconLabel'>收藏夹</Text>
               </View>
-              <View className='iconItem' onClick={onLogout}>
-                <View className='iconCircle iconCircleOut'>
-                  <Text className='iconEmoji'>🚪</Text>
-                </View>
-                <Text className='iconLabel'>退出</Text>
-              </View>
+            </View>
+
+            <View className='logoutRow' onClick={onLogout}>
+              <Text className='logoutText'>退出登录</Text>
             </View>
 
             {errMsg ? (

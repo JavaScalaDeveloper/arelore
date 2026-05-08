@@ -4,6 +4,8 @@ import com.arelore.server.core.common.result.Result;
 import com.arelore.server.core.detection.dto.DetectionPaperListRequest;
 import com.arelore.server.core.detection.dto.DetectionQuestionQueryRequest;
 import com.arelore.server.core.detection.dto.DetectionQuestionFavoriteListRequest;
+import com.arelore.server.core.detection.dto.DetectionQuestionFavoritePageRequest;
+import com.arelore.server.core.detection.dto.DetectionQuestionFavoritePageResponse;
 import com.arelore.server.core.detection.dto.DetectionQuestionFavoriteToggleRequest;
 import com.arelore.server.core.detection.dto.DetectionResultQueryRequest;
 import com.arelore.server.core.detection.dto.DetectionResultSaveRequest;
@@ -93,6 +95,14 @@ public class DetectionQueryController {
     @PostMapping("/question/favorite/list-detail")
     public Result<List<UserDetectionQuestionFavoriteResponse>> listFavorites(@RequestBody(required = false) DetectionResultQueryRequest request) {
         return Result.success(detectionQueryFacadeService.listFavorites(request));
+    }
+
+    /**
+     * 收藏夹分页：分页查收藏记录后批量补全试卷名称与题干。
+     */
+    @PostMapping("/question/favorite/page")
+    public Result<DetectionQuestionFavoritePageResponse> listFavoritesPage(@RequestBody(required = false) DetectionQuestionFavoritePageRequest request) {
+        return Result.success(detectionQueryFacadeService.listFavoritesPage(request));
     }
 
     /**

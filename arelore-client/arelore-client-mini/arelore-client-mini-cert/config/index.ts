@@ -1,5 +1,8 @@
 import { defineConfig } from '@tarojs/cli';
 
+/** 构建时写入；小程序运行时无 Node 的 process，需靠 DefinePlugin 整段替换为字符串字面量 */
+const apiBaseFromEnv = process.env.TARO_APP_API_BASE_URL || '';
+
 export default defineConfig<'webpack5'>({
   projectName: 'arelore-client-mini-cert',
   date: '2026-04-20',
@@ -15,6 +18,9 @@ export default defineConfig<'webpack5'>({
   compiler: 'webpack5',
   cache: {
     enable: false
+  },
+  defineConstants: {
+    'process.env.TARO_APP_API_BASE_URL': JSON.stringify(apiBaseFromEnv)
   },
   mini: {
     postcss: {

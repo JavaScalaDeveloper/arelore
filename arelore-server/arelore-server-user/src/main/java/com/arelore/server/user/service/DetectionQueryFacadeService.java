@@ -1,6 +1,8 @@
 package com.arelore.server.user.service;
 
 import com.arelore.server.core.detection.dto.DetectionPaperListRequest;
+import com.arelore.server.core.detection.dto.DetectionQuestionFavoritePageRequest;
+import com.arelore.server.core.detection.dto.DetectionQuestionFavoritePageResponse;
 import com.arelore.server.core.detection.dto.DetectionQuestionQueryRequest;
 import com.arelore.server.core.detection.dto.DetectionQuestionFavoriteListRequest;
 import com.arelore.server.core.detection.dto.DetectionQuestionFavoriteToggleRequest;
@@ -38,6 +40,11 @@ public interface DetectionQueryFacadeService {
     List<UserDetectResultHistoryResponse> listSubmittedHistory(DetectionResultQueryRequest request);
 
     List<UserDetectionQuestionFavoriteResponse> listFavorites(DetectionResultQueryRequest request);
+
+    /**
+     * 收藏夹分页：先分页查收藏记录，再批量查题目与试卷名称。
+     */
+    DetectionQuestionFavoritePageResponse listFavoritesPage(DetectionQuestionFavoritePageRequest request);
 
     /**
      * 按 typeCode + questionCode 查询单题（只读，用于收藏详情等）。

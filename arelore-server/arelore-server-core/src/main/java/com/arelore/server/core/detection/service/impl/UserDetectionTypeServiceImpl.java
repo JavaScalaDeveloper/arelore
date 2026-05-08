@@ -11,7 +11,10 @@ import com.arelore.server.core.detection.support.DetectionOperatorContext;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class UserDetectionTypeServiceImpl
@@ -53,6 +56,23 @@ public class UserDetectionTypeServiceImpl
     public List<UserDetectionTypeResponse> listAll() {
         UserDetectionTypeRequest request = new UserDetectionTypeRequest();
         return list(request);
+    }
+
+    @Override
+    public List<UserDetectionTypeResponse> listByTypeCodes(Collection<String> typeCodes) {
+        if (typeCodes == null || typeCodes.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<String> distinct = typeCodes.stream()
+            .filter(StringUtils::hasText)
+            .distinct()
+            .collect(Collectors.toList());
+        if (distinct.isEmpty()) {
+            return Collections.emptyList();
+        }
+        LambdaQueryWrapper<UserDetectionType> wrapper = new LambdaQueryWrapper<>();
+        wrapper.in(UserDetectionType::getTypeCode, distinct);
+        return toResponses(mapper.selectList(wrapper));
     }
 
     @Override

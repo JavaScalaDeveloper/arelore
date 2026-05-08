@@ -1,7 +1,11 @@
 package com.arelore.server.user.service.impl;
 
 import com.arelore.server.core.detection.dto.DetectionPaperListRequest;
+import com.arelore.server.core.detection.dto.DetectionQuestionFavoriteItemResponse;
+import com.arelore.server.core.detection.dto.DetectionQuestionFavoritePageRequest;
+import com.arelore.server.core.detection.dto.DetectionQuestionFavoritePageResponse;
 import com.arelore.server.core.detection.dto.DetectionQuestionQueryRequest;
+import com.arelore.server.core.detection.dto.QuestionTypeCodePair;
 import com.arelore.server.core.detection.dto.DetectionQuestionFavoriteListRequest;
 import com.arelore.server.core.detection.dto.DetectionQuestionFavoriteToggleRequest;
 import com.arelore.server.core.detection.dto.DetectionResultQueryRequest;
@@ -14,14 +18,21 @@ import com.arelore.server.core.detection.dto.UserDetectionQuestionResponse;
 import com.arelore.server.core.detection.dto.UserDetectionTypeRequest;
 import com.arelore.server.core.detection.dto.UserDetectionTypeResponse;
 import com.arelore.server.core.detection.entity.UserDetectResult;
+import com.arelore.server.core.detection.entity.UserDetectionQuestionFavorite;
 import com.arelore.server.core.detection.service.UserDetectionQuestionService;
 import com.arelore.server.core.detection.service.UserDetectionQuestionFavoriteService;
 import com.arelore.server.core.detection.service.UserDetectionResultService;
 import com.arelore.server.core.detection.service.UserDetectionTypeService;
 import com.arelore.server.user.service.DetectionQueryFacadeService;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -113,6 +124,78 @@ public class DetectionQueryFacadeServiceImpl implements DetectionQueryFacadeServ
     public List<UserDetectionQuestionFavoriteResponse> listFavorites(DetectionResultQueryRequest request) {
         String userId = request == null ? null : request.getUserId();
         return questionFavoriteService.listFavorites(userId);
+    }
+
+    @Override
+    public DetectionQuestionFavoritePageResponse listFavoritesPage(DetectionQuestionFavoritePageRequest request) {
+        String userId = request == null ? null : request.getUserId();
+        int pageNum = request == null || request.getPageNum() == null || request.getPageNum() < 1
+            ? 1
+            : request.getPageNum();
+        int pageSize = request == null || request.getPageSize() == null || request.getPageSize() < 1
+            ? 20
+            : Math.min(request.getPageSize(), 100);
+
+        DetectionQuestionFavoritePageResponse out = new DetectionQuestionFavoritePageResponse();
+        out.setPageNum(pageNum);
+        out.setPageSize(pageSize);
+        if (!StringUtils.hasText(userId)) {
+            out.setTotal(0);
+            out.setRecords(Collections.emptyList());
+            return out;
+        }
+
+        IPage<UserDetectionQuestionFavorite> page = questionFavoriteService.pageFavorites(userId, pageNum, pageSize);
+        out.setTotal(page.getTotal());
+        List<UserDetectionQuestionFavorite> rows = page.getRecords();
+        if (rows.isEmpty()) {
+            out.setRecords(Collections.emptyList());
+            return out;
+        }
+
+        List<String> typeCodes = rows.stream()
+            .map(UserDetectionQuestionFavorite::getQuestionTypeCode)
+            .filter(StringUtils::hasText)
+            .distinct()
+            .collect(Collectors.toList());
+        Map<String, String> typeNameByCode = typeService.listByTypeCodes(typeCodes).stream()
+            .filter(Objects::nonNull)
+            .filter(t -> StringUtils.hasText(t.getTypeCode()))
+            .collect(Collectors.toMap(
+                UserDetectionTypeResponse::getTypeCode,
+                t -> StringUtils.hasText(t.getTypeName()) ? t.getTypeName() : "",
+                (a, b) -> a
+            ));
+
+        List<QuestionTypeCodePair> pairs = rows.stream()
+            .filter(r -> StringUtils.hasText(r.getQuestionTypeCode()) && StringUtils.hasText(r.getQuestionCode()))
+            .map(r -> new QuestionTypeCodePair(r.getQuestionTypeCode(), r.getQuestionCode()))
+            .collect(Collectors.toList());
+        Map<String, UserDetectionQuestionResponse> qByKey = questionService.listByTypeAndQuestionCodePairs(pairs).stream()
+            .filter(Objects::nonNull)
+            .filter(q -> StringUtils.hasText(q.getTypeCode()) && StringUtils.hasText(q.getQuestionCode()))
+            .collect(Collectors.toMap(
+                q -> q.getTypeCode() + "\0" + q.getQuestionCode(),
+                q -> q,
+                (a, b) -> a
+            ));
+
+        List<DetectionQuestionFavoriteItemResponse> records = new ArrayList<>();
+        for (UserDetectionQuestionFavorite row : rows) {
+            DetectionQuestionFavoriteItemResponse it = new DetectionQuestionFavoriteItemResponse();
+            it.setId(row.getId());
+            it.setCreateTime(row.getCreateTime());
+            it.setQuestionTypeCode(row.getQuestionTypeCode());
+            it.setQuestionCode(row.getQuestionCode());
+            String tc = row.getQuestionTypeCode();
+            it.setTypeName(typeNameByCode.getOrDefault(tc, ""));
+            String key = tc + "\0" + row.getQuestionCode();
+            UserDetectionQuestionResponse q = qByKey.get(key);
+            it.setQuestionName(q != null ? q.getQuestionName() : null);
+            records.add(it);
+        }
+        out.setRecords(records);
+        return out;
     }
 
     @Override

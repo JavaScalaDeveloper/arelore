@@ -2,6 +2,7 @@ package com.arelore.server.core.detection.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.arelore.server.core.common.service.impl.BaseServiceImpl;
+import com.arelore.server.core.detection.dto.QuestionTypeCodePair;
 import com.arelore.server.core.detection.dto.UserDetectionQuestionRequest;
 import com.arelore.server.core.detection.dto.UserDetectionQuestionResponse;
 import com.arelore.server.core.detection.entity.UserDetectionQuestion;
@@ -11,6 +12,9 @@ import com.arelore.server.core.detection.support.DetectionOperatorContext;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -69,6 +73,33 @@ public class UserDetectionQuestionServiceImpl
             .eq(UserDetectionQuestion::getQuestionCode, questionCode)
             .last("limit 1");
         return toResponse(mapper.selectOne(wrapper));
+    }
+
+    @Override
+    public List<UserDetectionQuestionResponse> listByTypeAndQuestionCodePairs(Collection<QuestionTypeCodePair> pairs) {
+        if (pairs == null || pairs.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<QuestionTypeCodePair> valid = new ArrayList<>();
+        for (QuestionTypeCodePair p : pairs) {
+            if (p != null && StringUtils.hasText(p.getTypeCode()) && StringUtils.hasText(p.getQuestionCode())) {
+                valid.add(p);
+            }
+        }
+        if (valid.isEmpty()) {
+            return Collections.emptyList();
+        }
+        LambdaQueryWrapper<UserDetectionQuestion> wrapper = new LambdaQueryWrapper<>();
+        wrapper.and(outer -> {
+            for (int i = 0; i < valid.size(); i++) {
+                QuestionTypeCodePair p = valid.get(i);
+                String tc = p.getTypeCode();
+                String qc = p.getQuestionCode();
+                outer.or(sub -> sub.eq(UserDetectionQuestion::getTypeCode, tc)
+                    .eq(UserDetectionQuestion::getQuestionCode, qc));
+            }
+        });
+        return toResponses(mapper.selectList(wrapper));
     }
 
     @Override
