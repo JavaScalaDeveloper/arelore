@@ -15,7 +15,12 @@ export default defineConfig<'webpack5'>({
   sourceRoot: 'src',
   outputRoot: 'dist',
   framework: 'react',
-  compiler: 'webpack5',
+  compiler: {
+    type: 'webpack5',
+    // 开发模式 prebundle 在微信开发者工具中易出现 react-dom 模块路径错误
+    prebundle: { enable: false }
+  },
+  plugins: ['@tarojs/plugin-framework-react', '@tarojs/plugin-platform-weapp'],
   cache: {
     enable: false
   },

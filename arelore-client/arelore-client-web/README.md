@@ -5,11 +5,12 @@
 ## 技术栈
 
 - **React**: 18.2.0
-- **TypeScript**: 5.3.2
+- **TypeScript**: 4.9.x（随 react-scripts）
 - **React Router**: 6.20.0 (路由管理)
 - **Ant Design**: 5.12.0 (UI 组件库)
 - **Axios**: 1.6.2 (HTTP 客户端)
-- **Node.js**: v24.11.1
+- **pdfjs-dist** + **docx**：文档处理「PDF 转 Word」（纯前端，见下文）
+- **Node.js**：建议使用 LTS（如 18+ / 20+），用于 `npm install` / 构建
 
 ## 功能特性
 
@@ -68,6 +69,23 @@ arelore-client-web/
 cd arelore-client-web
 npm install
 ```
+
+`npm install` 结束后会执行 **`postinstall`**：将 `pdfjs-dist` 自带的 `pdf.worker.min.js` 复制到 `public/pdf.worker.min.js`，供浏览器解析 PDF 使用。**无需安装浏览器插件**；也无需单独下载 Adobe 等客户端，仅需上述 Node 依赖。
+
+若复制失败（例如尚未安装依赖就删除了 `node_modules`），可手动执行：
+
+```bash
+node scripts/copy-pdf-worker.js
+```
+
+### 文档处理：PDF 转 Word（免费工具）
+
+- **入口**：顶部菜单 **免费工具 → 文档处理 → PDF转Word**，路由 `/home/tools/pdf-to-word`。
+- **行为**：在浏览器本地读取 PDF 文本并生成 `.docx` 下载，**文件不上传服务器**。
+- **限制**：
+  - 依赖 PDF **文字层**；纯扫描件、图片型 PDF 可能几乎没有可导出文字。
+  - 导出结果为**纯文本编排**，不保证与原 PDF 版式、图片、表格一致。
+- **部署在子路径时**：需正确设置 `package.json` 的 `homepage` 或构建时的 `PUBLIC_URL`，否则 `pdf.worker.min.js` 可能 404（Worker 路径与 `PUBLIC_URL` 一致）。
 
 ### 启动开发服务器
 

@@ -50,4 +50,5 @@ echo $! > .taro-dev.pid
 
 echo "[mini-cert] started. pid=$(cat .taro-dev.pid)"
 echo "[mini-cert] dev log: /var/logs/arelore-mini-cert-dev.log"
+echo "[mini-cert] 微信开发者工具请导入本目录（project.config.json 已指向 dist/），勿直接打开 src/"
 

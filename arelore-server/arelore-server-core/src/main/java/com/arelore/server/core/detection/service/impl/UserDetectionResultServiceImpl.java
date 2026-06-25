@@ -104,25 +104,33 @@ public class UserDetectionResultServiceImpl
         boolean submitPaper = Boolean.TRUE.equals(request.getSubmitPaper());
         String finalResult;
         String finalExtraInfo;
-        if (hasAnswers && submitPaper) {
-            ScoringOutput scoringOutput = scoreByConfiguredRules(request);
-            finalResult = scoringOutput.detectResult;
-            finalExtraInfo = scoringOutput.extraInfoJson;
+        if (submitPaper) {
+            UserDetectionType detectionTypeEarly = getDetectionType(request.getUserDetectTypeCode());
+            JSONObject scoringConfigEarly = parseScoringConfig(detectionTypeEarly);
+            String scoringModeEarly = resolveResultMode(detectionTypeEarly, scoringConfigEarly);
+            if ("objective_sum".equals(scoringModeEarly)) {
+                // 客观卷：按题库全部题目计分，允许白卷或部分作答
+                ScoringOutput scoringOutput = scoreFullPaperObjectiveSubmit(request);
+                finalResult = scoringOutput.detectResult;
+                finalExtraInfo = scoringOutput.extraInfoJson;
+            } else if (hasAnswers) {
+                ScoringOutput scoringOutput = scoreByConfiguredRules(request);
+                finalResult = scoringOutput.detectResult;
+                finalExtraInfo = scoringOutput.extraInfoJson;
+            } else if (StringUtils.hasText(request.getUserDetectResult())) {
+                finalResult = request.getUserDetectResult();
+                finalExtraInfo = request.getExtraInfo();
+            } else {
+                throw new IllegalArgumentException("缺少答题明细或检测结果");
+            }
         } else if (hasAnswers) {
             // 答题中保存：仅刷新 extra_info，不提前写入最终结果
             finalResult = exists == null ? "" : (exists.getUserDetectResult() == null ? "" : exists.getUserDetectResult());
             finalExtraInfo = buildProgressExtraInfo(request);
-        } else if (!submitPaper) {
+        } else {
             // 允许在没有 answeredQuestions 时保存进度（例如仅切题）
             finalResult = exists == null ? "" : (exists.getUserDetectResult() == null ? "" : exists.getUserDetectResult());
             finalExtraInfo = StringUtils.hasText(request.getExtraInfo()) ? request.getExtraInfo() : "{}";
-        } else {
-            // 兼容旧调用：若前端仍直接传结果，则继续支持。
-            if (!StringUtils.hasText(request.getUserDetectResult())) {
-                throw new IllegalArgumentException("缺少答题明细或检测结果");
-            }
-            finalResult = request.getUserDetectResult();
-            finalExtraInfo = request.getExtraInfo();
         }
 
         if (exists == null) {
@@ -356,6 +364,97 @@ public class UserDetectionResultServiceImpl
             detail.put("selectedOptionScores", scores);
         }
         return detail;
+    }
+
+    private JSONObject buildUnansweredQuestionDetail(UserDetectionQuestion question) {
+        JSONObject detail = new JSONObject();
+        detail.put("questionId", question.getId());
+        detail.put("questionCode", question.getQuestionCode());
+        detail.put("questionTitle", question.getQuestionName());
+        detail.put("selectedOptionKey", "");
+        detail.put("selectedOptionText", "(未作答)");
+        detail.put("unanswered", true);
+        return detail;
+    }
+
+    /**
+     * 客观卷整卷交卷：遍历该类型下全部题目，未作答不得分；允许白卷。
+     */
+    private ScoringOutput scoreFullPaperObjectiveSubmit(DetectionResultSaveRequest request) {
+        UserDetectionType detectionType = getDetectionType(request.getUserDetectTypeCode());
+        List<UserDetectionQuestion> questionList = getQuestionsByTypeCode(request.getUserDetectTypeCode());
+        if (questionList.isEmpty()) {
+            throw new IllegalArgumentException("检测题目不存在");
+        }
+
+        Map<String, String> answerByCode = new HashMap<>();
+        Map<Long, String> answerById = new HashMap<>();
+        if (request.getAnsweredQuestions() != null) {
+            for (DetectionResultSaveRequest.AnsweredQuestion a : request.getAnsweredQuestions()) {
+                if (a == null || !StringUtils.hasText(a.getSelectedOptionKey())) {
+                    continue;
+                }
+                if (a.getQuestionId() != null) {
+                    answerById.put(a.getQuestionId(), a.getSelectedOptionKey());
+                }
+                if (StringUtils.hasText(a.getQuestionCode())) {
+                    answerByCode.put(a.getQuestionCode(), a.getSelectedOptionKey());
+                }
+            }
+        }
+
+        Map<String, Integer> scoreByDimension = new HashMap<>();
+        JSONArray answeredQuestions = new JSONArray();
+        int answeredCount = 0;
+        for (UserDetectionQuestion question : questionList) {
+            String selectedKey = null;
+            if (question.getId() != null) {
+                selectedKey = answerById.get(question.getId());
+            }
+            if (!StringUtils.hasText(selectedKey) && StringUtils.hasText(question.getQuestionCode())) {
+                selectedKey = answerByCode.get(question.getQuestionCode());
+            }
+            if (!StringUtils.hasText(selectedKey)) {
+                answeredQuestions.add(buildUnansweredQuestionDetail(question));
+                continue;
+            }
+            answeredCount++;
+            try {
+                JSONObject selectedOption = locateSelectedOption(question, selectedKey);
+                accumulateScores(selectedOption, scoreByDimension);
+                answeredQuestions.add(buildAnsweredQuestionDetail(question, selectedOption, selectedKey));
+            } catch (IllegalArgumentException ex) {
+                JSONObject detail = new JSONObject();
+                detail.put("questionId", question.getId());
+                detail.put("questionCode", question.getQuestionCode());
+                detail.put("questionTitle", question.getQuestionName());
+                detail.put("selectedOptionKey", selectedKey);
+                detail.put("selectedOptionText", "(选项无效)");
+                answeredQuestions.add(detail);
+            }
+        }
+
+        JSONObject scoringConfig = parseScoringConfig(detectionType);
+        String scoringMode = resolveResultMode(detectionType, scoringConfig);
+        DetectionScoringStrategy strategy = scoringStrategies.get(scoringMode);
+        if (strategy == null) {
+            throw new IllegalArgumentException("暂不支持的评分模式：" + scoringMode);
+        }
+        String detectResult = strategy.calculate(detectionType, scoringConfig, scoreByDimension);
+        JSONObject extra = new JSONObject();
+        extra.put("scoringMode", scoringMode);
+        extra.put("scoringVersion", resolveScoringVersion(scoringConfig));
+        extra.put("scoreByDimension", new JSONObject(new LinkedHashMap<>(scoreByDimension)));
+        extra.put("answeredQuestions", answeredQuestions);
+        extra.put("submitPaper", true);
+        extra.put("totalQuestions", questionList.size());
+        extra.put("answeredCount", answeredCount);
+        extra.put("unansweredCount", questionList.size() - answeredCount);
+
+        ScoringOutput output = new ScoringOutput();
+        output.detectResult = detectResult;
+        output.extraInfoJson = JSON.toJSONString(extra);
+        return output;
     }
 
     /**

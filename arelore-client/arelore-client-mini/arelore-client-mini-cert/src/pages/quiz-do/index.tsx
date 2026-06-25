@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
-import { Image, Text, View } from '@tarojs/components';
+import { Image, ScrollView, Text, View } from '@tarojs/components';
 import { post } from '../../utils/request';
+import { isSubjectiveQuestion, parseQuestionExtraInfo } from '../../utils/quizExamResult';
 import './index.scss';
 
 const IMG_HASH_REGEX = /(?:【img:([0-9a-fA-F]{64})】|\(img:([0-9a-fA-F]{64})\))/g;
@@ -19,7 +20,6 @@ const QuizDoPage = () => {
   const [favoriteMap, setFavoriteMap] = useState({});
   const [showAnswerCard, setShowAnswerCard] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
-
   useDidShow(() => {
     const instance = Taro.getCurrentInstance();
     const tc = decodeURIComponent(instance?.router?.params?.typeCode || '');
@@ -86,13 +86,19 @@ const QuizDoPage = () => {
     setShowAnswerCard(false);
   };
 
-  const parseExtraInfo = (extraInfo) => {
-    if (!extraInfo) return {};
-    try {
-      return JSON.parse(extraInfo) || {};
-    } catch (e) {
-      return {};
+  const parseExtraInfo = (extraInfo) => parseQuestionExtraInfo(extraInfo);
+
+  const getQuestionDisplayText = (q) => {
+    if (!q) return '';
+    const ext = parseExtraInfo(q.extraInfo);
+    const name = q.questionName || '';
+    if (isSubjectiveQuestion(ext)) {
+      return stripImageMarkers(ext.fullQuestionName || name);
     }
+    if (ext.fullQuestionName && (name.endsWith('…') || name.length >= 250)) {
+      return stripImageMarkers(ext.fullQuestionName);
+    }
+    return stripImageMarkers(name);
   };
 
   const buildAnswerMapByExtraInfo = (extra) => {
@@ -208,51 +214,94 @@ const QuizDoPage = () => {
     clearLocalProgress();
   };
 
-  const saveProgress = async (submitPaper) => {
-    if (!typeCode) return true;
+  const saveProgress = async (submitPaperFlag) => {
+    if (!typeCode) return { ok: true };
     const userId = getCurrentUserId();
     if (!userId) {
       Taro.showToast({ title: '请先登录后答题', icon: 'none' });
-      return false;
+      return { ok: false };
     }
     const payload = {
       userId,
       userDetectTypeCode: typeCode,
-      submitPaper,
+      submitPaper: submitPaperFlag,
       answeredQuestions: buildAnsweredQuestions(),
       extraInfo: JSON.stringify({
         currentIndex,
         total: questions.length,
         answeredCount: Object.keys(answers).length,
-        submitPaper
+        submitPaper: submitPaperFlag
       })
     };
     const resp = await post('/user/detection/result/save', payload);
     if (!resp || resp.code !== 200) {
       Taro.showToast({ title: resp?.message || '保存进度失败', icon: 'none' });
-      return false;
+      return { ok: false };
     }
-    return true;
+    if (submitPaperFlag) {
+      return {
+        ok: true,
+        detectResult: resp.data?.detectResult ?? '',
+        extraInfo: resp.data?.extraInfo ?? ''
+      };
+    }
+    return { ok: true };
+  };
+
+  const confirmAndSubmitPaper = async () => {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      Taro.showToast({ title: '请先登录后答题', icon: 'none' });
+      return;
+    }
+    if (!questions.length) return;
+    const answeredCount = Object.keys(answers).length;
+    const unanswered = questions.length - answeredCount;
+    const confirm = await Taro.showModal({
+      title: '确认交卷',
+      content:
+        answeredCount === 0
+          ? '当前尚未作答任何题目，交卷后按规则计分（未作答不得分）。确定交卷吗？'
+          : `还有 ${unanswered} 题未作答，未作答不得分。确定交卷吗？`
+    });
+    if (!confirm.confirm) return;
+    const r = await saveProgress(true);
+    if (!r.ok) return;
+    setShowAnswerCard(false);
+    let extraParsed = {};
+    try {
+      extraParsed = typeof r.extraInfo === 'string' ? JSON.parse(r.extraInfo || '{}') : r.extraInfo || {};
+    } catch (e) {
+      extraParsed = {};
+    }
+    Taro.setStorageSync('quizLastResult', {
+      typeCode,
+      typeName,
+      detectResult: r.detectResult || '',
+      extraInfo: extraParsed,
+      savedAt: Date.now()
+    });
+    Taro.redirectTo({
+      url: `/pages/quiz-result/index?typeCode=${encodeURIComponent(typeCode)}&typeName=${encodeURIComponent(typeName || '')}`
+    });
   };
 
   const goPrev = async () => {
     if (currentIndex <= 0) return;
-    const ok = await saveProgress(false);
-    if (!ok) return;
+    const r = await saveProgress(false);
+    if (!r.ok) return;
     setCurrentIndex((idx) => (idx <= 0 ? 0 : idx - 1));
   };
 
   const goNext = async () => {
     if (currentIndex >= questions.length - 1) return;
-    const ok = await saveProgress(false);
-    if (!ok) return;
+    const r = await saveProgress(false);
+    if (!r.ok) return;
     setCurrentIndex((idx) => (idx >= questions.length - 1 ? idx : idx + 1));
   };
 
   const submitPaper = async () => {
-    const ok = await saveProgress(true);
-    if (!ok) return;
-    Taro.showToast({ title: '交卷成功', icon: 'success' });
+    await confirmAndSubmitPaper();
   };
 
   const redoPaper = async () => {
@@ -363,15 +412,11 @@ const QuizDoPage = () => {
 
   const currentQuestion = questions[currentIndex] || null;
   const progress = questions.length === 0 ? 0 : Math.round(((currentIndex + 1) / questions.length) * 100);
-  const currentQuestionType = (() => {
-    if (!currentQuestion) return '单选题';
-    try {
-      const info = currentQuestion.extraInfo ? JSON.parse(currentQuestion.extraInfo) : {};
-      return info?.questionType || '单选题';
-    } catch (e) {
-      return '单选题';
-    }
-  })();
+  const currentExtra = currentQuestion ? parseExtraInfo(currentQuestion.extraInfo) : {};
+  const currentQuestionType = currentExtra?.questionType || currentQuestion?.questionDescription || '单选题';
+  const currentIsSubjective = isSubjectiveQuestion(currentExtra);
+  const currentDisplayText = getQuestionDisplayText(currentQuestion);
+  const currentOptions = currentQuestion ? parseOptions(currentQuestion) : [];
 
   const currentQuestionCode = currentQuestion?.questionCode || `q_${currentIndex}`;
   const currentFavorite = !!favoriteMap[currentQuestionCode];
@@ -396,8 +441,8 @@ const QuizDoPage = () => {
   useEffect(() => {
     if (!currentQuestion) return;
     const hashes = new Set();
-    extractImageHashes(currentQuestion.questionName).forEach((h) => hashes.add(h));
-    parseOptions(currentQuestion).forEach((op) => {
+    extractImageHashes(currentDisplayText).forEach((h) => hashes.add(h));
+    currentOptions.forEach((op) => {
       extractImageHashes(op?.text).forEach((h) => hashes.add(h));
     });
     let explanation = '';
@@ -433,15 +478,31 @@ const QuizDoPage = () => {
 
       {!loading && !error && currentQuestion ? (
         <View className='card'>
-          <View className='qTitle'>
-            {currentIndex + 1}. {stripImageMarkers(currentQuestion.questionName) || '题目'}
-          </View>
-          {extractImageHashes(currentQuestion.questionName).map((hash) =>
+          {currentIsSubjective ? (
+            <ScrollView scrollY className='qScroll' enhanced showScrollbar>
+              <View className='qTitle'>
+                {currentIndex + 1}. {currentExtra?.displayTitle || currentQuestion.questionName || '案例分析'}
+              </View>
+              <Text className='qBody' selectable userSelect>
+                {currentDisplayText || '题目'}
+              </Text>
+            </ScrollView>
+          ) : (
+            <View className='qTitle'>
+              {currentIndex + 1}. {currentDisplayText || '题目'}
+            </View>
+          )}
+          {extractImageHashes(currentDisplayText).map((hash) =>
             imageSrcMap[hash] ? (
               <Image key={`${currentQuestionCode}_img_${hash}`} className='questionImg' mode='widthFix' src={imageSrcMap[hash]} />
             ) : null
           )}
-          {parseOptions(currentQuestion).map((op) => {
+          {currentIsSubjective ? (
+            <View className='subjectiveHint'>
+              <Text className='subjectiveHintText'>本题为案例分析，请自备纸笔作答；交卷后不计入客观得分。</Text>
+            </View>
+          ) : null}
+          {currentOptions.map((op) => {
             const active = answers[currentQuestionCode] === op.key;
             const opHashes = extractImageHashes(op.text);
             return (
@@ -523,8 +584,11 @@ const QuizDoPage = () => {
                 );
               })}
             </View>
-            <View className='closeBtn' onClick={redoPaper}>
-              <Text className='closeBtnText'>重做本套题</Text>
+            <View className='submitPaperSheetBtn' onClick={confirmAndSubmitPaper}>
+              <Text className='submitPaperSheetBtnText'>交卷并查看得分</Text>
+            </View>
+            <View className='redoSheetBtn' onClick={redoPaper}>
+              <Text className='redoSheetBtnText'>重做本套题</Text>
             </View>
           </View>
         </View>

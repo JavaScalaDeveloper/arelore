@@ -2,3 +2,4 @@
 /arelore-server-*/target/
 *.class
 /arelore-server-*/logs/
+#/arelore-server-admin/src/main/resources/sql/arelore_education/软考/*/*/*.pdf

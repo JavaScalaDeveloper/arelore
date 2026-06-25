@@ -29,11 +29,23 @@ spring:
       username: root
       password: 123456
       driver-class-name: com.mysql.cj.jdbc.Driver
+      hikari:
+        # 须小于 MySQL wait_timeout / 云数据库或 NAT 的实际空闲断连时间，避免池中残留已被服务端关闭的连接
+        max-lifetime: 580000
+        idle-timeout: 520000
+        connection-timeout: 30000
+        # 周期性探测，减少长时间无流量被防火墙掐断（不低于 30s）
+        keepalive-time: 60000
     user:
       url: jdbc:mysql://book-n5095:3306/arelore_user?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
       username: root
       password: 123456
       driver-class-name: com.mysql.cj.jdbc.Driver
+      hikari:
+        max-lifetime: 580000
+        idle-timeout: 520000
+        connection-timeout: 30000
+        keepalive-time: 60000
 
 mybatis-plus:
   configuration:

@@ -1,25 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { Button, Text, View } from '@tarojs/components';
+import { emitTabBarIndex } from '../../utils/tabBarSync';
 import './index.scss';
 
 const HomePage = () => {
   const [token, setToken] = useState('');
-  const [currentUser, setCurrentUser] = useState({});
 
   useDidShow(() => {
-    const t = Taro.getStorageSync('token') || '';
-    const u = Taro.getStorageSync('currentUser') || {};
-    setToken(t);
-    setCurrentUser(u);
+    setToken(Taro.getStorageSync('token') || '');
+    emitTabBarIndex(0);
   });
-
-  const currentUserName = useMemo(() => {
-    if (!currentUser || typeof currentUser !== 'object') return '微信用户';
-    const nick = Reflect.get(currentUser, 'nickname');
-    const uname = Reflect.get(currentUser, 'username');
-    return (typeof nick === 'string' && nick) || (typeof uname === 'string' && uname) || '微信用户';
-  }, [currentUser]);
 
   const onGoLogin = () => {
     Taro.navigateTo({ url: '/pages/login/index' });
@@ -39,19 +30,6 @@ const HomePage = () => {
 
   const goFavorites = () => {
     Taro.navigateTo({ url: '/pages/favorites/index' });
-  };
-
-  const onLogout = async () => {
-    const res = await Taro.showModal({
-      title: '退出登录',
-      content: '确定要退出当前账号吗？'
-    });
-    if (!res.confirm) return;
-    Taro.removeStorageSync('token');
-    Taro.removeStorageSync('currentUser');
-    setToken('');
-    setCurrentUser({});
-    Taro.showToast({ title: '已退出登录', icon: 'success' });
   };
 
   return (
@@ -87,31 +65,14 @@ const HomePage = () => {
         </View>
       </View>
 
-      <View className='accountCard'>
-        {!token ? (
-          <>
-            <Text className='accountLine'>登录后可同步做题进度、查看考试记录与收藏</Text>
-            <Button className='loginBtn' type='primary' onClick={onGoLogin}>
-              微信登录
-            </Button>
-          </>
-        ) : (
-          <>
-            <View className='accountRow'>
-              <Text className='accountLabel'>当前账号</Text>
-              <Text className='accountName'>{currentUserName}</Text>
-            </View>
-            <View className='accountActions'>
-              <Text className='linkMuted' onClick={goProfile}>
-                账号与安全 ›
-              </Text>
-              <Text className='linkLogout' onClick={onLogout}>
-                退出登录
-              </Text>
-            </View>
-          </>
-        )}
-      </View>
+      {!token ? (
+        <View className='accountCard'>
+          <Text className='accountLine'>登录后可同步做题进度、查看考试记录与收藏</Text>
+          <Button className='loginBtn' type='primary' onClick={onGoLogin}>
+            微信登录
+          </Button>
+        </View>
+      ) : null}
     </View>
   );
 };

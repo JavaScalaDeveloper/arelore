@@ -4,6 +4,7 @@ import { Text, View } from '@tarojs/components';
 import { post } from '../../utils/request';
 import { mergeWeappRouteParams } from '../../utils/weappRouteParams';
 import { softExamSubjectByPaperIndex } from '../../constants/softExamPaperNav';
+import { ncreSubjectByPaperIndex } from '../../constants/ncreExamPaperNav';
 import './index.scss';
 
 /** 与 pages/quiz/index 约定：无 paperIdx 时从本地读取 */
@@ -29,11 +30,18 @@ const QuizPaperListPage = () => {
     const rawIdx = params.paperIdx;
     if (rawIdx !== undefined && rawIdx !== null && String(rawIdx).trim() !== '') {
       const i = parseInt(String(rawIdx), 10);
-      const resolved = softExamSubjectByPaperIndex(i);
-      if (resolved) {
-        subject = resolved;
-        if (!examCategory) {
-          examCategory = '软考';
+      if (examCategory === 'NCRE') {
+        const resolved = ncreSubjectByPaperIndex(i);
+        if (resolved) {
+          subject = resolved;
+        }
+      } else {
+        const resolved = softExamSubjectByPaperIndex(i);
+        if (resolved) {
+          subject = resolved;
+          if (!examCategory) {
+            examCategory = '软考';
+          }
         }
       }
     }
@@ -67,7 +75,7 @@ const QuizPaperListPage = () => {
       examCategory = '软考';
     }
     if (!subject) {
-      subject = '软件设计师';
+      subject = examCategory === 'NCRE' ? 'Python语言程序设计' : '软件设计师';
     }
     setSubjectName(subject);
 

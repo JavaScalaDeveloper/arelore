@@ -26,6 +26,11 @@ spring:
       username: root
       password: 123456
       driver-class-name: com.mysql.cj.jdbc.Driver
+      hikari:
+        max-lifetime: 580000
+        idle-timeout: 520000
+        connection-timeout: 30000
+        keepalive-time: 60000
 
 mybatis-plus:
   configuration:

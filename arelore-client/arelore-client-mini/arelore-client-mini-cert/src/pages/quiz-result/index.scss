@@ -1,0 +1,295 @@
+.page {
+  min-height: 100vh;
+  background: #f5f7fb;
+  padding: 16px 14px 120px;
+  box-sizing: border-box;
+}
+
+.headCard {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 8px 22px rgba(16, 24, 40, 0.06);
+}
+
+.paperTitle {
+  font-size: 28px;
+  font-weight: 700;
+  color: #101828;
+  line-height: 1.35;
+}
+
+.scoreBig {
+  margin-top: 10px;
+  font-size: 36px;
+  font-weight: 800;
+  color: #059669;
+}
+
+.metaRow {
+  margin-top: 8px;
+  font-size: 22px;
+  color: #667085;
+}
+
+.legend {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.legendItem {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.legendDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  margin-right: 6px;
+}
+
+.legendDot.correct {
+  background: #22c55e;
+}
+
+.legendDot.wrong {
+  background: #ef4444;
+}
+
+.legendDot.partial {
+  background: #f97316;
+}
+
+.legendDot.unanswered {
+  background: #9ca3af;
+}
+
+.legendDot.subjective {
+  background: #fff;
+  border: 1px solid #d1d5db;
+}
+
+.legendText {
+  font-size: 22px;
+  color: #475467;
+}
+
+.gridCard {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 12px 18px;
+  box-shadow: 0 8px 22px rgba(16, 24, 40, 0.06);
+}
+
+.gridTitle {
+  font-size: 24px;
+  font-weight: 600;
+  color: #344054;
+  margin-bottom: 12px;
+}
+
+.sheetGrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.sheetItem {
+  height: 44px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-width: 1px;
+  border-style: solid;
+}
+
+.sheetItemText {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.cellCorrect {
+  background: #dcfce7;
+  border-color: #22c55e;
+  color: #14532d;
+}
+
+.cellWrong {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+.cellPartial {
+  background: #ffedd5;
+  border-color: #f97316;
+  color: #9a3412;
+}
+
+.cellUnanswered {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #4b5563;
+}
+
+.cellSubjective {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  color: #374151;
+}
+
+.footerBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid #e5e7eb;
+  box-sizing: border-box;
+}
+
+.footerBtn {
+  background: #22c55e;
+  border-radius: 12px;
+  text-align: center;
+  padding: 14px 0;
+}
+
+.footerBtnText {
+  font-size: 26px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.tip {
+  font-size: 24px;
+  color: #667085;
+  text-align: center;
+  padding: 40px 16px;
+}
+
+.tip.error {
+  color: #b42318;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.36);
+  display: flex;
+  align-items: flex-end;
+  z-index: 50;
+}
+
+.sheet {
+  width: 100%;
+  max-height: 78vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  padding: 14px 12px 22px;
+  box-sizing: border-box;
+}
+
+.sheetTitle {
+  font-size: 24px;
+  font-weight: 700;
+  color: #101828;
+  margin-bottom: 10px;
+}
+
+.analysisSection {
+  margin-top: 12px;
+}
+
+.analysisLabel {
+  font-size: 22px;
+  font-weight: 600;
+  color: #475467;
+  margin-bottom: 6px;
+}
+
+.analysisBody {
+  font-size: 22px;
+  color: #334155;
+  line-height: 1.55;
+}
+
+.analysisChunk {
+  font-size: 22px;
+  color: #334155;
+  line-height: 1.55;
+}
+
+.questionImg {
+  width: 100%;
+  display: block;
+  margin: 8px 0;
+  border-radius: 8px;
+}
+
+.optRow {
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  border: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+
+.optRow.userPicked {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.optRow.correctOpt {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.optKeyRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.optKey {
+  font-size: 22px;
+  font-weight: 700;
+  color: #101828;
+}
+
+.optText {
+  font-size: 22px;
+  color: #374151;
+  margin-top: 4px;
+}
+
+.tagTiny {
+  font-size: 18px;
+  color: #667085;
+  margin-left: 8px;
+}
+
+.closeBtn {
+  margin-top: 16px;
+  background: #22c55e;
+  border-radius: 10px;
+  text-align: center;
+  padding: 12px 0;
+}
+
+.closeBtnText {
+  font-size: 22px;
+  color: #fff;
+  font-weight: 600;
+}

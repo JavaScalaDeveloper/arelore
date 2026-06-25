@@ -1,0 +1,17 @@
+{
+  "miniprogramRoot": "dist/",
+  "projectname": "arelore-client-mini-cert",
+  "description": "考证宝微信小程序（请在仓库目录打开本项目；小程序代码在 dist/）",
+  "compileType": "miniprogram",
+  "appid": "wx762169b5f0274d16",
+  "setting": {
+    "es6": true,
+    "postcss": true,
+    "minified": false,
+    "enhance": true,
+    "compileWorklet": false,
+    "useCompilerPlugins": false
+  },
+  "libVersion": "3.15.2",
+  "simulatorPluginLibVersion": {}
+}

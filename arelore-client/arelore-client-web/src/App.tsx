@@ -10,6 +10,7 @@ import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import WechatLoginModal from './pages/LoginPage';
 import TextMaskingPage from './pages/TextMaskingPage';
 import FileDetectionPage from './pages/FileDetectionPage';
+import PdfToWordPage from './pages/PdfToWordPage';
 import MobileLoginPage from './pages/mobile/MobileLoginPage';
 import MobileRegisterPage from './pages/mobile/MobileRegisterPage';
 import MobileForgotPasswordPage from './pages/mobile/MobileForgotPasswordPage';
@@ -96,6 +97,17 @@ const navigationItems: any[] = [
         key: 'fileDetection',
         label: '文件敏感内容检测',
         path: '/home/tools/file-detection'
+      },
+      {
+        key: 'documentProcessing',
+        label: '文档处理',
+        children: [
+          {
+            key: 'pdfToWord',
+            label: 'PDF转Word',
+            path: '/home/tools/pdf-to-word'
+          }
+        ]
       }
     ]
   },
@@ -343,6 +355,7 @@ function App() {
           } />
           <Route path="/home/tools/text-masking" element={<TextMaskingPage />} />
           <Route path="/home/tools/file-detection" element={<FileDetectionPage />} />
+          <Route path="/home/tools/pdf-to-word" element={<PdfToWordPage />} />
           <Route path="/home/tools/mbti" element={<MbtiQuestionBankPage />} />
           {/* 场景解决方案路由 */}
           <Route path="/home/solutions/database-classification" element={

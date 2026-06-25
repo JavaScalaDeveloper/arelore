@@ -18,8 +18,14 @@ npm install
 npm run dev:weapp
 ```
 
-开发模式会监听并输出到 `dist` 目录。  
-微信开发者工具中导入该模块目录，选择 `dist` 作为小程序代码目录即可预览。
+开发模式会监听并输出到 `dist` 目录。
+
+**微信开发者工具导入方式（二选一）：**
+
+1. **推荐**：导入本目录 `arelore-client-mini-cert`（已含根目录 `project.config.json`，`miniprogramRoot` 指向 `dist/`）。
+2. 或直接导入 `dist/` 目录。
+
+导入前请先执行 `npm run build:weapp` 或 `npm run dev:weapp`，确保 `dist/app.json` 已生成。若报 `no found app.json` 或 `prebundle/...react-dom... is not defined`，多为未构建或打开了错误目录。
 
 生产构建：
 

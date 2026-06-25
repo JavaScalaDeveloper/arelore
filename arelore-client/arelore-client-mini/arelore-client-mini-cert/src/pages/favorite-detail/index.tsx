@@ -100,7 +100,22 @@ const FavoriteDetailPage = () => {
       return;
     }
     Taro.showToast({ title: '已取消收藏', icon: 'success' });
-    setTimeout(() => Taro.navigateBack(), 400);
+    setTimeout(() => {
+      try {
+        const pages = Taro.getCurrentPages();
+        if (pages.length > 1) {
+          Taro.navigateBack({
+            fail: () => {
+              Taro.switchTab({ url: '/pages/profile/index' });
+            }
+          });
+        } else {
+          Taro.switchTab({ url: '/pages/profile/index' });
+        }
+      } catch (_e) {
+        Taro.switchTab({ url: '/pages/profile/index' });
+      }
+    }, 400);
   };
 
   const { stem, desc } = question ? resolveStemAndDesc(question) : { stem: '', desc: '' };

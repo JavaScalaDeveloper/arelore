@@ -5,30 +5,16 @@ import {
   SOFT_EXAM_CATALOG,
   softExamPaperIndexOfSubject
 } from '../../constants/softExamPaperNav';
+import {
+  NCRE_EXAM_CATALOG,
+  ncrePaperIndexOfSubject
+} from '../../constants/ncreExamPaperNav';
+import { emitTabBarIndex } from '../../utils/tabBarSync';
 import './index.scss';
 
 /** 与 quiz-paper-list 约定：无 paperIdx 时的回退 */
 const QUIZ_PAPER_LIST_EXAM_KEY = 'quizPaperListExamCategory';
 const QUIZ_PAPER_LIST_SUBJECT_KEY = 'quizPaperListSubject';
-
-const ncreData = [
-  {
-    level: '一级',
-    items: ['计算机基础及WPS Office应用', '计算机基础及MS Office应用']
-  },
-  {
-    level: '二级',
-    items: ['C语言程序设计', 'Java语言程序设计', 'Python语言程序设计', 'Web程序设计', 'MS Office高级应用']
-  },
-  {
-    level: '三级',
-    items: ['网络技术', '数据库技术', '信息安全技术', '嵌入式系统开发技术']
-  },
-  {
-    level: '四级',
-    items: ['网络工程师', '数据库工程师', '信息安全工程师', '嵌入式系统开发工程师']
-  }
-];
 
 const QuizPage = () => {
   const [token, setToken] = useState('');
@@ -37,30 +23,28 @@ const QuizPage = () => {
 
   useDidShow(() => {
     setToken(Taro.getStorageSync('token') || '');
+    emitTabBarIndex(1);
   });
 
   const onGoLogin = () => {
     Taro.navigateTo({ url: '/pages/login/index' });
   };
 
-  const syncPaperListStorage = (subject) => {
+  const syncPaperListStorage = (examCategory, subject) => {
     try {
-      Taro.setStorageSync(QUIZ_PAPER_LIST_EXAM_KEY, '软考');
+      Taro.setStorageSync(QUIZ_PAPER_LIST_EXAM_KEY, examCategory);
       Taro.setStorageSync(QUIZ_PAPER_LIST_SUBJECT_KEY, subject);
     } catch (_e) {
       /* 试卷列表页仍可从 URL 参数解析，缓存失败不阻断导航 */
     }
   };
 
-  /** tab 页上不用 navigator（易与 React 事件冲突）；整行 View + 同步 navigateTo，URL 仅用 paperIdx */
-  const goQuizPaperList = (subject) => {
-    const paperIdx = softExamPaperIndexOfSubject(subject);
-    if (paperIdx < 0) {
-      void Taro.showToast({ title: '未知科目', icon: 'none' });
-      return;
-    }
-    syncPaperListStorage(subject);
-    const url = `/pages/quiz-paper-list/index?paperIdx=${paperIdx}`;
+  const goPaperList = (examCategory, paperIdx, subject) => {
+    syncPaperListStorage(examCategory, subject);
+    const url =
+      examCategory === 'NCRE'
+        ? `/pages/quiz-paper-list/index?examCategory=NCRE&paperIdx=${paperIdx}`
+        : `/pages/quiz-paper-list/index?paperIdx=${paperIdx}`;
     Taro.navigateTo({
       url,
       fail: (err) => {
@@ -70,6 +54,25 @@ const QuizPage = () => {
         });
       }
     });
+  };
+
+  /** tab 页上不用 navigator（易与 React 事件冲突）；整行 View + 同步 navigateTo */
+  const goQuizPaperList = (subject) => {
+    const paperIdx = softExamPaperIndexOfSubject(subject);
+    if (paperIdx < 0) {
+      void Taro.showToast({ title: '未知科目', icon: 'none' });
+      return;
+    }
+    goPaperList('软考', paperIdx, subject);
+  };
+
+  const goNcrePaperList = (subject) => {
+    const paperIdx = ncrePaperIndexOfSubject(subject);
+    if (paperIdx < 0) {
+      void Taro.showToast({ title: '未知科目', icon: 'none' });
+      return;
+    }
+    goPaperList('NCRE', paperIdx, subject);
   };
 
   const rightTitle = useMemo(() => {
@@ -140,7 +143,7 @@ const QuizPage = () => {
 
             {activeRoot === 'NCRE' ? (
               <View className='groups'>
-                {ncreData.map((g) => (
+                {NCRE_EXAM_CATALOG.map((g) => (
                   <View key={g.level} className='group'>
                     <View
                       className='accordionTitle'
@@ -152,9 +155,15 @@ const QuizPage = () => {
                     {openNcre[g.level] ? (
                       <View className='list'>
                         {g.items.map((it) => (
-                          <View key={it} className='listItem'>
-                            <Text className='bullet'>•</Text>
-                            <Text className='listText'>{it}</Text>
+                          <View
+                            key={it}
+                            className='softPaperRow'
+                            hoverClass='softPaperRowHover'
+                            hoverStayTime={70}
+                            onClick={() => goNcrePaperList(it)}
+                          >
+                            <View className='bullet'>•</View>
+                            <View className='listText clickable'>{it}</View>
                           </View>
                         ))}
                       </View>

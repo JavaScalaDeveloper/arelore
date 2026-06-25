@@ -1,28 +1,25 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { Button, Text, View } from '@tarojs/components';
 import { postWithAuth } from '../../utils/request';
+import { emitTabBarIndex } from '../../utils/tabBarSync';
 import './index.scss';
 
 const ProfilePage = () => {
   const [token, setToken] = useState('');
-  const [currentUser, setCurrentUser] = useState({});
-  const [loading, setLoading] = useState(false);
   const [errMsg, setErrMsg] = useState('');
 
   useDidShow(() => {
+    emitTabBarIndex(2);
     const t = Taro.getStorageSync('token') || '';
     setToken(t);
-    setCurrentUser(Taro.getStorageSync('currentUser') || {});
     setErrMsg('');
 
     if (!t) return;
     (async () => {
       try {
-        setLoading(true);
         const resp = await postWithAuth('/user/auth/current', {});
         if (resp && resp.code === 200 && resp.data) {
-          setCurrentUser(resp.data);
           Taro.setStorageSync('currentUser', resp.data);
           return;
         }
@@ -30,23 +27,16 @@ const ProfilePage = () => {
           Taro.removeStorageSync('token');
           Taro.removeStorageSync('currentUser');
           setToken('');
-          setCurrentUser({});
           setErrMsg(resp.message || '未登录或登录已过期');
           return;
         }
-        setErrMsg(resp?.message || '获取用户信息失败');
+        setErrMsg(resp?.message || '登录态校验失败');
       } catch (e) {
-        const msg = e && e.errMsg ? e.errMsg : '获取用户信息失败';
+        const msg = e && e.errMsg ? e.errMsg : '登录态校验失败';
         setErrMsg(msg);
-      } finally {
-        setLoading(false);
       }
     })();
   });
-
-  const currentUserName = useMemo(() => {
-    return currentUser?.nickname || currentUser?.username || '微信用户';
-  }, [currentUser]);
 
   const onGoLogin = () => {
     Taro.navigateTo({ url: '/pages/login/index' });
@@ -58,20 +48,6 @@ const ProfilePage = () => {
 
   const onGoFavorites = () => {
     Taro.navigateTo({ url: '/pages/favorites/index' });
-  };
-
-  const onLogout = async () => {
-    const res = await Taro.showModal({
-      title: '退出登录',
-      content: '确定要退出当前账号吗？'
-    });
-    if (!res.confirm) return;
-    Taro.removeStorageSync('token');
-    Taro.removeStorageSync('currentUser');
-    setToken('');
-    setCurrentUser({});
-    Taro.showToast({ title: '已退出登录', icon: 'success' });
-    Taro.reLaunch({ url: '/pages/login/index' });
   };
 
   return (
@@ -94,16 +70,6 @@ const ProfilePage = () => {
           </>
         ) : (
           <>
-            <View className='userBlock'>
-              <View className='avatar'>
-                <Text className='avatarText'>{String(currentUserName).slice(0, 1)}</Text>
-              </View>
-              <View className='userMeta'>
-                <Text className='userName'>{currentUserName}</Text>
-                <Text className='userStatus'>{loading ? '登录态校验中…' : '已登录'}</Text>
-              </View>
-            </View>
-
             <View className='iconGrid'>
               <View className='iconItem' onClick={onGoExamHistory}>
                 <View className='iconCircle iconCircleExam'>
@@ -117,10 +83,6 @@ const ProfilePage = () => {
                 </View>
                 <Text className='iconLabel'>收藏夹</Text>
               </View>
-            </View>
-
-            <View className='logoutRow' onClick={onLogout}>
-              <Text className='logoutText'>退出登录</Text>
             </View>
 
             {errMsg ? (

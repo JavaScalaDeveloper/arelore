@@ -22,12 +22,22 @@ spring:
       username: ${ARELORE_MYSQL_USERNAME:root}
       password: ${ARELORE_MYSQL_PASSWORD:123456}
       driver-class-name: com.mysql.cj.jdbc.Driver
+      hikari:
+        max-lifetime: 580000
+        idle-timeout: 520000
+        connection-timeout: 30000
+        keepalive-time: 60000
     user:
       # 用户注册相关库
       url: jdbc:mysql://localhost:3306/arelore_user?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
       username: ${ARELORE_MYSQL_USERNAME:root}
       password: ${ARELORE_MYSQL_PASSWORD:123456}
       driver-class-name: com.mysql.cj.jdbc.Driver
+      hikari:
+        max-lifetime: 580000
+        idle-timeout: 520000
+        connection-timeout: 30000
+        keepalive-time: 60000
 
 logging:
   level:

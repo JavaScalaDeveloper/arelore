@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Taro from '@tarojs/taro';
 import { Text, View } from '@tarojs/components';
+import { subscribeTabBarIndex } from '../utils/tabBarSync';
 import './index.scss';
 
 const tabs = [
@@ -9,22 +10,40 @@ const tabs = [
   { pagePath: '/pages/profile/index', text: '个人', icon: '☺' }
 ];
 
+function indexFromRoute() {
+  try {
+    const pages = Taro.getCurrentPages();
+    const cur = pages[pages.length - 1];
+    const route = cur?.route ? `/${cur.route}` : '';
+    const idx = tabs.findIndex((t) => t.pagePath === route);
+    return idx >= 0 ? idx : 0;
+  } catch (_e) {
+    return 0;
+  }
+}
+
 const CustomTabBar = () => {
   const [selected, setSelected] = useState(0);
 
+  const applyIndex = useCallback((idx) => {
+    setSelected((prev) => (prev === idx ? prev : idx));
+  }, []);
+
   useEffect(() => {
-    const pages = Taro.getCurrentPages();
-    const cur = pages[pages.length - 1];
-    const route = cur ? `/${cur.route}` : '';
-    const idx = tabs.findIndex((t) => t.pagePath === route);
-    setSelected(idx >= 0 ? idx : 0);
-  });
+    applyIndex(indexFromRoute());
+    return subscribeTabBarIndex(applyIndex);
+  }, [applyIndex]);
 
   const onSwitch = (idx) => {
     const tab = tabs[idx];
     if (!tab) return;
-    setSelected(idx);
-    Taro.switchTab({ url: tab.pagePath });
+    if (selected === idx) {
+      return;
+    }
+    Taro.switchTab({
+      url: tab.pagePath,
+      success: () => applyIndex(idx)
+    });
   };
 
   return (
