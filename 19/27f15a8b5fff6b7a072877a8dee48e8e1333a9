@@ -1,0 +1,67 @@
+arelore-client/arelore-client-android/arelore-client-android-base/app/proguard-rules.pro
+  551bca709d578fc4 1-4
+arelore-client/arelore-client-android/arelore-client-android-base/settings.gradle.kts
+  551bca709d578fc4 1-18
+arelore-client/arelore-client-android/arelore-client-android-base/app/src/main/res/drawable/ic_launcher_foreground.xml
+  551bca709d578fc4 1-14
+arelore-client/arelore-client-android/arelore-client-android-base/app/src/main/java/com/arelore/android/base/hotupdate/HotUpdateConfig.kt
+  551bca709d578fc4 1-19
+arelore-client/arelore-client-android/arelore-client-android-base/app/src/main/res/xml/network_security_config.xml
+  551bca709d578fc4 1-8
+arelore-client/arelore-client-android/arelore-client-android-base/app/src/main/res/layout/activity_main.xml
+  551bca709d578fc4 1-60
+arelore-client/arelore-client-android/arelore-client-android-base/app/src/main/java/com/arelore/android/base/AreloreApp.kt
+  551bca709d578fc4 1-5
+arelore-client/arelore-client-android/arelore-client-android-base/app/src/main/res/values/colors.xml
+  551bca709d578fc4 1-10
+arelore-client/arelore-client-android/arelore-client-android-base/.gitignore
+  551bca709d578fc4 1-65
+arelore-client/arelore-client-android/arelore-client-android-base/app/src/main/res/drawable/ic_launcher.xml
+  551bca709d578fc4 1-11
+arelore-client/arelore-client-android/arelore-client-android-base/build.gradle.kts
+  551bca709d578fc4 1-4
+arelore-client/arelore-client-android/README.md
+  551bca709d578fc4 3-7,11,13,15,17
+arelore-client/arelore-client-android/arelore-client-android-base/app/src/main/res/values/strings.xml
+  551bca709d578fc4 1-7
+arelore-client/arelore-client-android/arelore-client-android-base/gradle.properties
+  551bca709d578fc4 1-4
+arelore-client/arelore-client-android/arelore-client-android-base/app/src/main/java/com/arelore/android/base/ui/MainActivity.kt
+  551bca709d578fc4 1-155
+arelore-client/arelore-client-android/arelore-client-android-base/app/src/main/res/values/themes.xml
+  551bca709d578fc4 1-11
+arelore-client/arelore-client-android/arelore-client-android-base/README.md
+  551bca709d578fc4 1-234
+arelore-client/arelore-client-android/arelore-client-android-base/gradlew.bat
+  551bca709d578fc4 1-93
+arelore-client/arelore-client-android/arelore-client-android-base/gradlew
+  551bca709d578fc4 1-92
+arelore-client/arelore-client-android/arelore-client-android-base/app/src/main/java/com/arelore/android/base/hotupdate/HotUpdateManager.kt
+  551bca709d578fc4 1-99
+arelore-client/arelore-client-android/arelore-client-android-base/gradle/wrapper/gradle-wrapper.properties
+  551bca709d578fc4 1-7
+arelore-client/arelore-client-android/arelore-client-android-base/app/build.gradle.kts
+  551bca709d578fc4 1-69
+arelore-client/arelore-client-android/arelore-client-android-base/app/src/main/AndroidManifest.xml
+  551bca709d578fc4 1-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "1927f15a8b5fff6b7a072877a8dee48e8e1333a9",
+  "prompts": {
+    "551bca709d578fc4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cursor-bridge-synthetic",
+        "model": "unknown"
+      },
+      "human_author": "huang.huang1 <huang.huang1@jtexpress.com>",
+      "messages": [],
+      "total_additions": 1083,
+      "total_deletions": 52,
+      "accepted_lines": 1046,
+      "overriden_lines": 0
+    }
+  }
+}
