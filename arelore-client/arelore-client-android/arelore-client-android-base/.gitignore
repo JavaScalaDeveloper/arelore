@@ -1,0 +1,65 @@
+# Built application files
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+build/
+app/build/
+captures/
+
+# Gradle
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
+
+# Kotlin
+.kotlin/
+
+# Local configuration (SDK path etc.) — do not commit
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea/workspace.xml
+.idea/libraries/
+.idea/caches/
+.navigation/
+
+# NDK / CMake
+.externalNativeBuild/
+.cxx/
+obj/
+
+# Signing — never commit secrets
+*.jks
+*.keystore
+keystore.properties
+*-release-key.jks
+*-upload-key.jks
+
+# Log & profiling
+*.log
+*.hprof
+
+# OS junk
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Misc
+*.swp
+*~
+.vscode/
+*.bak

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Content is loaded over HTTP for hot-updated H5; allow cleartext for arelore.com -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">arelore.com</domain>
+        <domain includeSubdomains="true">www.arelore.com</domain>
+    </domain-config>
+</network-security-config>

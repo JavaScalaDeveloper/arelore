@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Arelore" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/arelore_primary</item>
+        <item name="colorPrimaryDark">@color/arelore_primary_dark</item>
+        <item name="colorAccent">@color/arelore_accent</item>
+        <item name="android:statusBarColor">@color/arelore_primary_dark</item>
+        <item name="android:navigationBarColor">@color/white</item>
+        <item name="android:windowBackground">@color/arelore_background</item>
+    </style>
+</resources>
