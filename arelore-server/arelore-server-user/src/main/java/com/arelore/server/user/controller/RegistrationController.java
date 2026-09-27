@@ -7,7 +7,7 @@ import com.arelore.server.core.registration.dto.MobileRegisterApplyRequest;
 import com.arelore.server.core.registration.dto.MobileRegisterVerifyRequest;
 import com.arelore.server.core.registration.dto.MobileResetPasswordApplyRequest;
 import com.arelore.server.core.registration.dto.MobileResetPasswordConfirmRequest;
-import com.arelore.server.core.registration.service.UserRegistrationService;
+import com.arelore.server.core.biz.user.UserRegistrationService;
 import com.arelore.server.core.registration.support.ClientIpUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;

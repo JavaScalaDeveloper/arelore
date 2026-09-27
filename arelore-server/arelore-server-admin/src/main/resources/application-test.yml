@@ -1,0 +1,32 @@
+# =====================================================
+# Arelore Server Admin Service Configuration (Test)
+# =====================================================
+# API 设计规范：
+# 1. 禁止使用 RESTful 风格（路径上不允许有参数）
+# 2. 所有入参必须通过 @RequestBody 传递（Body 参数）
+# 3. 统一使用 POST 方法
+# 4. 路径命名规范：/api/admin/{操作名}，如 /api/admin/login
+# =====================================================
+
+server:
+  port: 8082
+
+spring:
+  application:
+    name: arelore-server-admin
+  datasource:
+    education:
+      url: jdbc:mysql://aliyun-2c2g:3307/arelore_education?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      username: ${ARELORE_TEST_MYSQL_USERNAME:root}
+      password: ${ARELORE_TEST_MYSQL_PASSWORD:16722927b3a81566aa7f02eabe7fa367}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      hikari:
+        max-lifetime: 580000
+        idle-timeout: 520000
+        connection-timeout: 30000
+        keepalive-time: 60000
+
+logging:
+  level:
+    root: INFO
+    com.arelore.server.admin: DEBUG

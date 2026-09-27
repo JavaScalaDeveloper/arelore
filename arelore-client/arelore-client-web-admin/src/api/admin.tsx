@@ -101,4 +101,24 @@ export const adminApi = {
   deleteDetectionQuestion: (data: { id: number }): Promise<ApiResponse<any>> => {
     return request.post('/admin/detection/question/delete', data);
   },
+
+  getWordLanguageList: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/language/list', data),
+  createWordLanguage: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/language/create', data),
+  updateWordLanguage: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/language/update', data),
+  deleteWordLanguage: (data: { id: number }): Promise<ApiResponse<any>> => request.post('/admin/word/language/delete', data),
+
+  getWordCategoryList: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/category/list', data),
+  createWordCategory: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/category/create', data),
+  updateWordCategory: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/category/update', data),
+  deleteWordCategory: (data: { id: number }): Promise<ApiResponse<any>> => request.post('/admin/word/category/delete', data),
+
+  getWordBookList: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/book/list', data),
+  createWordBook: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/book/create', data),
+  updateWordBook: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/book/update', data),
+  deleteWordBook: (data: { id: number }): Promise<ApiResponse<any>> => request.post('/admin/word/book/delete', data),
+
+  getWordEntryList: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/entry/list', data),
+  createWordEntry: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/entry/create', data),
+  updateWordEntry: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/entry/update', data),
+  deleteWordEntry: (data: { id: number }): Promise<ApiResponse<any>> => request.post('/admin/word/entry/delete', data),
 };

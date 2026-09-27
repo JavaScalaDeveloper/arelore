@@ -21,7 +21,7 @@ const Login: React.FC = () => {
       localStorage.setItem('adminToken', `mock-token-${values.username}`);
       localStorage.setItem('adminUser', values.username);
       message.success('登录成功');
-      navigate('/dashboard');
+      navigate('/');
     } catch (error) {
       message.error('登录失败，请检查用户名和密码');
     }

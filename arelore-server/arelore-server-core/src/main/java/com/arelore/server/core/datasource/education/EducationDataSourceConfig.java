@@ -18,7 +18,11 @@ import javax.sql.DataSource;
 @Configuration
 @ConditionalOnProperty(prefix = "spring.datasource.education", name = "url")
 @MapperScan(
-    basePackages = "com.arelore.server.core.detection.mapper",
+    basePackages = {
+        "com.arelore.server.core.detection.mapper",
+        "com.arelore.server.core.biz.word.admin.mapper",
+        "com.arelore.server.core.biz.word.user.mapper"
+    },
     sqlSessionTemplateRef = "educationSqlSessionTemplate"
 )
 public class EducationDataSourceConfig {

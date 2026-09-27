@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Table, Button, Space, Modal, Form, Input, Switch, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
 
 interface UserRecord {
   key: string;
@@ -23,9 +23,10 @@ const UserManagement: React.FC = () => {
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
   const [form] = Form.useForm();
+  const [queryForm] = Form.useForm();
 
   // 模拟数据
-  const dataSource: UserRecord[] = [
+  const allUsers: UserRecord[] = [
     {
       key: '1',
       username: '张三',
@@ -43,6 +44,18 @@ const UserManagement: React.FC = () => {
       createTime: '2024-01-02 11:00:00',
     },
   ];
+  const [dataSource, setDataSource] = useState<UserRecord[]>(allUsers);
+
+  const handleQuery = (values: { username?: string; email?: string; phone?: string }) => {
+    const username = (values.username || '').trim();
+    const email = (values.email || '').trim();
+    const phone = (values.phone || '').trim();
+    setDataSource(allUsers.filter((item) =>
+      (!username || item.username.includes(username))
+      && (!email || item.email.includes(email))
+      && (!phone || item.phone.includes(phone))
+    ));
+  };
 
   const columns: ColumnsType<UserRecord> = [
     {
@@ -136,6 +149,14 @@ const UserManagement: React.FC = () => {
           添加用户
         </Button>
       </div>
+      <Form form={queryForm} layout="inline" style={{ marginBottom: 16 }} onFinish={handleQuery}>
+        <Form.Item name="username"><Input placeholder="用户名" allowClear /></Form.Item>
+        <Form.Item name="email"><Input placeholder="邮箱" allowClear /></Form.Item>
+        <Form.Item name="phone"><Input placeholder="手机号" allowClear /></Form.Item>
+        <Form.Item>
+          <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>查询</Button>
+        </Form.Item>
+      </Form>
 
       <Table
         columns={columns}

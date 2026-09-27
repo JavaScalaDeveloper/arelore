@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Form, Input, InputNumber, Modal, Select, Space, Table, message } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { adminApi, DetectionQuestionPayload } from '../api/admin';
 
 const DetectionQuestionManagement: React.FC = () => {
@@ -10,12 +10,13 @@ const DetectionQuestionManagement: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [form] = Form.useForm();
+  const [queryForm] = Form.useForm();
 
-  const loadData = async () => {
+  const loadData = async (filters?: any) => {
     setLoading(true);
     try {
       const [questionRes, typeRes] = await Promise.all([
-        adminApi.getDetectionQuestionList({ pageNum: 1, pageSize: 500 }),
+        adminApi.getDetectionQuestionList({ pageNum: 1, pageSize: 500, ...filters }),
         adminApi.getDetectionTypeList({ pageNum: 1, pageSize: 500 })
       ]);
       setDataSource(questionRes.data?.list || []);
@@ -48,7 +49,7 @@ const DetectionQuestionManagement: React.FC = () => {
     setModalVisible(false);
     setEditing(null);
     form.resetFields();
-    loadData();
+    loadData(queryForm.getFieldsValue());
   };
 
   const handleDelete = (id: number) => {
@@ -57,7 +58,7 @@ const DetectionQuestionManagement: React.FC = () => {
       onOk: async () => {
         await adminApi.deleteDetectionQuestion({ id });
         message.success('删除成功');
-        loadData();
+        loadData(queryForm.getFieldsValue());
       }
     });
   };
@@ -70,6 +71,16 @@ const DetectionQuestionManagement: React.FC = () => {
           新增题目
         </Button>
       </div>
+      <Form form={queryForm} layout="inline" style={{ marginBottom: 16 }} onFinish={(values) => loadData(values)}>
+        <Form.Item name="typeCode">
+          <Select allowClear placeholder="类型编码" style={{ width: 200 }} options={typeList.map((item) => ({ value: item.typeCode, label: `${item.typeCode} - ${item.typeName}` }))} />
+        </Form.Item>
+        <Form.Item name="questionCode"><Input placeholder="题目编码" allowClear /></Form.Item>
+        <Form.Item name="questionName"><Input placeholder="题目名称" allowClear /></Form.Item>
+        <Form.Item>
+          <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>查询</Button>
+        </Form.Item>
+      </Form>
       <Table
         rowKey="id"
         loading={loading}

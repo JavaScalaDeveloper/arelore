@@ -7,8 +7,8 @@ import com.arelore.server.core.detection.dto.UserDetectionQuestionRequest;
 import com.arelore.server.core.detection.dto.UserDetectionQuestionResponse;
 import com.arelore.server.core.detection.dto.UserDetectionTypeRequest;
 import com.arelore.server.core.detection.dto.UserDetectionTypeResponse;
-import com.arelore.server.core.detection.service.UserDetectionQuestionService;
-import com.arelore.server.core.detection.service.UserDetectionTypeService;
+import com.arelore.server.core.service.cert.admin.UserDetectionQuestionService;
+import com.arelore.server.core.service.cert.admin.UserDetectionTypeService;
 import org.springframework.web.bind.annotation.*;
 
 @RestController

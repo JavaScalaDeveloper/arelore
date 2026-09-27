@@ -1,7 +1,8 @@
 import React from 'react';
 import { Form, Input, Button, Card, Switch, message } from 'antd';
 import type { FormProps } from 'antd';
-import { SaveOutlined } from '@ant-design/icons';
+import { SaveOutlined, SearchOutlined } from '@ant-design/icons';
+import { adminApi } from '../api/admin';
 
 interface SettingsFormValues {
   siteName: string;
@@ -26,9 +27,26 @@ const SystemSettings: React.FC = () => {
     }
   };
 
+  const onQuery = async () => {
+    try {
+      const response = await adminApi.getSettings();
+      if (response.code === 200 && response.data) {
+        form.setFieldsValue(response.data);
+        message.success('查询成功');
+      } else {
+        message.success('已按当前表单展示');
+      }
+    } catch (error) {
+      message.error('查询失败');
+    }
+  };
+
   return (
     <div>
-      <h1 style={{ marginBottom: 24 }}>系统设置</h1>
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 style={{ margin: 0 }}>系统设置</h1>
+        <Button icon={<SearchOutlined />} type="primary" onClick={onQuery}>查询</Button>
+      </div>
 
       <Card title="基础设置" bordered={false} style={{ marginBottom: 24 }}>
         <Form

@@ -4,7 +4,7 @@ import cn.hutool.core.codec.Base64;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.arelore.server.core.registration.entity.CommonBinaryFile;
 import com.arelore.server.core.registration.mapper.CommonBinaryFileMapper;
-import com.arelore.server.core.user.dto.CommonBinaryFileByHashResponse;
+import com.arelore.server.core.biz.user.dto.CommonBinaryFileByHashResponse;
 import com.arelore.server.user.service.CommonBinaryFileQueryService;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;

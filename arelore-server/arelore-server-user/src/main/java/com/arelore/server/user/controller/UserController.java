@@ -2,9 +2,9 @@ package com.arelore.server.user.controller;
 
 import com.arelore.server.core.common.result.Result;
 import com.arelore.server.core.common.dto.PageResult;
-import com.arelore.server.core.user.dto.UserQueryRequest;
-import com.arelore.server.core.user.dto.UserSaveRequest;
-import com.arelore.server.core.user.dto.UserDeleteRequest;
+import com.arelore.server.core.biz.user.dto.UserQueryRequest;
+import com.arelore.server.core.biz.user.dto.UserSaveRequest;
+import com.arelore.server.core.biz.user.dto.UserDeleteRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;

@@ -1,0 +1,51 @@
+<view class="page" wx:if="{{book}}">
+  <view class="book-bar" bindtap="onTapBook">
+    <view class="book-meta">
+      <text class="book-label">当前单词本</text>
+      <text class="book-name">{{book.name}}</text>
+    </view>
+    <view class="book-action">
+      <text class="book-switch">切换</text>
+      <text class="book-arrow">›</text>
+    </view>
+  </view>
+
+  <view class="cards">
+    <view class="card learn" bindtap="onTapLearn">
+      <text class="card-title">新学</text>
+      <text class="card-desc">今日新记</text>
+      <view class="stats">
+        <view class="stat">
+          <text class="stat-num">{{book.learnTodo}}</text>
+          <text class="stat-label">待完成</text>
+        </view>
+        <view class="stat">
+          <text class="stat-num muted">{{book.learnDone}}</text>
+          <text class="stat-label">已完成</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="card review" bindtap="onTapReview">
+      <text class="card-title">复习</text>
+      <text class="card-desc">巩固已学</text>
+      <view class="stats">
+        <view class="stat">
+          <text class="stat-num">{{book.reviewTodo}}</text>
+          <text class="stat-label">待完成</text>
+        </view>
+        <view class="stat">
+          <text class="stat-num muted">{{book.reviewDone}}</text>
+          <text class="stat-label">已完成</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
+<view class="page empty" wx:else>
+  <text class="empty-text">暂无单词本，请先在管理后台创建，或检查用户服务是否启动</text>
+  <view class="book-bar" bindtap="onTapBook">
+    <text class="book-name">去选择单词本</text>
+    <text class="book-arrow">›</text>
+  </view>
+</view>

@@ -1,0 +1,17 @@
+<view class="page">
+  <text class="hint">选择一本词书后，单词页的新学 / 复习进度会跟着切换。登录后进度会同步到服务端。</text>
+  <view
+    class="book-item {{item.code === currentCode ? 'active' : ''}}"
+    wx:for="{{books}}"
+    wx:key="code"
+    data-code="{{item.code}}"
+    bindtap="onSelect"
+  >
+    <view class="book-text">
+      <text class="name">{{item.name}}</text>
+      <text class="sub">{{item.subtitle}}</text>
+    </view>
+    <text class="check" wx:if="{{item.code === currentCode}}">已选</text>
+  </view>
+  <view class="empty" wx:if="{{!books.length}}">暂无单词本</view>
+</view>

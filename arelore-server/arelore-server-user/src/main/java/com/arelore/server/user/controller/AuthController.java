@@ -1,14 +1,14 @@
 package com.arelore.server.user.controller;
 
 import com.arelore.server.core.common.result.Result;
-import com.arelore.server.core.user.dto.WechatQrCodeResponse;
-import com.arelore.server.core.user.dto.WechatQrCodeStatusResponse;
-import com.arelore.server.core.user.dto.WechatQuickLoginRequest;
-import com.arelore.server.core.user.dto.MobileLoginRequest;
-import com.arelore.server.core.user.dto.AuthLoginResponse;
-import com.arelore.server.core.user.dto.AuthUserInfoResponse;
-import com.arelore.server.core.user.dto.SceneIdRequest;
-import com.arelore.server.core.user.service.AuthService;
+import com.arelore.server.core.biz.user.dto.WechatQrCodeResponse;
+import com.arelore.server.core.biz.user.dto.WechatQrCodeStatusResponse;
+import com.arelore.server.core.biz.user.dto.WechatQuickLoginRequest;
+import com.arelore.server.core.biz.user.dto.MobileLoginRequest;
+import com.arelore.server.core.biz.user.dto.AuthLoginResponse;
+import com.arelore.server.core.biz.user.dto.AuthUserInfoResponse;
+import com.arelore.server.core.biz.user.dto.SceneIdRequest;
+import com.arelore.server.core.biz.user.AuthService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;

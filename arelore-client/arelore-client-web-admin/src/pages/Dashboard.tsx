@@ -6,6 +6,7 @@ import {
   MessageOutlined,
   DashboardOutlined,
   RiseOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import { adminApi } from '../api/admin';
 
@@ -100,12 +101,13 @@ const Dashboard: React.FC = () => {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1 style={{ margin: 0 }}>控制台</h1>
-        <Button 
-          type="primary" 
-          onClick={loadDashboard} 
+        <Button
+          type="primary"
+          icon={<SearchOutlined />}
+          onClick={() => { loadDashboard(); loadUserList(); }}
           loading={loading}
         >
-          刷新数据
+          查询
         </Button>
       </div>
       

@@ -1,8 +1,8 @@
 package com.arelore.server.user.controller;
 
 import com.arelore.server.core.common.result.Result;
-import com.arelore.server.core.user.dto.CommonBinaryFileByHashRequest;
-import com.arelore.server.core.user.dto.CommonBinaryFileByHashResponse;
+import com.arelore.server.core.biz.user.dto.CommonBinaryFileByHashRequest;
+import com.arelore.server.core.biz.user.dto.CommonBinaryFileByHashResponse;
 import com.arelore.server.user.service.CommonBinaryFileQueryService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

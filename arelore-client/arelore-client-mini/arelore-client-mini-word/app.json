@@ -1,0 +1,37 @@
+{
+  "pages": [
+    "pages/words/index",
+    "pages/profile/index",
+    "pages/books/index",
+    "pages/login/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "背单词",
+    "navigationBarBackgroundColor": "#3B82F6",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#F3F4F6",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#9CA3AF",
+    "selectedColor": "#3B82F6",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/words/index",
+        "text": "单词",
+        "iconPath": "assets/tab-word.png",
+        "selectedIconPath": "assets/tab-word-active.png"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的",
+        "iconPath": "assets/tab-me.png",
+        "selectedIconPath": "assets/tab-me-active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

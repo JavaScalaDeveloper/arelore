@@ -1,0 +1,40 @@
+.page {
+  min-height: 100vh;
+  padding: 48rpx 40rpx;
+  box-sizing: border-box;
+}
+
+.card {
+  padding: 48rpx 40rpx;
+  background: #ffffff;
+  border-radius: 24rpx;
+}
+
+.title {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #111827;
+}
+
+.sub {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 28rpx;
+  color: #6b7280;
+}
+
+.hint {
+  display: block;
+  margin-top: 24rpx;
+  font-size: 22rpx;
+  color: #9ca3af;
+  word-break: break-all;
+}
+
+.btn {
+  margin-top: 48rpx;
+  background: #07c160;
+  color: #ffffff;
+  border-radius: 16rpx;
+}

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Form, Input, Modal, Space, Table, message } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { adminApi, DetectionTypePayload } from '../api/admin';
 
 const DetectionTypeManagement: React.FC = () => {
@@ -9,11 +9,12 @@ const DetectionTypeManagement: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [form] = Form.useForm();
+  const [queryForm] = Form.useForm();
 
-  const loadData = async () => {
+  const loadData = async (filters?: any) => {
     setLoading(true);
     try {
-      const res = await adminApi.getDetectionTypeList({ pageNum: 1, pageSize: 200 });
+      const res = await adminApi.getDetectionTypeList({ pageNum: 1, pageSize: 200, ...filters });
       setDataSource(res.data?.list || []);
     } finally {
       setLoading(false);
@@ -41,7 +42,7 @@ const DetectionTypeManagement: React.FC = () => {
     setModalVisible(false);
     setEditing(null);
     form.resetFields();
-    loadData();
+    loadData(queryForm.getFieldsValue());
   };
 
   const handleDelete = (id: number) => {
@@ -50,7 +51,7 @@ const DetectionTypeManagement: React.FC = () => {
       onOk: async () => {
         await adminApi.deleteDetectionType({ id });
         message.success('删除成功');
-        loadData();
+        loadData(queryForm.getFieldsValue());
       }
     });
   };
@@ -63,6 +64,13 @@ const DetectionTypeManagement: React.FC = () => {
           新增类型
         </Button>
       </div>
+      <Form form={queryForm} layout="inline" style={{ marginBottom: 16 }} onFinish={(values) => loadData(values)}>
+        <Form.Item name="typeCode"><Input placeholder="类型编码" allowClear /></Form.Item>
+        <Form.Item name="typeName"><Input placeholder="类型名称" allowClear /></Form.Item>
+        <Form.Item>
+          <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>查询</Button>
+        </Form.Item>
+      </Form>
       <Table
         rowKey="id"
         loading={loading}

@@ -2,8 +2,8 @@ package com.arelore.server.user.controller;
 
 import com.arelore.server.core.common.result.Result;
 import com.arelore.server.core.registration.support.ClientIpUtils;
-import com.arelore.server.core.user.dto.AuthLoginResponse;
-import com.arelore.server.core.user.dto.MiniManualLoginRequest;
+import com.arelore.server.core.biz.user.dto.AuthLoginResponse;
+import com.arelore.server.core.biz.user.dto.MiniManualLoginRequest;
 import com.arelore.server.user.service.MiniAuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;

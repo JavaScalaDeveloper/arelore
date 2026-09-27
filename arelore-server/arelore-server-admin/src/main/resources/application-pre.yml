@@ -1,0 +1,21 @@
+# =====================================================
+# Arelore Server Admin Service Configuration (Pre)
+# =====================================================
+# API 设计规范：
+# 1. 禁止使用 RESTful 风格（路径上不允许有参数）
+# 2. 所有入参必须通过 @RequestBody 传递（Body 参数）
+# 3. 统一使用 POST 方法
+# 4. 路径命名规范：/api/admin/{操作名}，如 /api/admin/login
+# =====================================================
+
+server:
+  port: 8082
+
+spring:
+  application:
+    name: arelore-server-admin
+
+logging:
+  level:
+    root: INFO
+    com.arelore.server.admin: INFO

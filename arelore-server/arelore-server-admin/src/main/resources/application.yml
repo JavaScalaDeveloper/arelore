@@ -15,7 +15,10 @@ spring:
   application:
     name: arelore-server-admin
   profiles:
-    # 支持通过环境变量切换环境配置（如 application-test.yml / application-prd.yml）
+    # 支持通过环境变量切换配置文件：
+    # test -> application-test.yml
+    # pre  -> application-pre.yml
+    # prd  -> application-prd.yml
     active: ${SPRING_PROFILES_ACTIVE:test}
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss

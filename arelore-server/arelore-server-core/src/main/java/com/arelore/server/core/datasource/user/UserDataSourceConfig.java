@@ -17,7 +17,9 @@ import javax.sql.DataSource;
 @Configuration
 @ConditionalOnProperty(prefix = "spring.datasource.user", name = "url")
 @MapperScan(
-    basePackages = "com.arelore.server.core.registration.mapper",
+    basePackages = {
+        "com.arelore.server.core.registration.mapper"
+    },
     sqlSessionTemplateRef = "userSqlSessionTemplate"
 )
 public class UserDataSourceConfig {

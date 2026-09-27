@@ -1,0 +1,82 @@
+.page {
+  min-height: 100vh;
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  padding: 36rpx 32rpx;
+  background: #ffffff;
+  border-radius: 24rpx;
+}
+
+.user-card.guest {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+}
+
+.avatar {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 56rpx;
+  background: #e5e7eb;
+  flex-shrink: 0;
+}
+
+.avatar.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  font-size: 36rpx;
+  font-weight: 700;
+  background: #dbeafe;
+}
+
+.user-meta {
+  margin-left: 24rpx;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.nickname {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.tip {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #6b7280;
+}
+
+.login-btn {
+  margin: 32rpx 0 0;
+  width: 100%;
+  background: #07c160;
+  color: #ffffff;
+  font-size: 30rpx;
+  border-radius: 16rpx;
+}
+
+.login-btn::after {
+  border: none;
+}
+
+.logout-btn {
+  margin-top: 48rpx;
+  background: #ffffff;
+  color: #ef4444;
+  font-size: 30rpx;
+  border-radius: 16rpx;
+  border: 2rpx solid #fecaca;
+}

@@ -1,9 +1,9 @@
 package com.arelore.server.user.controller;
 
 import com.arelore.server.core.common.result.Result;
-import com.arelore.server.core.user.dto.TextMaskRequest;
-import com.arelore.server.core.user.dto.TextMaskResponse;
-import com.arelore.server.core.user.service.TextMaskService;
+import com.arelore.server.core.biz.user.dto.TextMaskRequest;
+import com.arelore.server.core.biz.user.dto.TextMaskResponse;
+import com.arelore.server.core.biz.user.TextMaskService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
