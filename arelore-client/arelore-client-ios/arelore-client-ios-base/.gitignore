@@ -1,0 +1,90 @@
+# Xcode — user state & local workspaces
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+*.xcuserdatad
+*.xcworkspace
+!default.xcworkspace
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+timeline.xctimeline
+playground.xcworkspace
+
+# Build products
+build/
+DerivedData/
+Index/
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.xcarchive
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# CocoaPods / Carthage / Accio（当前未使用，本地若生成则忽略）
+Pods/
+Carthage/Build/
+Carthage/Checkouts/
+Dependencies/
+.accio/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+fastlane/.env
+fastlane/.env.*
+
+# Code coverage / profiling
+*.gcno
+*.gcda
+coverage/
+*.profraw
+*.profdata
+*.log
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# Signing & local export options（含 Team ID，勿提交）
+*.p12
+*.cer
+*.certSigningRequest
+*.mobileprovision
+*.provisionprofile
+AuthKey_*.p8
+ExportOptions*.plist
+!ExportOptions*.plist.example
+*.keychain
+*.keychain-db
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*~
+*.bak
+*.orig
+
+# OS junk
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
