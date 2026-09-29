@@ -144,6 +144,16 @@ public class WordManageController {
         return Result.success(entryService.pageQuery(request == null ? new AdminWordEntryRequest() : request));
     }
 
+    /** 词条详情（含 ext_info）；列表接口不返回该大字段 */
+    @PostMapping("/entry/detail")
+    public Result<AdminWordEntryResponse> entryDetail(@RequestBody IdRequest request) {
+        Long id = request == null ? null : request.getId();
+        if (id == null) {
+            return Result.error("ID 不能为空");
+        }
+        return Result.success(entryService.getById(id));
+    }
+
     @PostMapping("/entry/create")
     public Result<String> entryCreate(@RequestBody AdminWordEntryRequest request) {
         entryService.create(request);

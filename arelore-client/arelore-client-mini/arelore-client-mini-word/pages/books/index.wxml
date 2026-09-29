@@ -1,17 +1,74 @@
 <view class="page">
-  <text class="hint">选择一本词书后，单词页的新学 / 复习进度会跟着切换。登录后进度会同步到服务端。</text>
-  <view
-    class="book-item {{item.code === currentCode ? 'active' : ''}}"
-    wx:for="{{books}}"
-    wx:key="code"
-    data-code="{{item.code}}"
-    bindtap="onSelect"
-  >
-    <view class="book-text">
-      <text class="name">{{item.name}}</text>
-      <text class="sub">{{item.subtitle}}</text>
-    </view>
-    <text class="check" wx:if="{{item.code === currentCode}}">已选</text>
+  <view class="steps">
+    <text class="step {{step === 'language' ? 'on' : ''}}">1 语种</text>
+    <text class="sep">›</text>
+    <text class="step {{step === 'category' ? 'on' : (language ? 'done' : '')}}">2 分类</text>
+    <text class="sep">›</text>
+    <text class="step {{step === 'book' ? 'on' : ''}}">3 单词本</text>
   </view>
-  <view class="empty" wx:if="{{!books.length}}">暂无单词本</view>
+
+  <view class="path" wx:if="{{language}}">
+    <text class="path-item">{{language.name}}</text>
+    <text class="sep" wx:if="{{category}}">›</text>
+    <text class="path-item" wx:if="{{category}}">{{category.name}}</text>
+    <text class="back" wx:if="{{step !== 'language'}}" bindtap="onBackStep">返回上一步</text>
+  </view>
+
+  <text class="hint" wx:if="{{step === 'language'}}">请先选择要学习的语种</text>
+  <text class="hint" wx:elif="{{step === 'category'}}">请选择该语种下的单词本分类</text>
+  <text class="hint" wx:else>请选择一本词书；登录后进度会同步到服务端</text>
+
+  <view wx:if="{{loading}}" class="empty">加载中…</view>
+
+  <block wx:elif="{{step === 'language'}}">
+    <view
+      class="book-item"
+      wx:for="{{languages}}"
+      wx:key="code"
+      data-code="{{item.code}}"
+      bindtap="onSelectLanguage"
+    >
+      <view class="book-text">
+        <text class="name">{{item.name}}</text>
+        <text class="sub">{{item.code}}{{item.description ? ' · ' + item.description : ''}}</text>
+      </view>
+      <text class="arrow">›</text>
+    </view>
+    <view class="empty" wx:if="{{!languages.length}}">暂无可用语种</view>
+  </block>
+
+  <block wx:elif="{{step === 'category'}}">
+    <view
+      class="book-item"
+      wx:for="{{categories}}"
+      wx:key="code"
+      data-code="{{item.code}}"
+      bindtap="onSelectCategory"
+    >
+      <view class="book-text">
+        <text class="name">{{item.name}}</text>
+        <text class="sub">{{item.description || item.code}}</text>
+      </view>
+      <text class="arrow">›</text>
+    </view>
+    <view class="empty" wx:if="{{!categories.length}}">该语种下暂无分类</view>
+  </block>
+
+  <block wx:else>
+    <view
+      class="book-item {{item.code === currentCode ? 'active' : ''}}"
+      wx:for="{{books}}"
+      wx:key="code"
+      data-code="{{item.code}}"
+      bindtap="onSelectBook"
+    >
+      <view class="book-text">
+        <text class="name">{{item.name}}</text>
+        <text class="sub">{{item.subtitle}}</text>
+      </view>
+      <text class="check" wx:if="{{item.code === currentCode}}">已选</text>
+      <text class="arrow" wx:else>›</text>
+    </view>
+    <view class="empty" wx:if="{{!books.length}}">该分类下暂无单词本</view>
+  </block>
 </view>

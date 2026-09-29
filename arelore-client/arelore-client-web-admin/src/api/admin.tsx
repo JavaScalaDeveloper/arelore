@@ -118,6 +118,7 @@ export const adminApi = {
   deleteWordBook: (data: { id: number }): Promise<ApiResponse<any>> => request.post('/admin/word/book/delete', data),
 
   getWordEntryList: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/entry/list', data),
+  getWordEntryDetail: (data: { id: number }): Promise<ApiResponse<any>> => request.post('/admin/word/entry/detail', data),
   createWordEntry: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/entry/create', data),
   updateWordEntry: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/entry/update', data),
   deleteWordEntry: (data: { id: number }): Promise<ApiResponse<any>> => request.post('/admin/word/entry/delete', data),

@@ -7,9 +7,15 @@ import com.arelore.server.core.registration.enums.AccountTypeEnum;
 import com.arelore.server.core.registration.mapper.UserRegistrationResultMapper;
 import com.arelore.server.core.biz.user.dto.AuthUserInfoResponse;
 import com.arelore.server.core.biz.user.AuthService;
+import com.arelore.server.core.biz.word.admin.AdminWordBookService;
+import com.arelore.server.core.biz.word.admin.AdminWordCategoryService;
+import com.arelore.server.core.biz.word.admin.AdminWordLanguageService;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBookRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBookResponse;
-import com.arelore.server.core.biz.word.admin.AdminWordBookService;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordCategoryRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordCategoryResponse;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordLanguageRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordLanguageResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordCurrentBookRequest;
 import com.arelore.server.core.biz.word.user.dto.UserWordCurrentBookResponse;
 import com.arelore.server.core.biz.word.user.UserWordCurrentBookService;
@@ -26,21 +32,53 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/user/word")
 public class WordQueryController {
+    private final AdminWordLanguageService languageService;
+    private final AdminWordCategoryService categoryService;
     private final AdminWordBookService bookService;
     private final UserWordCurrentBookService currentBookService;
     private final AuthService authService;
     private final UserRegistrationResultMapper registrationResultMapper;
 
     public WordQueryController(
+        AdminWordLanguageService languageService,
+        AdminWordCategoryService categoryService,
         AdminWordBookService bookService,
         UserWordCurrentBookService currentBookService,
         AuthService authService,
         UserRegistrationResultMapper registrationResultMapper
     ) {
+        this.languageService = languageService;
+        this.categoryService = categoryService;
         this.bookService = bookService;
         this.currentBookService = currentBookService;
         this.authService = authService;
         this.registrationResultMapper = registrationResultMapper;
+    }
+
+    @PostMapping("/language/list")
+    public Result<List<AdminWordLanguageResponse>> languageList(
+        @RequestBody(required = false) AdminWordLanguageRequest request
+    ) {
+        if (request == null) {
+            request = new AdminWordLanguageRequest();
+        }
+        if (request.getStatus() == null) {
+            request.setStatus(1);
+        }
+        return Result.success(languageService.list(request));
+    }
+
+    @PostMapping("/category/list")
+    public Result<List<AdminWordCategoryResponse>> categoryList(
+        @RequestBody(required = false) AdminWordCategoryRequest request
+    ) {
+        if (request == null) {
+            request = new AdminWordCategoryRequest();
+        }
+        if (request.getStatus() == null) {
+            request.setStatus(1);
+        }
+        return Result.success(categoryService.list(request));
     }
 
     @PostMapping("/book/list")

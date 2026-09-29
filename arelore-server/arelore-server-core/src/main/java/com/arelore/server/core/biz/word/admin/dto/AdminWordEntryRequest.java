@@ -7,5 +7,5 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 public class AdminWordEntryRequest extends AdminWordEntryResponse {
     private Integer pageNum = 1;
-    private Integer pageSize = 10;
+    private Integer pageSize = 20;
 }

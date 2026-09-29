@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Form, Input, InputNumber, Modal, Select, Space, Table, message } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { Button, Drawer, Form, Input, InputNumber, Modal, Select, Space, Table, message } from 'antd';
+import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { adminApi } from '../api/admin';
 import { wordCodeRules } from '../utils/wordCode';
+
+const DEFAULT_PAGE_SIZE = 20;
+const ENTRY_PAGE_SIZE = 20;
 
 const WordBookManagement: React.FC = () => {
   const [dataSource, setDataSource] = useState<any[]>([]);
@@ -11,31 +14,86 @@ const WordBookManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [total, setTotal] = useState(0);
+  const [pageNum, setPageNum] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [form] = Form.useForm();
   const [queryForm] = Form.useForm();
 
+  const [detailBook, setDetailBook] = useState<any | null>(null);
+  const [entryList, setEntryList] = useState<any[]>([]);
+  const [entryTotal, setEntryTotal] = useState(0);
+  const [entryPageNum, setEntryPageNum] = useState(1);
+  const [entryPageSize, setEntryPageSize] = useState(ENTRY_PAGE_SIZE);
+  const [entryLoading, setEntryLoading] = useState(false);
+  const [entryKeyword, setEntryKeyword] = useState('');
+  const [entryDetailVisible, setEntryDetailVisible] = useState(false);
+  const [entryDetail, setEntryDetail] = useState<any | null>(null);
+
   const loadMeta = async () => {
     const [catRes, langRes] = await Promise.all([
-      adminApi.getWordCategoryList({ pageNum: 1, pageSize: 500 }),
-      adminApi.getWordLanguageList({ pageNum: 1, pageSize: 200 })
+      adminApi.getWordCategoryList({ pageNum: 1, pageSize: 100 }),
+      adminApi.getWordLanguageList({ pageNum: 1, pageSize: 100 })
     ]);
     setCategories(catRes.data?.list || []);
     setLanguages(langRes.data?.list || []);
   };
 
-  const loadData = async (filters?: any) => {
+  const loadData = async (overrides?: { pageNum?: number; pageSize?: number; filters?: any }) => {
+    const nextPageNum = overrides?.pageNum ?? pageNum;
+    const nextPageSize = overrides?.pageSize ?? pageSize;
+    const filters = { ...(overrides?.filters ?? queryForm.getFieldsValue()) };
+    delete filters.pageNum;
+    delete filters.pageSize;
     setLoading(true);
     try {
-      const bookRes = await adminApi.getWordBookList({ pageNum: 1, pageSize: 500, ...filters });
+      const bookRes = await adminApi.getWordBookList({
+        ...filters,
+        pageNum: nextPageNum,
+        pageSize: nextPageSize
+      });
       setDataSource(bookRes.data?.list || []);
+      setTotal(Number(bookRes.data?.total) || 0);
+      setPageNum(bookRes.data?.pageNum || nextPageNum);
+      setPageSize(bookRes.data?.pageSize || nextPageSize);
     } finally {
       setLoading(false);
     }
   };
 
+  const loadEntries = async (bookCode: string, nextPageNum = 1, nextPageSize = ENTRY_PAGE_SIZE, word = '') => {
+    setEntryLoading(true);
+    try {
+      const res = await adminApi.getWordEntryList({
+        bookCode,
+        word: word || undefined,
+        pageNum: nextPageNum,
+        pageSize: nextPageSize
+      });
+      setEntryList(res.data?.list || []);
+      setEntryTotal(Number(res.data?.total) || 0);
+      setEntryPageNum(res.data?.pageNum || nextPageNum);
+      setEntryPageSize(res.data?.pageSize || nextPageSize);
+    } finally {
+      setEntryLoading(false);
+    }
+  };
+
+  const openBookDetail = (book: any) => {
+    setDetailBook(book);
+    setEntryKeyword('');
+    loadEntries(book.code, 1, ENTRY_PAGE_SIZE, '');
+  };
+
+  const openEntryDetail = async (record: any) => {
+    const res = await adminApi.getWordEntryDetail({ id: record.id });
+    setEntryDetail(res.data || record);
+    setEntryDetailVisible(true);
+  };
+
   useEffect(() => {
     loadMeta();
-    loadData();
+    loadData({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE, filters: {} });
   }, []);
 
   const handleSubmit = async () => {
@@ -57,7 +115,7 @@ const WordBookManagement: React.FC = () => {
     setModalVisible(false);
     setEditing(null);
     form.resetFields();
-    loadData(queryForm.getFieldsValue());
+    loadData({ pageNum: 1 });
   };
 
   return (
@@ -66,7 +124,7 @@ const WordBookManagement: React.FC = () => {
         <h1 style={{ margin: 0 }}>单词本</h1>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditing(null); form.resetFields(); form.setFieldsValue({ wordCount: 0, status: 1 }); setModalVisible(true); }}>新增单词本</Button>
       </div>
-      <Form form={queryForm} layout="inline" style={{ marginBottom: 16 }} onFinish={(values) => loadData(values)}>
+      <Form form={queryForm} layout="inline" style={{ marginBottom: 16 }} onFinish={(values) => loadData({ pageNum: 1, pageSize, filters: values })}>
         <Form.Item name="code"><Input placeholder="单词本 code" allowClear /></Form.Item>
         <Form.Item name="name"><Input placeholder="名称" allowClear /></Form.Item>
         <Form.Item name="languageCode">
@@ -83,6 +141,17 @@ const WordBookManagement: React.FC = () => {
         rowKey="id"
         loading={loading}
         dataSource={dataSource}
+        pagination={{
+          current: pageNum,
+          pageSize,
+          total,
+          showSizeChanger: true,
+          pageSizeOptions: ['20', '50', '100'],
+          showTotal: (t) => `共 ${t} 条`,
+          onChange: (nextPage, nextSize) => {
+            loadData({ pageNum: nextPage, pageSize: nextSize || DEFAULT_PAGE_SIZE });
+          }
+        }}
         columns={[
           { title: 'ID', dataIndex: 'id', width: 80 },
           { title: 'code', dataIndex: 'code' },
@@ -93,11 +162,13 @@ const WordBookManagement: React.FC = () => {
           { title: '状态', dataIndex: 'status', width: 80 },
           {
             title: '操作',
+            width: 220,
             render: (_, record) => (
               <Space>
+                <Button type="link" icon={<EyeOutlined />} onClick={() => openBookDetail(record)}>详情</Button>
                 <Button type="link" icon={<EditOutlined />} onClick={() => { setEditing(record); form.setFieldsValue(record); setModalVisible(true); }}>编辑</Button>
                 <Button type="link" danger icon={<DeleteOutlined />} onClick={() => {
-                  Modal.confirm({ title: '确认删除', onOk: async () => { await adminApi.deleteWordBook({ id: record.id }); message.success('删除成功'); loadData(queryForm.getFieldsValue()); } });
+                  Modal.confirm({ title: '确认删除', onOk: async () => { await adminApi.deleteWordBook({ id: record.id }); message.success('删除成功'); loadData(); } });
                 }}>删除</Button>
               </Space>
             )
@@ -120,6 +191,91 @@ const WordBookManagement: React.FC = () => {
           <Form.Item name="status" label="状态"><InputNumber min={0} max={1} style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="extInfo" label="拓展 JSON"><Input.TextArea rows={3} /></Form.Item>
         </Form>
+      </Modal>
+
+      <Drawer
+        title={detailBook ? `词条 · ${detailBook.code} · ${detailBook.name}` : '词条'}
+        width={860}
+        open={!!detailBook}
+        onClose={() => setDetailBook(null)}
+        destroyOnClose
+      >
+        <Space style={{ marginBottom: 16 }}>
+          <Input
+            allowClear
+            placeholder="词条原文前缀"
+            value={entryKeyword}
+            onChange={(e) => setEntryKeyword(e.target.value)}
+            onPressEnter={() => detailBook && loadEntries(detailBook.code, 1, entryPageSize, entryKeyword)}
+            style={{ width: 220 }}
+          />
+          <Button
+            type="primary"
+            icon={<SearchOutlined />}
+            onClick={() => detailBook && loadEntries(detailBook.code, 1, entryPageSize, entryKeyword)}
+          >
+            查询
+          </Button>
+          <span style={{ color: '#888' }}>共 {entryTotal} 词</span>
+        </Space>
+        <Table
+          rowKey="id"
+          loading={entryLoading}
+          dataSource={entryList}
+          pagination={{
+            current: entryPageNum,
+            pageSize: entryPageSize,
+            total: entryTotal,
+            showSizeChanger: true,
+            pageSizeOptions: ['20', '50', '100'],
+            showTotal: (t) => `共 ${t} 条`,
+            onChange: (page, size) => {
+              if (detailBook) {
+                loadEntries(detailBook.code, page, size || ENTRY_PAGE_SIZE, entryKeyword);
+              }
+            }
+          }}
+          columns={[
+            { title: 'ID', dataIndex: 'id', width: 80 },
+            { title: '单词 code', dataIndex: 'wordCode' },
+            { title: '词条', dataIndex: 'word' },
+            { title: '排序', dataIndex: 'sortNo', width: 80 },
+            {
+              title: '操作',
+              width: 100,
+              render: (_, record) => (
+                <Button type="link" onClick={() => openEntryDetail(record)}>查看</Button>
+              )
+            }
+          ]}
+        />
+      </Drawer>
+
+      <Modal
+        title={entryDetail ? `词条详情 · ${entryDetail.word}` : '词条详情'}
+        open={entryDetailVisible}
+        width={720}
+        footer={null}
+        onCancel={() => { setEntryDetailVisible(false); setEntryDetail(null); }}
+      >
+        {entryDetail && (
+          <div style={{ lineHeight: 1.8 }}>
+            <div><b>词本</b>：{entryDetail.bookCode}</div>
+            <div><b>单词 code</b>：{entryDetail.wordCode}</div>
+            <div><b>词条</b>：{entryDetail.word}</div>
+            <div><b>排序</b>：{entryDetail.sortNo}</div>
+            <div style={{ marginTop: 12 }}><b>拓展 JSON</b></div>
+            <pre style={{ background: '#f5f5f5', padding: 12, maxHeight: 360, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+              {(() => {
+                try {
+                  return JSON.stringify(JSON.parse(entryDetail.extInfo || '{}'), null, 2);
+                } catch {
+                  return entryDetail.extInfo || '';
+                }
+              })()}
+            </pre>
+          </div>
+        )}
       </Modal>
     </div>
   );

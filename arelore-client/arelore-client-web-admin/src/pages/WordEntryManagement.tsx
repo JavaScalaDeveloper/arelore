@@ -4,34 +4,72 @@ import { DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined } from '@ant
 import { adminApi } from '../api/admin';
 import { wordCodeRules } from '../utils/wordCode';
 
+const DEFAULT_PAGE_SIZE = 20;
+
 const WordEntryManagement: React.FC = () => {
   const [dataSource, setDataSource] = useState<any[]>([]);
   const [books, setBooks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [total, setTotal] = useState(0);
+  const [pageNum, setPageNum] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [form] = Form.useForm();
   const [queryForm] = Form.useForm();
 
-  const loadMeta = async () => {
-    const bookRes = await adminApi.getWordBookList({ pageNum: 1, pageSize: 500 });
-    setBooks(bookRes.data?.list || []);
-  };
-
-  const loadData = async (filters?: any) => {
+  const loadData = async (overrides?: { pageNum?: number; pageSize?: number; filters?: any }) => {
+    const nextPageNum = overrides?.pageNum ?? pageNum;
+    const nextPageSize = overrides?.pageSize ?? pageSize;
+    const filters = { ...(overrides?.filters ?? queryForm.getFieldsValue()) };
+    delete filters.pageNum;
+    delete filters.pageSize;
+    if (!filters?.bookCode) {
+      message.warning('请先选择单词本再查询');
+      setDataSource([]);
+      setTotal(0);
+      return;
+    }
     setLoading(true);
     try {
-      const entryRes = await adminApi.getWordEntryList({ pageNum: 1, pageSize: 500, ...filters });
+      const entryRes = await adminApi.getWordEntryList({
+        ...filters,
+        pageNum: nextPageNum,
+        pageSize: nextPageSize
+      });
       setDataSource(entryRes.data?.list || []);
+      setTotal(Number(entryRes.data?.total) || 0);
+      setPageNum(entryRes.data?.pageNum || nextPageNum);
+      setPageSize(entryRes.data?.pageSize || nextPageSize);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadMeta();
-    loadData();
+    (async () => {
+      const bookRes = await adminApi.getWordBookList({ pageNum: 1, pageSize: 100 });
+      const bookList = bookRes.data?.list || [];
+      setBooks(bookList);
+      if (bookList.length > 0) {
+        const firstCode = bookList[0].code;
+        queryForm.setFieldsValue({ bookCode: firstCode });
+        loadData({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE, filters: { bookCode: firstCode } });
+      }
+    })();
   }, []);
+
+  const handleSearch = (values: any) => {
+    loadData({ pageNum: 1, pageSize, filters: values });
+  };
+
+  const openEdit = async (record: any) => {
+    const detailRes = await adminApi.getWordEntryDetail({ id: record.id });
+    const detail = detailRes.data || record;
+    setEditing(detail);
+    form.setFieldsValue(detail);
+    setModalVisible(true);
+  };
 
   const handleSubmit = async () => {
     const values = await form.validateFields();
@@ -51,21 +89,28 @@ const WordEntryManagement: React.FC = () => {
     setModalVisible(false);
     setEditing(null);
     form.resetFields();
-    loadData(queryForm.getFieldsValue());
+    loadData({ pageNum: 1 });
   };
 
   return (
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
         <h1 style={{ margin: 0 }}>单词本词条</h1>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditing(null); form.resetFields(); form.setFieldsValue({ sortNo: 0 }); setModalVisible(true); }}>新增词条</Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditing(null); form.resetFields(); form.setFieldsValue({ sortNo: 0, bookCode: queryForm.getFieldValue('bookCode') }); setModalVisible(true); }}>新增词条</Button>
       </div>
-      <Form form={queryForm} layout="inline" style={{ marginBottom: 16 }} onFinish={(values) => loadData(values)}>
-        <Form.Item name="bookCode">
-          <Select allowClear placeholder="单词本" style={{ width: 200 }} options={books.map((item) => ({ value: item.code, label: `${item.code} - ${item.name}` }))} />
+      <Form form={queryForm} layout="inline" style={{ marginBottom: 16 }} onFinish={handleSearch}>
+        <Form.Item name="bookCode" rules={[{ required: true, message: '请选择单词本' }]}>
+          <Select
+            showSearch
+            optionFilterProp="label"
+            placeholder="单词本（必选）"
+            style={{ width: 260 }}
+            options={books.map((item) => ({ value: item.code, label: `${item.code} - ${item.name}` }))}
+            onChange={(bookCode) => loadData({ pageNum: 1, pageSize, filters: { ...queryForm.getFieldsValue(), bookCode } })}
+          />
         </Form.Item>
         <Form.Item name="wordCode"><Input placeholder="单词 code" allowClear /></Form.Item>
-        <Form.Item name="word"><Input placeholder="词条原文" allowClear /></Form.Item>
+        <Form.Item name="word"><Input placeholder="词条原文（前缀匹配）" allowClear /></Form.Item>
         <Form.Item>
           <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>查询</Button>
         </Form.Item>
@@ -74,6 +119,17 @@ const WordEntryManagement: React.FC = () => {
         rowKey="id"
         loading={loading}
         dataSource={dataSource}
+        pagination={{
+          current: pageNum,
+          pageSize,
+          total,
+          showSizeChanger: true,
+          pageSizeOptions: ['20', '50', '100'],
+          showTotal: (t) => `共 ${t} 条`,
+          onChange: (nextPage, nextSize) => {
+            loadData({ pageNum: nextPage, pageSize: nextSize || DEFAULT_PAGE_SIZE });
+          }
+        }}
         columns={[
           { title: 'ID', dataIndex: 'id', width: 80 },
           { title: '词本', dataIndex: 'bookCode', width: 140 },
@@ -84,9 +140,16 @@ const WordEntryManagement: React.FC = () => {
             title: '操作',
             render: (_, record) => (
               <Space>
-                <Button type="link" icon={<EditOutlined />} onClick={() => { setEditing(record); form.setFieldsValue(record); setModalVisible(true); }}>编辑</Button>
+                <Button type="link" icon={<EditOutlined />} onClick={() => openEdit(record)}>编辑</Button>
                 <Button type="link" danger icon={<DeleteOutlined />} onClick={() => {
-                  Modal.confirm({ title: '确认删除', onOk: async () => { await adminApi.deleteWordEntry({ id: record.id }); message.success('删除成功'); loadData(queryForm.getFieldsValue()); } });
+                  Modal.confirm({
+                    title: '确认删除',
+                    onOk: async () => {
+                      await adminApi.deleteWordEntry({ id: record.id });
+                      message.success('删除成功');
+                      loadData();
+                    }
+                  });
                 }}>删除</Button>
               </Space>
             )

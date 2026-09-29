@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -32,6 +33,8 @@ public class AdminWordEntry {
     @TableField("sort_no")
     private Integer sortNo;
 
+    /** 列表查询不 select 该列；为 null 时不序列化，避免拖慢 list 响应 */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     @TableField("ext_info")
     private String extInfo;
 }

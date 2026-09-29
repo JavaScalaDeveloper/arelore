@@ -3,3 +3,5 @@
 *.class
 /arelore-server-*/logs/
 #/arelore-server-admin/src/main/resources/sql/arelore_education/软考/*/*/*.pdf
+# dict 全量导入 SQL 体积大，由 generate_import_from_dict.py 生成
+/arelore-server-admin/src/main/resources/sql/arelore_education/word/import_from_dict/

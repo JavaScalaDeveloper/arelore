@@ -25,14 +25,14 @@ CREATE TABLE `admin_word_language`
 ) engine = InnoDB
   default charset = utf8mb4 comment ='单词语种类型';
 
-# 单词本分类：同一语种下 code 唯一，如小学、大学、雅思、托福
+# 单词本分类：同一语种下 code 唯一；粗分学段/考试，教材版本放 book.ext_info
 CREATE TABLE `admin_word_category`
 (
     `id`            bigint auto_increment comment '主键ID',
     `create_time`   datetime              default current_timestamp not null comment '创建时间',
     `modify_time`   datetime              default current_timestamp not null on update current_timestamp comment '修改时间',
     `language_code` varchar(32)  not null default '' comment '语种code，仅大写字母/数字/_，创建后不可改',
-    `code`          varchar(32)  not null default '' comment '分类code，仅大写字母/数字/_，创建后不可改，如 JUNIOR、IELTS',
+    `code`          varchar(32)  not null default '' comment '分类code，仅大写字母/数字/_，创建后不可改，如 JUNIOR、OVERSEAS',
     `name`          varchar(64)  not null default '' comment '分类名称',
     `description`   varchar(255) not null default '' comment '描述',
     `sort_no`       int          not null default 0 comment '排序，越小越靠前',
@@ -80,17 +80,23 @@ CREATE TABLE `admin_word_entry`
     primary key (`id`),
     key `idx_create_time` (`create_time`),
     key `idx_modify_time` (`modify_time`),
-    key `idx_book_code` (`book_code`),
+    # 覆盖「按词本 + sort_no 分页」；uk 虽含 book_code，但无法避免 sort_no filesort
+    key `idx_book_code_sort_no` (`book_code`, `sort_no`, `id`),
     unique key `uk_book_code_word_code` (`book_code`, `word_code`)
 ) engine = InnoDB
   default charset = utf8mb4 comment ='单词本词条';
+
+# 已建库升级（按需执行一次）：
+# alter table `admin_word_entry` drop index `idx_book_code`;
+# alter table `admin_word_entry` add index `idx_book_code_sort_no` (`book_code`, `sort_no`, `id`);
 
 insert into `admin_word_language` (`code`, `name`, `description`, `status`)
 values ('EN', '英语', 'English，当前唯一启用语种', 1);
 
 insert into `admin_word_category` (`language_code`, `code`, `name`, `description`, `sort_no`, `status`)
-values ('EN', 'JUNIOR', '初中', '初中英语词汇', 10, 1),
-       ('EN', 'SENIOR', '高中', '高中英语词汇', 20, 1),
-       ('EN', 'UNIVERSITY', '大学', '大学英语词汇', 30, 1),
-       ('EN', 'IELTS', '雅思', '雅思词汇', 40, 1),
-       ('EN', 'TOEFL', '托福', '托福词汇', 50, 1);
+values ('EN', 'PRIMARY', '小学', '小学英语词汇', 10, 1),
+       ('EN', 'JUNIOR', '初中', '初中英语词汇', 20, 1),
+       ('EN', 'SENIOR', '高中', '高中英语词汇', 30, 1),
+       ('EN', 'UNIVERSITY', '大学', '大学英语词汇（四六级、专四专八、商务英语等）', 40, 1),
+       ('EN', 'KAOYAN', '考研', '考研英语词汇', 50, 1),
+       ('EN', 'OVERSEAS', '出国', '出国/国际考试词汇（雅思、托福、GRE、SAT、GMAT等）', 60, 1);
