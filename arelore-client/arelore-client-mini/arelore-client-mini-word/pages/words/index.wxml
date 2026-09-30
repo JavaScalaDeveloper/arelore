@@ -1,4 +1,27 @@
-<view class="page" wx:if="{{book}}">
+<view class="page" wx:if="{{status === 'loading'}}">
+  <view class="state-card">
+    <text class="state-title">加载中…</text>
+    <text class="state-desc">正在获取你的单词本与学习进度</text>
+  </view>
+</view>
+
+<view class="page" wx:elif="{{status === 'needLogin'}}">
+  <view class="state-card">
+    <text class="state-title">未登录</text>
+    <text class="state-desc">登录后可查看当前单词本、新学与复习进度</text>
+    <button class="primary-btn" bindtap="onLogin">去登录</button>
+  </view>
+</view>
+
+<view class="page" wx:elif="{{status === 'noBook'}}">
+  <view class="state-card">
+    <text class="state-title">还没有单词本</text>
+    <text class="state-desc">选择一本词书并确认学习计划后，进度会同步到这里</text>
+    <button class="primary-btn" bindtap="onTapBook">去选择单词本</button>
+  </view>
+</view>
+
+<view class="page" wx:elif="{{status === 'ready' && book}}">
   <view class="book-bar" bindtap="onTapBook">
     <view class="book-meta">
       <text class="book-label">当前单词本</text>
@@ -11,7 +34,7 @@
   </view>
 
   <view class="cards">
-    <view class="card learn" bindtap="onTapLearn">
+    <view class="card learn" bindtap="onStartStudy">
       <text class="card-title">新学</text>
       <text class="card-desc">今日新记</text>
       <view class="stats">
@@ -26,7 +49,7 @@
       </view>
     </view>
 
-    <view class="card review" bindtap="onTapReview">
+    <view class="card review" bindtap="onStartStudy">
       <text class="card-title">复习</text>
       <text class="card-desc">巩固已学</text>
       <view class="stats">
@@ -41,11 +64,6 @@
       </view>
     </view>
   </view>
-</view>
-<view class="page empty" wx:else>
-  <text class="empty-text">暂无单词本，请先在管理后台创建，或检查用户服务是否启动</text>
-  <view class="book-bar" bindtap="onTapBook">
-    <text class="book-name">去选择单词本</text>
-    <text class="book-arrow">›</text>
-  </view>
+
+  <button class="start-btn" bindtap="onStartStudy">开始学习</button>
 </view>

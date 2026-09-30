@@ -25,6 +25,16 @@ spring:
         idle-timeout: 520000
         connection-timeout: 30000
         keepalive-time: 60000
+    user:
+      url: jdbc:mysql://aliyun-2c2g:3307/arelore_user?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      username: ${ARELORE_TEST_MYSQL_USERNAME:root}
+      password: ${ARELORE_TEST_MYSQL_PASSWORD:16722927b3a81566aa7f02eabe7fa367}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      hikari:
+        max-lifetime: 580000
+        idle-timeout: 520000
+        connection-timeout: 30000
+        keepalive-time: 60000
 
 logging:
   level:

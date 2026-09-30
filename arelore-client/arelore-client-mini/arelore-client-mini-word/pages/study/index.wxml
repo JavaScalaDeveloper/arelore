@@ -1,0 +1,102 @@
+<view class="page" wx:if="{{status === 'loading'}}">
+  <view class="state-card">
+    <text class="state-title">准备学习…</text>
+    <text class="state-desc">正在拉取本轮新学与复习单词</text>
+  </view>
+</view>
+
+<view class="page" wx:elif="{{status === 'error'}}">
+  <view class="state-card">
+    <text class="state-title">无法开始</text>
+    <text class="state-desc">{{errorMessage}}</text>
+    <button class="primary-btn" bindtap="onBack">返回</button>
+  </view>
+</view>
+
+<view class="page" wx:elif="{{status === 'done'}}">
+  <view class="state-card">
+    <text class="state-title">本轮完成</text>
+    <text class="state-desc">新学 {{learnDone}}/{{learnTotal}} · 复习 {{reviewDone}}/{{reviewTotal}} · 耗时 {{elapsedText}}</text>
+    <button class="primary-btn" bindtap="onBack">返回首页</button>
+  </view>
+</view>
+
+<view class="page study" wx:elif="{{status === 'ready' && card}}">
+  <view class="top-bar">
+    <view class="top-item">
+      <text class="top-label">新学</text>
+      <text class="top-value">{{learnDone}}/{{learnTotal}}</text>
+    </view>
+    <view class="top-item">
+      <text class="top-label">复习</text>
+      <text class="top-value">{{reviewDone}}/{{reviewTotal}}</text>
+    </view>
+    <view class="top-item">
+      <text class="top-label">耗时</text>
+      <text class="top-value">{{elapsedText}}</text>
+    </view>
+  </view>
+
+  <view class="mode-tag {{card.mode === 'review' ? 'review' : 'learn'}}">
+    {{card.mode === 'review' ? '复习' : '新学'}}
+  </view>
+
+  <view class="word-card">
+    <text class="word">{{card.word}}</text>
+    <text class="phonetic" wx:if="{{card.phonetic}}">/{{card.phonetic}}/</text>
+    <view class="voice-row">
+      <button
+        class="voice-btn {{voiceType === 2 ? 'active' : ''}}"
+        size="mini"
+        data-type="2"
+        bindtap="onPlayVoice"
+        loading="{{playing && playingType === 2}}"
+      >美音</button>
+      <button
+        class="voice-btn {{voiceType === 1 ? 'active' : ''}}"
+        size="mini"
+        data-type="1"
+        bindtap="onPlayVoice"
+        loading="{{playing && playingType === 1}}"
+      >英音</button>
+    </view>
+
+    <view class="hint-box" wx:if="{{hintShown && !revealed}}">
+      <text class="hint-label">例句提示</text>
+      <text class="hint-en" wx:if="{{card.exampleEn}}">{{card.exampleEn}}</text>
+      <text class="hint-en muted" wx:else>暂无英文例句</text>
+    </view>
+
+    <view class="reveal" wx:if="{{revealed}}">
+      <image
+        wx:if="{{card.picture}}"
+        class="word-picture"
+        src="{{card.picture}}"
+        mode="aspectFit"
+        lazy-load
+      />
+      <text class="meaning" wx:if="{{card.meaning}}">{{card.meaning}}</text>
+      <text class="meaning muted" wx:else>暂无释义</text>
+      <text class="mnemonic" wx:if="{{card.mnemonic}}">记忆：{{card.mnemonic}}</text>
+      <view class="example-list" wx:if="{{card.examples && card.examples.length}}">
+        <view class="example-item" wx:for="{{card.examples}}" wx:key="en">
+          <text class="example-en">{{item.en}}</text>
+          <text class="example-cn" wx:if="{{item.cn}}">{{item.cn}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="reveal hint" wx:elif="{{!hintShown}}">
+      <text class="hint-text">先回想词义；不确定可点「提示」看英文例句</text>
+    </view>
+  </view>
+
+  <view class="actions" wx:if="{{!revealed}}">
+    <button class="action-btn hint" bindtap="onHint" disabled="{{submitting}}">提示</button>
+    <button class="action-btn unknown" bindtap="onUnknown" disabled="{{submitting}}">不认识</button>
+    <button class="action-btn known" bindtap="onKnown" disabled="{{submitting}}">认识</button>
+  </view>
+  <view class="actions" wx:else>
+    <button class="action-btn next" bindtap="onNextAfterReveal">下一个</button>
+  </view>
+  <text class="auto-tip" wx:if="{{revealed && pendingRemember === true}}">未点击将在 1 秒后自动跳转</text>
+</view>

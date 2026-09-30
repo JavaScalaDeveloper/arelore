@@ -18,7 +18,15 @@ import com.arelore.server.core.biz.word.admin.dto.AdminWordLanguageRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordLanguageResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordCurrentBookRequest;
 import com.arelore.server.core.biz.word.user.dto.UserWordCurrentBookResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyAnswerRequest;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyAnswerResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyPlanRequest;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyPlanResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudySessionRequest;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudySessionResponse;
 import com.arelore.server.core.biz.word.user.UserWordCurrentBookService;
+import com.arelore.server.core.biz.word.user.UserWordLearnRecordService;
+import com.arelore.server.core.biz.word.user.UserWordStudyPlanService;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,6 +44,8 @@ public class WordQueryController {
     private final AdminWordCategoryService categoryService;
     private final AdminWordBookService bookService;
     private final UserWordCurrentBookService currentBookService;
+    private final UserWordStudyPlanService studyPlanService;
+    private final UserWordLearnRecordService learnRecordService;
     private final AuthService authService;
     private final UserRegistrationResultMapper registrationResultMapper;
 
@@ -44,6 +54,8 @@ public class WordQueryController {
         AdminWordCategoryService categoryService,
         AdminWordBookService bookService,
         UserWordCurrentBookService currentBookService,
+        UserWordStudyPlanService studyPlanService,
+        UserWordLearnRecordService learnRecordService,
         AuthService authService,
         UserRegistrationResultMapper registrationResultMapper
     ) {
@@ -51,6 +63,8 @@ public class WordQueryController {
         this.categoryService = categoryService;
         this.bookService = bookService;
         this.currentBookService = currentBookService;
+        this.studyPlanService = studyPlanService;
+        this.learnRecordService = learnRecordService;
         this.authService = authService;
         this.registrationResultMapper = registrationResultMapper;
     }
@@ -130,6 +144,83 @@ public class WordQueryController {
             }
             List<UserWordCurrentBookResponse> latest = currentBookService.list(query);
             return Result.success(latest.isEmpty() ? null : latest.get(0));
+        } catch (IllegalArgumentException e) {
+            if (e.getMessage() != null && e.getMessage().contains("未登录")) {
+                return Result.error(401, e.getMessage());
+            }
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/plan/get")
+    public Result<UserWordStudyPlanResponse> planGet(
+        @RequestHeader(value = "Authorization", required = false) String token,
+        @RequestBody UserWordStudyPlanRequest request
+    ) {
+        try {
+            if (request == null || !StringUtils.hasText(request.getBookCode())) {
+                return Result.error("单词本code不能为空");
+            }
+            UserWordStudyPlanRequest query = new UserWordStudyPlanRequest();
+            query.setUserId(requireUserId(token));
+            query.setBookCode(request.getBookCode().trim());
+            List<UserWordStudyPlanResponse> list = studyPlanService.list(query);
+            return Result.success(list.isEmpty() ? null : list.get(0));
+        } catch (IllegalArgumentException e) {
+            if (e.getMessage() != null && e.getMessage().contains("未登录")) {
+                return Result.error(401, e.getMessage());
+            }
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/plan/confirm")
+    public Result<UserWordStudyPlanResponse> planConfirm(
+        @RequestHeader(value = "Authorization", required = false) String token,
+        @RequestBody UserWordStudyPlanRequest request
+    ) {
+        try {
+            if (request == null) {
+                return Result.error("请求不能为空");
+            }
+            request.setUserId(requireUserId(token));
+            return Result.success(studyPlanService.confirm(request));
+        } catch (IllegalArgumentException e) {
+            if (e.getMessage() != null && e.getMessage().contains("未登录")) {
+                return Result.error(401, e.getMessage());
+            }
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/study/session")
+    public Result<UserWordStudySessionResponse> studySession(
+        @RequestHeader(value = "Authorization", required = false) String token,
+        @RequestBody(required = false) UserWordStudySessionRequest request
+    ) {
+        try {
+            UserWordStudySessionRequest query = request == null ? new UserWordStudySessionRequest() : request;
+            query.setUserId(requireUserId(token));
+            return Result.success(learnRecordService.createSession(query));
+        } catch (IllegalArgumentException e) {
+            if (e.getMessage() != null && e.getMessage().contains("未登录")) {
+                return Result.error(401, e.getMessage());
+            }
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/study/answer")
+    public Result<UserWordStudyAnswerResponse> studyAnswer(
+        @RequestHeader(value = "Authorization", required = false) String token,
+        @RequestBody UserWordStudyAnswerRequest request
+    ) {
+        try {
+            if (request == null) {
+                return Result.error("请求不能为空");
+            }
+            request.setUserId(requireUserId(token));
+            return Result.success(learnRecordService.answer(request));
         } catch (IllegalArgumentException e) {
             if (e.getMessage() != null && e.getMessage().contains("未登录")) {
                 return Result.error(401, e.getMessage());

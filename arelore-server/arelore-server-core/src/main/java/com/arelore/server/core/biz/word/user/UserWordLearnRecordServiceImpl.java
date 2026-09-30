@@ -1,23 +1,61 @@
 package com.arelore.server.core.biz.word.user;
 
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.arelore.server.core.service.BaseServiceImpl;
+import com.arelore.server.core.biz.word.admin.entity.AdminWordEntry;
+import com.arelore.server.core.biz.word.admin.mapper.AdminWordEntryMapper;
+import com.arelore.server.core.biz.word.user.dto.UserWordCurrentBookRequest;
+import com.arelore.server.core.biz.word.user.dto.UserWordCurrentBookResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordLearnRecordRequest;
 import com.arelore.server.core.biz.word.user.dto.UserWordLearnRecordResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyAnswerRequest;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyAnswerResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyCardResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyExampleResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyPlanRequest;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyPlanResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudySessionRequest;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudySessionResponse;
 import com.arelore.server.core.biz.word.user.entity.UserWordLearnRecord;
 import com.arelore.server.core.biz.word.user.mapper.UserWordLearnRecordMapper;
-import com.arelore.server.core.biz.word.user.UserWordLearnRecordService;
+import com.arelore.server.core.service.BaseServiceImpl;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class UserWordLearnRecordServiceImpl
     extends BaseServiceImpl<UserWordLearnRecordRequest, UserWordLearnRecordResponse, UserWordLearnRecord>
     implements UserWordLearnRecordService {
-    private final UserWordLearnRecordMapper mapper;
+    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    public UserWordLearnRecordServiceImpl(UserWordLearnRecordMapper mapper) {
+    private final UserWordLearnRecordMapper mapper;
+    private final AdminWordEntryMapper entryMapper;
+    private final UserWordCurrentBookService currentBookService;
+    private final UserWordStudyPlanService studyPlanService;
+
+    public UserWordLearnRecordServiceImpl(
+        UserWordLearnRecordMapper mapper,
+        AdminWordEntryMapper entryMapper,
+        UserWordCurrentBookService currentBookService,
+        UserWordStudyPlanService studyPlanService
+    ) {
         this.mapper = mapper;
+        this.entryMapper = entryMapper;
+        this.currentBookService = currentBookService;
+        this.studyPlanService = studyPlanService;
     }
 
     @Override
@@ -31,7 +69,15 @@ public class UserWordLearnRecordServiceImpl
     }
 
     @Override
+    protected UserWordLearnRecordResponse toResponse(UserWordLearnRecord entity) {
+        UserWordLearnRecordResponse response = super.toResponse(entity);
+        com.arelore.server.core.biz.word.user.support.WordUserIdStrSupport.fillIdStr(response);
+        return response;
+    }
+
+    @Override
     protected LambdaQueryWrapper<UserWordLearnRecord> buildWrapper(UserWordLearnRecordRequest request) {
+        com.arelore.server.core.biz.word.user.support.WordUserIdStrSupport.applyIdStrToUserId(request);
         LambdaQueryWrapper<UserWordLearnRecord> wrapper = new LambdaQueryWrapper<>();
         if (request == null) {
             return wrapper;
@@ -47,5 +93,582 @@ public class UserWordLearnRecordServiceImpl
         }
         wrapper.orderByDesc(UserWordLearnRecord::getModifyTime);
         return wrapper;
+    }
+
+    @Override
+    public UserWordStudySessionResponse createSession(UserWordStudySessionRequest request) {
+        if (request == null || request.getUserId() == null) {
+            throw new IllegalArgumentException("用户ID不能为空");
+        }
+        UserWordCurrentBookResponse current = requireCurrentBook(request.getUserId(), request.getBookCode());
+        String bookCode = current.getBookCode();
+
+        UserWordStudyPlanRequest planQuery = new UserWordStudyPlanRequest();
+        planQuery.setUserId(request.getUserId());
+        planQuery.setBookCode(bookCode);
+        List<UserWordStudyPlanResponse> plans = studyPlanService.list(planQuery);
+        if (plans.isEmpty()) {
+            throw new IllegalArgumentException("请先为当前单词本确认学习计划");
+        }
+        UserWordStudyPlanResponse plan = plans.get(0);
+
+        int learnLimit = plan.getDailyNewCount() != null && plan.getDailyNewCount() > 0
+            ? plan.getDailyNewCount() : 10;
+        int reviewLimit = plan.getDailyReviewCount() != null && plan.getDailyReviewCount() > 0
+            ? plan.getDailyReviewCount() : 10;
+        int voiceType = readVoiceType(plan.getExtInfo());
+
+        JSONObject planExt = parseExt(plan.getExtInfo());
+        String today = LocalDate.now().toString();
+        boolean newDay = !today.equals(planExt.getString("studyDate"));
+        if (newDay) {
+            planExt.put("studyDate", today);
+            planExt.put("todayLearnWordCodes", new JSONArray());
+            planExt.put("todayReviewWordCodes", new JSONArray());
+            planExt.put("countedLearnWordCodes", new JSONArray());
+            planExt.put("countedReviewWordCodes", new JSONArray());
+            planExt.put("learnDone", 0);
+            planExt.put("learnTodo", learnLimit);
+            planExt.put("reviewDone", 0);
+            planExt.put("reviewTodo", reviewLimit);
+            studyPlanService.saveDailyProgress(plan.getId(), planExt.toJSONString());
+            syncCurrentFromPlan(current, request.getUserId(), bookCode, planExt);
+        }
+
+        List<String> todayLearnCodes = readStringList(planExt, "todayLearnWordCodes");
+        List<String> todayReviewCodes = readStringList(planExt, "todayReviewWordCodes");
+        boolean codesChanged = false;
+
+        if (todayLearnCodes.size() < learnLimit) {
+            Set<String> exists = new HashSet<>(todayLearnCodes);
+            int need = learnLimit - todayLearnCodes.size();
+            List<AdminWordEntry> more = entryMapper.selectUnlearned(request.getUserId(), bookCode, need);
+            for (AdminWordEntry entry : more) {
+                if (entry == null || !StringUtils.hasText(entry.getWordCode())) {
+                    continue;
+                }
+                if (exists.add(entry.getWordCode())) {
+                    todayLearnCodes.add(entry.getWordCode());
+                    codesChanged = true;
+                    if (todayLearnCodes.size() >= learnLimit) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (todayReviewCodes.size() < reviewLimit) {
+            Set<String> blocked = new HashSet<>(todayLearnCodes);
+            blocked.addAll(todayReviewCodes);
+            int need = reviewLimit - todayReviewCodes.size();
+            List<AdminWordEntry> candidates = entryMapper.selectForReview(
+                request.getUserId(), bookCode, Math.max(need * 3, need + todayLearnCodes.size())
+            );
+            for (AdminWordEntry entry : candidates) {
+                if (entry == null || !StringUtils.hasText(entry.getWordCode())) {
+                    continue;
+                }
+                if (blocked.add(entry.getWordCode())) {
+                    todayReviewCodes.add(entry.getWordCode());
+                    codesChanged = true;
+                    if (todayReviewCodes.size() >= reviewLimit) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (codesChanged) {
+            planExt.put("todayLearnWordCodes", toJsonArray(todayLearnCodes));
+            planExt.put("todayReviewWordCodes", toJsonArray(todayReviewCodes));
+            if (!planExt.containsKey("learnDone")) {
+                planExt.put("learnDone", 0);
+            }
+            if (!planExt.containsKey("learnTodo")) {
+                planExt.put("learnTodo", learnLimit);
+            }
+            if (!planExt.containsKey("reviewDone")) {
+                planExt.put("reviewDone", 0);
+            }
+            if (!planExt.containsKey("reviewTodo")) {
+                planExt.put("reviewTodo", reviewLimit);
+            }
+            planExt.put("studyDate", today);
+            studyPlanService.saveDailyProgress(plan.getId(), planExt.toJSONString());
+            syncCurrentFromPlan(current, request.getUserId(), bookCode, planExt);
+        } else {
+            // 确保首页进度与当前词书 plan 对齐
+            syncCurrentFromPlan(current, request.getUserId(), bookCode, planExt);
+        }
+
+        List<String> countedLearn = readStringList(planExt, "countedLearnWordCodes");
+        List<String> countedReview = readStringList(planExt, "countedReviewWordCodes");
+        int learnDone = planExt.containsKey("learnDone") ? planExt.getIntValue("learnDone") : countedLearn.size();
+        int reviewDone = planExt.containsKey("reviewDone") ? planExt.getIntValue("reviewDone") : countedReview.size();
+        int learnTodo = planExt.containsKey("learnTodo") ? planExt.getIntValue("learnTodo") : Math.max(0, todayLearnCodes.size() - learnDone);
+        int reviewTodo = planExt.containsKey("reviewTodo") ? planExt.getIntValue("reviewTodo") : Math.max(0, todayReviewCodes.size() - reviewDone);
+
+        // 未完成今日配额：只返回未作答词，便于断点续学；已完成则可重复练今日全部词
+        boolean dayFinished = learnTodo <= 0 && reviewTodo <= 0
+            && !todayLearnCodes.isEmpty();
+        List<String> sessionLearnCodes;
+        List<String> sessionReviewCodes;
+        if (dayFinished) {
+            sessionLearnCodes = todayLearnCodes;
+            sessionReviewCodes = todayReviewCodes;
+        } else {
+            sessionLearnCodes = filterRemaining(todayLearnCodes, countedLearn);
+            sessionReviewCodes = filterRemaining(todayReviewCodes, countedReview);
+        }
+
+        List<AdminWordEntry> learnEntries = loadEntriesByCodes(bookCode, sessionLearnCodes);
+        List<AdminWordEntry> reviewEntries = loadEntriesByCodes(bookCode, sessionReviewCodes);
+        List<UserWordStudyCardResponse> learnCards = toCards(learnEntries, "learn", voiceType);
+        List<UserWordStudyCardResponse> reviewCards = toCards(reviewEntries, "review", voiceType);
+        List<UserWordStudyCardResponse> mixed = interleave(learnCards, reviewCards);
+
+        UserWordStudySessionResponse response = new UserWordStudySessionResponse();
+        response.setBookCode(bookCode);
+        response.setBookName(current.getBookName());
+        response.setVoiceType(voiceType);
+        response.setLearnDone(learnDone);
+        response.setReviewDone(reviewDone);
+        response.setLearnTotal(Math.max(todayLearnCodes.size(), learnLimit));
+        response.setReviewTotal(Math.max(todayReviewCodes.size(), reviewLimit));
+        response.setCards(mixed);
+        return response;
+    }
+
+    @Override
+    public UserWordStudyAnswerResponse answer(UserWordStudyAnswerRequest request) {
+        if (request == null || request.getUserId() == null) {
+            throw new IllegalArgumentException("用户ID不能为空");
+        }
+        if (!StringUtils.hasText(request.getBookCode())) {
+            throw new IllegalArgumentException("单词本code不能为空");
+        }
+        if (!StringUtils.hasText(request.getWordCode())) {
+            throw new IllegalArgumentException("单词code不能为空");
+        }
+        if (request.getRememberFlag() == null) {
+            throw new IllegalArgumentException("请选择认识或不认识");
+        }
+        String mode = StringUtils.hasText(request.getMode()) ? request.getMode().trim() : "learn";
+        if (!"learn".equals(mode) && !"review".equals(mode)) {
+            throw new IllegalArgumentException("mode 仅支持 learn / review");
+        }
+
+        String bookCode = request.getBookCode().trim();
+        String wordCode = request.getWordCode().trim();
+        UserWordCurrentBookResponse current = requireCurrentBook(request.getUserId(), bookCode);
+
+        UserWordStudyPlanRequest planQuery = new UserWordStudyPlanRequest();
+        planQuery.setUserId(request.getUserId());
+        planQuery.setBookCode(bookCode);
+        List<UserWordStudyPlanResponse> plans = studyPlanService.list(planQuery);
+        if (plans.isEmpty()) {
+            throw new IllegalArgumentException("请先为当前单词本确认学习计划");
+        }
+        UserWordStudyPlanResponse plan = plans.get(0);
+
+        LambdaQueryWrapper<AdminWordEntry> entryWrapper = new LambdaQueryWrapper<>();
+        entryWrapper.eq(AdminWordEntry::getBookCode, bookCode).eq(AdminWordEntry::getWordCode, wordCode);
+        AdminWordEntry entry = entryMapper.selectOne(entryWrapper);
+        if (entry == null) {
+            throw new IllegalArgumentException("词条不存在");
+        }
+
+        UserWordLearnRecordRequest query = new UserWordLearnRecordRequest();
+        query.setUserId(request.getUserId());
+        query.setBookCode(bookCode);
+        query.setWordCode(wordCode);
+        List<UserWordLearnRecordResponse> existsList = list(query);
+        UserWordLearnRecordResponse exists = existsList.isEmpty() ? null : existsList.get(0);
+
+        JSONObject ext = parseExt(exists == null ? null : exists.getExtInfo());
+        ext.put("word", entry.getWord());
+        ext.put("rememberFlag", request.getRememberFlag());
+        ext.put("lastLearnTime", LocalDateTime.now().format(TIME_FMT));
+        if ("review".equals(mode)) {
+            ext.put("reviewCount", ext.getIntValue("reviewCount") + 1);
+        } else {
+            ext.put("learnCount", ext.getIntValue("learnCount") + 1);
+        }
+
+        UserWordLearnRecordRequest save = new UserWordLearnRecordRequest();
+        save.setUserId(request.getUserId());
+        save.setBookCode(bookCode);
+        save.setWordCode(wordCode);
+        save.setExtInfo(ext.toJSONString());
+        if (exists == null) {
+            create(save);
+        } else {
+            save.setId(exists.getId());
+            update(save);
+        }
+
+        JSONObject planExt = parseExt(plan.getExtInfo());
+        String today = LocalDate.now().toString();
+        if (!today.equals(planExt.getString("studyDate"))) {
+            planExt.put("studyDate", today);
+            planExt.put("countedLearnWordCodes", new JSONArray());
+            planExt.put("countedReviewWordCodes", new JSONArray());
+            int learnLimit = plan.getDailyNewCount() != null ? plan.getDailyNewCount() : 10;
+            int reviewLimit = plan.getDailyReviewCount() != null ? plan.getDailyReviewCount() : 10;
+            planExt.put("learnDone", 0);
+            planExt.put("learnTodo", learnLimit);
+            planExt.put("reviewDone", 0);
+            planExt.put("reviewTodo", reviewLimit);
+        }
+        List<String> countedLearn = readStringList(planExt, "countedLearnWordCodes");
+        List<String> countedReview = readStringList(planExt, "countedReviewWordCodes");
+
+        int learnDone = planExt.getIntValue("learnDone");
+        int learnTodo = planExt.containsKey("learnTodo") ? planExt.getIntValue("learnTodo") : nvl(current.getLearnTodo());
+        int reviewDone = planExt.getIntValue("reviewDone");
+        int reviewTodo = planExt.containsKey("reviewTodo") ? planExt.getIntValue("reviewTodo") : nvl(current.getReviewTodo());
+
+        if ("review".equals(mode)) {
+            if (!countedReview.contains(wordCode) && reviewTodo > 0) {
+                countedReview.add(wordCode);
+                reviewDone += 1;
+                reviewTodo = Math.max(0, reviewTodo - 1);
+            }
+        } else if (!countedLearn.contains(wordCode) && learnTodo > 0) {
+            countedLearn.add(wordCode);
+            learnDone += 1;
+            learnTodo = Math.max(0, learnTodo - 1);
+        }
+        planExt.put("countedLearnWordCodes", toJsonArray(countedLearn));
+        planExt.put("countedReviewWordCodes", toJsonArray(countedReview));
+        planExt.put("learnDone", learnDone);
+        planExt.put("learnTodo", learnTodo);
+        planExt.put("reviewDone", reviewDone);
+        planExt.put("reviewTodo", reviewTodo);
+        planExt.put("studyDate", today);
+        studyPlanService.saveDailyProgress(plan.getId(), planExt.toJSONString());
+        syncCurrentFromPlan(current, request.getUserId(), bookCode, planExt);
+
+        UserWordStudyAnswerResponse response = new UserWordStudyAnswerResponse();
+        response.setLearnDone(learnDone);
+        response.setLearnTodo(learnTodo);
+        response.setReviewDone(reviewDone);
+        response.setReviewTodo(reviewTodo);
+        return response;
+    }
+
+    private UserWordCurrentBookResponse requireCurrentBook(java.math.BigDecimal userId, String bookCode) {
+        UserWordCurrentBookRequest query = new UserWordCurrentBookRequest();
+        query.setUserId(userId);
+        List<UserWordCurrentBookResponse> list = currentBookService.list(query);
+        UserWordCurrentBookResponse current = list.isEmpty() ? null : list.get(0);
+        if (current == null || !StringUtils.hasText(current.getBookCode())) {
+            throw new IllegalArgumentException("请先选择单词本并确认学习计划");
+        }
+        if (StringUtils.hasText(bookCode) && !bookCode.trim().equals(current.getBookCode())) {
+            throw new IllegalArgumentException("当前单词本与请求不一致，请先切换词书");
+        }
+        return current;
+    }
+
+    private List<UserWordStudyCardResponse> toCards(List<AdminWordEntry> entries, String mode, int voiceType) {
+        List<UserWordStudyCardResponse> cards = new ArrayList<>();
+        if (entries == null) {
+            return cards;
+        }
+        for (AdminWordEntry entry : entries) {
+            cards.add(toCard(entry, mode, voiceType));
+        }
+        return cards;
+    }
+
+    private UserWordStudyCardResponse toCard(AdminWordEntry entry, String mode, int voiceType) {
+        UserWordStudyCardResponse card = new UserWordStudyCardResponse();
+        card.setMode(mode);
+        card.setWordCode(entry.getWordCode());
+        card.setWord(entry.getWord());
+        JSONObject ext = parseExt(entry.getExtInfo());
+        if (voiceType == 1) {
+            card.setPhonetic(firstNonBlank(ext.getString("ukphone"), ext.getString("usphone"), ext.getString("phone")));
+        } else {
+            card.setPhonetic(firstNonBlank(ext.getString("usphone"), ext.getString("ukphone"), ext.getString("phone")));
+        }
+        card.setMeaning(buildMeaning(ext));
+        String picture = normalizePictureUrl(ext.getString("picture"));
+        if (StringUtils.hasText(picture)) {
+            card.setPicture(picture);
+        }
+        JSONObject remMethod = ext.getJSONObject("remMethod");
+        if (remMethod != null) {
+            String mnemonic = remMethod.getString("val");
+            if (StringUtils.hasText(mnemonic)) {
+                card.setMnemonic(mnemonic.trim());
+            }
+        }
+        List<UserWordStudyExampleResponse> examples = buildExamples(ext);
+        card.setExamples(examples);
+        if (!examples.isEmpty()) {
+            card.setExampleEn(examples.get(0).getEn());
+            card.setExampleCn(examples.get(0).getCn());
+        }
+        return card;
+    }
+
+    private String buildMeaning(JSONObject ext) {
+        JSONArray trans = ext.getJSONArray("trans");
+        if (trans == null || trans.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < trans.size(); i++) {
+            JSONObject item = trans.getJSONObject(i);
+            if (item == null) {
+                continue;
+            }
+            String pos = item.getString("pos");
+            String cn = firstNonBlank(item.getString("tranCn"), item.getString("tranOther"));
+            if (!StringUtils.hasText(cn)) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append("；");
+            }
+            if (StringUtils.hasText(pos)) {
+                sb.append(pos).append(". ");
+            }
+            sb.append(cn.trim());
+        }
+        return sb.toString();
+    }
+
+    private List<UserWordStudyExampleResponse> buildExamples(JSONObject ext) {
+        List<UserWordStudyExampleResponse> list = new ArrayList<>();
+        JSONObject sentence = ext.getJSONObject("sentence");
+        if (sentence == null) {
+            return list;
+        }
+        JSONArray sentences = sentence.getJSONArray("sentences");
+        if (sentences == null || sentences.isEmpty()) {
+            return list;
+        }
+        int limit = Math.min(sentences.size(), 3);
+        for (int i = 0; i < limit; i++) {
+            JSONObject item = sentences.getJSONObject(i);
+            if (item == null) {
+                continue;
+            }
+            String en = firstNonBlank(item.getString("sContent"), stripHtml(item.getString("sContent_eng")));
+            String cn = item.getString("sCn");
+            if (!StringUtils.hasText(en) && !StringUtils.hasText(cn)) {
+                continue;
+            }
+            UserWordStudyExampleResponse example = new UserWordStudyExampleResponse();
+            example.setEn(StringUtils.hasText(en) ? en.trim() : "");
+            example.setCn(StringUtils.hasText(cn) ? cn.trim() : "");
+            list.add(example);
+        }
+        return list;
+    }
+
+    private String stripHtml(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        return value.replaceAll("<[^>]+>", "").trim();
+    }
+
+    private List<UserWordStudyCardResponse> interleave(
+        List<UserWordStudyCardResponse> learnCards,
+        List<UserWordStudyCardResponse> reviewCards
+    ) {
+        List<UserWordStudyCardResponse> mixed = new ArrayList<>(learnCards.size() + reviewCards.size());
+        int i = 0;
+        int j = 0;
+        while (i < learnCards.size() || j < reviewCards.size()) {
+            if (i < learnCards.size()) {
+                mixed.add(learnCards.get(i++));
+            }
+            if (j < reviewCards.size()) {
+                mixed.add(reviewCards.get(j++));
+            }
+        }
+        return mixed;
+    }
+
+    private JSONObject parseExt(String extInfo) {
+        if (!StringUtils.hasText(extInfo)) {
+            return new JSONObject();
+        }
+        try {
+            JSONObject obj = JSON.parseObject(extInfo);
+            return obj == null ? new JSONObject() : obj;
+        } catch (Exception e) {
+            return new JSONObject();
+        }
+    }
+
+    private int readVoiceType(String extInfo) {
+        JSONObject ext = parseExt(extInfo);
+        Integer voiceType = ext.getInteger("voiceType");
+        if (voiceType != null && (voiceType == 1 || voiceType == 2)) {
+            return voiceType;
+        }
+        return 2;
+    }
+
+    private String normalizePictureUrl(String url) {
+        if (!StringUtils.hasText(url)) {
+            return "";
+        }
+        String value = url.trim();
+        if (value.startsWith("//")) {
+            value = "https:" + value;
+        } else if (value.startsWith("http://")) {
+            value = "https://" + value.substring("http://".length());
+        }
+        return value;
+    }
+
+    private List<String> readStringList(JSONObject ext, String key) {
+        List<String> result = new ArrayList<>();
+        if (ext == null || !StringUtils.hasText(key)) {
+            return result;
+        }
+        JSONArray arr = ext.getJSONArray(key);
+        if (arr == null || arr.isEmpty()) {
+            return result;
+        }
+        LinkedHashSet<String> unique = new LinkedHashSet<>();
+        for (int i = 0; i < arr.size(); i++) {
+            String value = arr.getString(i);
+            if (StringUtils.hasText(value)) {
+                unique.add(value.trim());
+            }
+        }
+        result.addAll(unique);
+        return result;
+    }
+
+    private List<String> filterRemaining(List<String> allCodes, List<String> countedCodes) {
+        List<String> remaining = new ArrayList<>();
+        if (allCodes == null || allCodes.isEmpty()) {
+            return remaining;
+        }
+        Set<String> counted = new HashSet<>();
+        if (countedCodes != null) {
+            counted.addAll(countedCodes);
+        }
+        for (String code : allCodes) {
+            if (StringUtils.hasText(code) && !counted.contains(code)) {
+                remaining.add(code);
+            }
+        }
+        return remaining;
+    }
+
+    private JSONArray toJsonArray(List<String> values) {
+        JSONArray arr = new JSONArray();
+        if (values != null) {
+            arr.addAll(values);
+        }
+        return arr;
+    }
+
+    private List<AdminWordEntry> loadEntriesByCodes(String bookCode, List<String> wordCodes) {
+        if (!StringUtils.hasText(bookCode) || wordCodes == null || wordCodes.isEmpty()) {
+            return new ArrayList<>();
+        }
+        List<AdminWordEntry> rows = entryMapper.selectByWordCodes(bookCode, wordCodes);
+        Map<String, AdminWordEntry> byCode = new HashMap<>();
+        if (rows != null) {
+            for (AdminWordEntry row : rows) {
+                if (row != null && StringUtils.hasText(row.getWordCode())) {
+                    byCode.put(row.getWordCode(), row);
+                }
+            }
+        }
+        List<AdminWordEntry> ordered = new ArrayList<>();
+        for (String code : wordCodes) {
+            AdminWordEntry entry = byCode.get(code);
+            if (entry != null) {
+                ordered.add(entry);
+            }
+        }
+        return ordered;
+    }
+
+    private void saveCurrentExtOnly(
+        UserWordCurrentBookResponse current,
+        java.math.BigDecimal userId,
+        String bookCode,
+        JSONObject ext
+    ) {
+        saveCurrentProgress(
+            current,
+            userId,
+            bookCode,
+            nvl(current.getLearnDone()),
+            nvl(current.getLearnTodo()),
+            nvl(current.getReviewDone()),
+            nvl(current.getReviewTodo()),
+            ext
+        );
+    }
+
+    private void syncCurrentFromPlan(
+        UserWordCurrentBookResponse current,
+        java.math.BigDecimal userId,
+        String bookCode,
+        JSONObject planExt
+    ) {
+        int learnDone = planExt.getIntValue("learnDone");
+        int learnTodo = planExt.containsKey("learnTodo") ? planExt.getIntValue("learnTodo") : nvl(current.getLearnTodo());
+        int reviewDone = planExt.getIntValue("reviewDone");
+        int reviewTodo = planExt.containsKey("reviewTodo") ? planExt.getIntValue("reviewTodo") : nvl(current.getReviewTodo());
+        saveCurrentProgress(current, userId, bookCode, learnDone, learnTodo, reviewDone, reviewTodo, null);
+    }
+
+    private void saveCurrentProgress(
+        UserWordCurrentBookResponse current,
+        java.math.BigDecimal userId,
+        String bookCode,
+        int learnDone,
+        int learnTodo,
+        int reviewDone,
+        int reviewTodo,
+        JSONObject ext
+    ) {
+        UserWordCurrentBookRequest currentUpdate = new UserWordCurrentBookRequest();
+        currentUpdate.setId(current.getId());
+        currentUpdate.setUserId(userId);
+        currentUpdate.setBookCode(bookCode);
+        currentUpdate.setLearnDone(learnDone);
+        currentUpdate.setLearnTodo(learnTodo);
+        currentUpdate.setReviewDone(reviewDone);
+        currentUpdate.setReviewTodo(reviewTodo);
+        // 今日词表改存 plan.ext_info；current.ext_info 清空，避免串书
+        currentUpdate.setExtInfo(ext == null ? null : ext.toJSONString());
+        currentBookService.update(currentUpdate);
+        current.setLearnDone(learnDone);
+        current.setLearnTodo(learnTodo);
+        current.setReviewDone(reviewDone);
+        current.setReviewTodo(reviewTodo);
+        current.setExtInfo(currentUpdate.getExtInfo());
+    }
+
+    private int nvl(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return "";
+        }
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value.trim();
+            }
+        }
+        return "";
     }
 }

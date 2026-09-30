@@ -3,7 +3,8 @@
     "pages/words/index",
     "pages/profile/index",
     "pages/books/index",
-    "pages/login/index"
+    "pages/login/index",
+    "pages/study/index"
   ],
   "window": {
     "navigationBarTitleText": "背单词",

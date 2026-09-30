@@ -14,10 +14,16 @@ import WordLanguageManagement from './pages/WordLanguageManagement';
 import WordCategoryManagement from './pages/WordCategoryManagement';
 import WordBookManagement from './pages/WordBookManagement';
 import WordEntryManagement from './pages/WordEntryManagement';
+import WordUserManagement from './pages/WordUserManagement';
 
 function ProductIndex() {
   const { product } = useParams();
   return <Navigate to={product === 'word' ? 'languages' : 'dashboard'} replace />;
+}
+
+function ProductUsers() {
+  const { product } = useParams();
+  return product === 'word' ? <WordUserManagement /> : <UserManagement />;
 }
 
 function App() {
@@ -33,7 +39,7 @@ function App() {
           <Route path="/" element={<ProductHome />} />
           <Route path="/:product" element={<Layout />}>
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="users" element={<UserManagement />} />
+            <Route path="users" element={<ProductUsers />} />
             <Route path="settings" element={<SystemSettings />} />
             <Route path="detection-types" element={<DetectionTypeManagement />} />
             <Route path="detection-questions" element={<DetectionQuestionManagement />} />

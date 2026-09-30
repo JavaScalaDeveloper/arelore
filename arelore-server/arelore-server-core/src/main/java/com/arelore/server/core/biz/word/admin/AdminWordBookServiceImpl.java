@@ -1,6 +1,9 @@
 package com.arelore.server.core.biz.word.admin;
 
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.arelore.server.core.common.dto.PageResult;
 import com.arelore.server.core.service.BaseServiceImpl;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBookRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBookResponse;
@@ -12,6 +15,8 @@ import com.arelore.server.core.biz.word.admin.AdminWordBookService;
 import com.arelore.server.core.biz.word.admin.support.WordCodes;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+
+import java.util.List;
 
 @Service
 public class AdminWordBookServiceImpl
@@ -61,6 +66,33 @@ public class AdminWordBookServiceImpl
     }
 
     @Override
+    public List<AdminWordBookResponse> list(AdminWordBookRequest request) {
+        List<AdminWordBookResponse> list = super.list(request);
+        for (AdminWordBookResponse item : list) {
+            fillExtFields(item);
+        }
+        return list;
+    }
+
+    @Override
+    public PageResult<AdminWordBookResponse> pageQuery(AdminWordBookRequest request) {
+        PageResult<AdminWordBookResponse> page = super.pageQuery(request);
+        if (page.getList() != null) {
+            for (AdminWordBookResponse item : page.getList()) {
+                fillExtFields(item);
+            }
+        }
+        return page;
+    }
+
+    @Override
+    public AdminWordBookResponse getById(Long id) {
+        AdminWordBookResponse response = super.getById(id);
+        fillExtFields(response);
+        return response;
+    }
+
+    @Override
     public int create(AdminWordBookRequest request) {
         WordCodes.require("code", request.getCode());
         WordCodes.require("languageCode", request.getLanguageCode());
@@ -87,7 +119,9 @@ public class AdminWordBookServiceImpl
         }
         LambdaQueryWrapper<AdminWordBook> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(AdminWordBook::getCode, code);
-        return toResponse(mapper.selectOne(wrapper));
+        AdminWordBookResponse response = toResponse(mapper.selectOne(wrapper));
+        fillExtFields(response);
+        return response;
     }
 
     @Override
@@ -106,5 +140,30 @@ public class AdminWordBookServiceImpl
         update.setId(book.getId());
         update.setWordCount(count == null ? 0 : count.intValue());
         mapper.updateById(update);
+    }
+
+    private void fillExtFields(AdminWordBookResponse book) {
+        if (book == null || !StringUtils.hasText(book.getExtInfo())) {
+            return;
+        }
+        try {
+            JSONObject ext = JSON.parseObject(book.getExtInfo());
+            if (ext == null) {
+                return;
+            }
+            String cover = ext.getString("cover");
+            if (StringUtils.hasText(cover)) {
+                book.setCover(cover.trim());
+            }
+            JSONObject origin = ext.getJSONObject("bookOrigin");
+            if (origin != null) {
+                String originName = origin.getString("originName");
+                if (StringUtils.hasText(originName)) {
+                    book.setOriginName(originName.trim());
+                }
+            }
+        } catch (Exception ignored) {
+            // extInfo 非 JSON 时忽略，不影响列表主流程
+        }
     }
 }

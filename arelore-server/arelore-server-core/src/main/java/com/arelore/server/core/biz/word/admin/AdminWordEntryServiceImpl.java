@@ -89,14 +89,33 @@ public class AdminWordEntryServiceImpl
         Page<AdminWordEntry> result = mapper.selectPage(page, buildWrapper(request));
         PageResult<AdminWordEntryResponse> pageResult =
             PageResult.of(toResponses(result.getRecords()), pageNum, pageSize, result.getTotal());
+        String bookName = resolveBookName(request.getBookCode());
         if (pageResult.getList() != null) {
             for (AdminWordEntryResponse item : pageResult.getList()) {
                 if (item != null) {
                     item.setExtInfo(null);
+                    item.setBookName(bookName);
                 }
             }
         }
         return pageResult;
+    }
+
+    @Override
+    public AdminWordEntryResponse getById(Long id) {
+        AdminWordEntryResponse response = super.getById(id);
+        if (response != null && StringUtils.hasText(response.getBookCode())) {
+            response.setBookName(resolveBookName(response.getBookCode()));
+        }
+        return response;
+    }
+
+    private String resolveBookName(String bookCode) {
+        if (!StringUtils.hasText(bookCode)) {
+            return null;
+        }
+        var book = bookService.getByCode(bookCode);
+        return book == null ? null : book.getName();
     }
 
     @Override

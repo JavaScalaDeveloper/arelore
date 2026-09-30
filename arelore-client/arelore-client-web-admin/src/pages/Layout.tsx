@@ -36,6 +36,7 @@ const WORD_MENUS: MenuItem[] = [
   { key: '/word/categories', icon: <FileTextOutlined />, label: '单词本分类' },
   { key: '/word/books', icon: <FileTextOutlined />, label: '单词本' },
   { key: '/word/entries', icon: <FileTextOutlined />, label: '单词本词条' },
+  { key: '/word/users', icon: <UserOutlined />, label: '学习用户' },
 ];
 
 const Layout: React.FC = () => {

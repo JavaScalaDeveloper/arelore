@@ -32,6 +32,13 @@ public class UserRegistrationResultServiceImpl
     }
 
     @Override
+    protected UserRegistrationResultResponse toResponse(UserRegistrationResult entity) {
+        UserRegistrationResultResponse response = super.toResponse(entity);
+        fillIdStr(response);
+        return response;
+    }
+
+    @Override
     protected LambdaQueryWrapper<UserRegistrationResult> buildWrapper(UserRegistrationResultRequest request) {
         LambdaQueryWrapper<UserRegistrationResult> w = new LambdaQueryWrapper<>();
         if (request == null) {
@@ -46,8 +53,22 @@ public class UserRegistrationResultServiceImpl
         if (request.getUserId() != null) {
             w.eq(UserRegistrationResult::getUserId, request.getUserId());
         }
+        if (StringUtils.hasText(request.getIdStr())) {
+            try {
+                w.eq(UserRegistrationResult::getUserId, new java.math.BigDecimal(request.getIdStr().trim()));
+            } catch (NumberFormatException ignored) {
+                w.eq(UserRegistrationResult::getId, -1L);
+            }
+        }
         w.orderByDesc(UserRegistrationResult::getId);
         return w;
+    }
+
+    private static void fillIdStr(UserRegistrationResultResponse response) {
+        if (response == null || response.getUserId() == null) {
+            return;
+        }
+        response.setIdStr(response.getUserId().toPlainString());
     }
 }
 

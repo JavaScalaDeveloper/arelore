@@ -72,3 +72,8 @@ mobile:
   test-login:
     username: testuser
     password: 123456
+
+# 登录会话：MySQL 持久化 + 本地缓存
+auth:
+  session:
+    expire-days: 30

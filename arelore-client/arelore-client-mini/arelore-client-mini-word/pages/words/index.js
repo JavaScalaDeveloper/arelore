@@ -1,70 +1,106 @@
-const { post, postWithAuth } = require('../../utils/request');
+const { postWithAuth } = require('../../utils/request');
 const storage = require('../../utils/storage');
 
-function mapCurrent(current, fallbackBook) {
-  if (current && current.bookCode) {
-    return {
-      code: current.bookCode,
-      name: current.bookName || current.bookCode,
-      learnTodo: current.learnTodo || 0,
-      learnDone: current.learnDone || 0,
-      reviewTodo: current.reviewTodo || 0,
-      reviewDone: current.reviewDone || 0
-    };
+function mapCurrent(current) {
+  if (!current || !current.bookCode) {
+    return null;
   }
-  if (fallbackBook) {
-    return {
-      code: fallbackBook.code,
-      name: fallbackBook.name,
-      learnTodo: fallbackBook.wordCount || 0,
-      learnDone: 0,
-      reviewTodo: 0,
-      reviewDone: 0
-    };
-  }
-  return null;
+  return {
+    code: current.bookCode,
+    name: current.bookName || current.bookCode,
+    learnTodo: current.learnTodo || 0,
+    learnDone: current.learnDone || 0,
+    reviewTodo: current.reviewTodo || 0,
+    reviewDone: current.reviewDone || 0
+  };
 }
 
 Page({
   data: {
+    // loading | needLogin | noBook | ready
+    status: 'loading',
     book: null
   },
 
   onShow() {
-    this.refreshBook();
+    this.refreshHome();
   },
 
-  refreshBook() {
+  refreshHome() {
     const token = storage.getToken();
-    const localCode = storage.getBookId();
-    post('/user/word/book/list', {}).then((listRes) => {
-      const books = listRes.code === 200 ? (listRes.data || []) : [];
-      const runCurrent = token
-        ? postWithAuth('/user/word/book/current', {})
-        : Promise.resolve({ code: 401, data: null });
-      return runCurrent.then((curRes) => {
-        let current = curRes && curRes.code === 200 ? curRes.data : null;
-        let fallback = books.find((item) => item.code === localCode) || books[0] || null;
-        const book = mapCurrent(current, fallback);
-        if (book && book.code) {
-          storage.setBookId(book.code);
+    if (!token) {
+      this.setData({ status: 'needLogin', book: null });
+      return;
+    }
+
+    this.setData({ status: 'loading' });
+    postWithAuth('/user/word/book/current', {})
+      .then((res) => {
+        if (res.code === 401) {
+          storage.clearSession();
+          this.setData({ status: 'needLogin', book: null });
+          return;
         }
-        this.setData({ book });
+        if (res.code !== 200) {
+          wx.showToast({ title: res.message || '加载失败', icon: 'none' });
+          this.setData({ status: 'noBook', book: null });
+          return;
+        }
+        const book = mapCurrent(res.data);
+        if (!book) {
+          this.setData({ status: 'noBook', book: null });
+          return;
+        }
+        storage.setBookId(book.code);
+        this.setData({ status: 'ready', book });
+      })
+      .catch((err) => {
+        wx.showToast({ title: (err && err.errMsg) || '加载失败', icon: 'none' });
+        this.setData({ status: 'noBook', book: null });
       });
-    }).catch(() => {
-      this.setData({ book: null });
-    });
+  },
+
+  onLogin() {
+    wx.navigateTo({ url: '/pages/login/index' });
   },
 
   onTapBook() {
+    if (this.data.status === 'needLogin') {
+      this.promptLogin();
+      return;
+    }
     wx.navigateTo({ url: '/pages/books/index' });
   },
 
-  onTapLearn() {
-    wx.showToast({ title: '新学流程稍后接入', icon: 'none' });
+  onStartStudy() {
+    if (!this.ensureReady()) {
+      return;
+    }
+    wx.navigateTo({ url: '/pages/study/index' });
   },
 
-  onTapReview() {
-    wx.showToast({ title: '复习流程稍后接入', icon: 'none' });
+  ensureReady() {
+    if (this.data.status === 'needLogin') {
+      this.promptLogin();
+      return false;
+    }
+    if (this.data.status !== 'ready' || !this.data.book) {
+      wx.showToast({ title: '请先选择单词本', icon: 'none' });
+      return false;
+    }
+    return true;
+  },
+
+  promptLogin() {
+    wx.showModal({
+      title: '需要登录',
+      content: '登录后可同步单词本与学习进度',
+      confirmText: '去登录',
+      success: (res) => {
+        if (res.confirm) {
+          this.onLogin();
+        }
+      }
+    });
   }
 });

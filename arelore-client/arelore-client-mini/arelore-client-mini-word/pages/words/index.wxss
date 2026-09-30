@@ -118,3 +118,43 @@
   color: #6b7280;
   font-size: 26rpx;
 }
+
+.state-card {
+  padding: 48rpx 40rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+  box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.06);
+}
+
+.state-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.state-desc {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.primary-btn {
+  margin-top: 36rpx;
+  background: #3b82f6;
+  color: #ffffff;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.start-btn {
+  margin-top: 40rpx;
+  background: #3b82f6;
+  color: #ffffff;
+  border-radius: 16rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+}

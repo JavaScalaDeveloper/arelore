@@ -1,5 +1,6 @@
 package com.arelore.server.core.datasource.user;
 
+import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.spring.MybatisSqlSessionFactoryBean;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.mybatis.spring.SqlSessionTemplate;
@@ -18,7 +19,8 @@ import javax.sql.DataSource;
 @ConditionalOnProperty(prefix = "spring.datasource.user", name = "url")
 @MapperScan(
     basePackages = {
-        "com.arelore.server.core.registration.mapper"
+        "com.arelore.server.core.registration.mapper",
+        "com.arelore.server.core.biz.user.mapper"
     },
     sqlSessionTemplateRef = "userSqlSessionTemplate"
 )
@@ -39,9 +41,14 @@ public class UserDataSourceConfig {
     }
 
     @Bean(name = "userSqlSessionFactory")
-    public SqlSessionFactory userSqlSessionFactory(@Qualifier("userDataSource") DataSource dataSource) throws Exception {
+    public SqlSessionFactory userSqlSessionFactory(
+        @Qualifier("userDataSource") DataSource dataSource,
+        MybatisPlusInterceptor mybatisPlusInterceptor
+    ) throws Exception {
         MybatisSqlSessionFactoryBean factoryBean = new MybatisSqlSessionFactoryBean();
         factoryBean.setDataSource(dataSource);
+        // 自定义 SqlSessionFactory 不会自动挂插件；不设置则 selectPage 无 LIMIT，pageSize 失效
+        factoryBean.setPlugins(mybatisPlusInterceptor);
         return factoryBean.getObject();
     }
 

@@ -1,0 +1,271 @@
+.page {
+  min-height: 100vh;
+  padding: 32rpx;
+  box-sizing: border-box;
+  background: #f3f4f6;
+}
+
+.page.study {
+  display: flex;
+  flex-direction: column;
+}
+
+.state-card {
+  padding: 48rpx 40rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+}
+
+.state-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.state-desc {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.primary-btn {
+  margin-top: 36rpx;
+  background: #3b82f6;
+  color: #ffffff;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.top-bar {
+  display: flex;
+  padding: 24rpx 12rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+}
+
+.top-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.top-label {
+  font-size: 22rpx;
+  color: #6b7280;
+}
+
+.top-value {
+  margin-top: 8rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #111827;
+}
+
+.mode-tag {
+  align-self: flex-start;
+  margin-top: 24rpx;
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.mode-tag.learn {
+  background: #3b82f6;
+}
+
+.mode-tag.review {
+  background: #8b5cf6;
+}
+
+.word-card {
+  flex: 1;
+  margin-top: 20rpx;
+  padding: 56rpx 40rpx;
+  background: #ffffff;
+  border-radius: 24rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 520rpx;
+}
+
+.word {
+  font-size: 64rpx;
+  font-weight: 700;
+  color: #111827;
+  text-align: center;
+  word-break: break-word;
+}
+
+.phonetic {
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  color: #6b7280;
+}
+
+.voice-row {
+  margin-top: 28rpx;
+  display: flex;
+  gap: 16rpx;
+}
+
+.voice-btn {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+  border-radius: 999rpx !important;
+  font-weight: 600;
+}
+
+.voice-btn.active {
+  background: #eff6ff !important;
+  color: #2563eb !important;
+}
+
+.hint-box {
+  margin-top: 36rpx;
+  width: 100%;
+  padding: 24rpx;
+  background: #f8fafc;
+  border-radius: 16rpx;
+  box-sizing: border-box;
+}
+
+.hint-label {
+  display: block;
+  font-size: 22rpx;
+  color: #94a3b8;
+  margin-bottom: 10rpx;
+}
+
+.hint-en {
+  display: block;
+  font-size: 28rpx;
+  color: #334155;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.hint-en.muted {
+  color: #94a3b8;
+}
+
+.reveal {
+  margin-top: 36rpx;
+  width: 100%;
+  padding-top: 28rpx;
+  border-top: 1rpx solid #f3f4f6;
+}
+
+.reveal.hint {
+  border-top: none;
+  padding-top: 24rpx;
+  text-align: center;
+}
+
+.hint-text {
+  font-size: 26rpx;
+  color: #9ca3af;
+}
+
+.word-picture {
+  width: 100%;
+  height: 280rpx;
+  margin-bottom: 24rpx;
+  border-radius: 16rpx;
+  background: #f8fafc;
+}
+
+.meaning {
+  display: block;
+  font-size: 30rpx;
+  color: #111827;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.meaning.muted {
+  color: #9ca3af;
+}
+
+.mnemonic {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  color: #64748b;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.example-list {
+  margin-top: 24rpx;
+}
+
+.example-item + .example-item {
+  margin-top: 16rpx;
+}
+
+.example-en {
+  display: block;
+  font-size: 26rpx;
+  color: #334155;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.example-cn {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: #94a3b8;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 32rpx;
+}
+
+.action-btn {
+  flex: 1;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.action-btn.hint {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.action-btn.unknown {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.action-btn.known {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.action-btn.next {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.auto-tip {
+  display: block;
+  margin-top: 16rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: #9ca3af;
+}

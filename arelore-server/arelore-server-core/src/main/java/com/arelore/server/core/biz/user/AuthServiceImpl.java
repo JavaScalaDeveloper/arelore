@@ -45,13 +45,16 @@ public class AuthServiceImpl implements AuthService {
      */
     private final UserRegistrationApplicationMapper userRegistrationApplicationMapper;
     private final UserRegistrationResultMapper userRegistrationResultMapper;
+    private final UserAuthSessionService userAuthSessionService;
 
     public AuthServiceImpl(
         UserRegistrationApplicationMapper userRegistrationApplicationMapper,
-        UserRegistrationResultMapper userRegistrationResultMapper
+        UserRegistrationResultMapper userRegistrationResultMapper,
+        UserAuthSessionService userAuthSessionService
     ) {
         this.userRegistrationApplicationMapper = userRegistrationApplicationMapper;
         this.userRegistrationResultMapper = userRegistrationResultMapper;
+        this.userAuthSessionService = userAuthSessionService;
     }
 
 
@@ -82,13 +85,6 @@ public class AuthServiceImpl implements AuthService {
 
     // 模拟存储二维码场景信息（实际应该使用 Redis）
     private static final Map<String, QrCodeScene> QR_CODE_SCENES = new ConcurrentHashMap<>();
-    
-    // 模拟存储用户 Token（实际应该使用 JWT + Redis）
-    private static final ConcurrentHashMap<String, String> USER_TOKENS = new ConcurrentHashMap<>();
-    /**
-     * 维护 token 与用户展示信息的映射，避免查询当前用户时重复组装。
-     */
-    private static final ConcurrentHashMap<String, AuthUserInfoResponse> TOKEN_USER_INFOS = new ConcurrentHashMap<>();
 
     @Override
     public WechatQrCodeResponse getWechatQrCode() {
@@ -207,11 +203,8 @@ public class AuthServiceImpl implements AuthService {
         // 若 application/result 表中不存在该微信账号数据，则自动插入。
         ensureWechatAutoRegistered(openid, request);
         
-        // 生成 Token（实际应该使用 JWT）
+        // 生成 Token，落库 + 本地缓存（重启可恢复）
         String token = "Bearer " + IdUtil.fastSimpleUUID();
-        
-        // 保存 Token（实际应该存入 Redis）
-        USER_TOKENS.put(token, openid);
         
         // 构建响应
         AuthUserInfoResponse user = new AuthUserInfoResponse();
@@ -220,10 +213,11 @@ public class AuthServiceImpl implements AuthService {
         user.setNickname(request.getUserInfo() != null ? request.getUserInfo().getNickname() : "微信用户");
         user.setAvatar(request.getUserInfo() != null ? request.getUserInfo().getAvatar() : "https://wx.qlogo.cn/mmopen/vi_32/DEFAULT");
 
+        userAuthSessionService.issue(token, user);
+
         AuthLoginResponse responseData = new AuthLoginResponse();
         responseData.setToken(token);
         responseData.setUser(user);
-        TOKEN_USER_INFOS.put(token, user);
         
         log.info("微信登录成功，userId: {}", openid);
         return responseData;
@@ -395,10 +389,9 @@ public class AuthServiceImpl implements AuthService {
             user.setAvatar("");
         }
 
-        // 3) 生成 token 并写入登录态缓存
+        // 3) 生成 token 并写入登录会话（MySQL + 本地缓存）
         String token = "Bearer " + IdUtil.fastSimpleUUID();
-        USER_TOKENS.put(token, userId);
-        TOKEN_USER_INFOS.put(token, user);
+        userAuthSessionService.issue(token, user);
         AuthLoginResponse responseData = new AuthLoginResponse();
         responseData.setToken(token);
         responseData.setUser(user);
@@ -408,33 +401,13 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void logout(String token) {
         log.info("退出登录");
-        
-        if (token != null && token.startsWith("Bearer ")) {
-            USER_TOKENS.remove(token);
-            TOKEN_USER_INFOS.remove(token);
-        }
+        userAuthSessionService.invalidate(token);
     }
 
     @Override
     public AuthUserInfoResponse getCurrentUser(String token) {
         log.info("获取当前用户信息，token: {}", token);
-        
-        if (token == null || !USER_TOKENS.containsKey(token)) {
-            // 返回 null，由 Controller层处理并返回错误
-            return null;
-        }
-
-        AuthUserInfoResponse cached = TOKEN_USER_INFOS.get(token);
-        if (cached != null) {
-            return cached;
-        }
-        String userId = USER_TOKENS.get(token);
-        AuthUserInfoResponse user = new AuthUserInfoResponse();
-        user.setId(userId);
-        user.setUsername("用户");
-        user.setNickname("用户");
-        user.setAvatar("");
-        return user;
+        return userAuthSessionService.getValidUser(token);
     }
 
     /**

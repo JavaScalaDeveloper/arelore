@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Drawer, Form, Input, InputNumber, Modal, Select, Space, Table, message } from 'antd';
+import { Button, Drawer, Form, Input, InputNumber, Modal, Select, Space, Table, Tooltip, message } from 'antd';
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { BookCoverPreview, EntryMediaPreview } from '../components/WordMediaPreview';
 import { adminApi } from '../api/admin';
+import { ellipsisColumn } from '../utils/tableCell';
+import { resolveBookCover } from '../utils/wordMedia';
 import { wordCodeRules } from '../utils/wordCode';
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -141,6 +144,9 @@ const WordBookManagement: React.FC = () => {
         rowKey="id"
         loading={loading}
         dataSource={dataSource}
+        size="middle"
+        tableLayout="fixed"
+        scroll={{ x: 960 }}
         pagination={{
           current: pageNum,
           pageSize,
@@ -154,22 +160,31 @@ const WordBookManagement: React.FC = () => {
         }}
         columns={[
           { title: 'ID', dataIndex: 'id', width: 80 },
-          { title: 'code', dataIndex: 'code' },
-          { title: '名称', dataIndex: 'name' },
-          { title: '语种', dataIndex: 'languageCode', width: 90 },
-          { title: '分类', dataIndex: 'categoryCode', width: 110 },
-          { title: '词数', dataIndex: 'wordCount', width: 80 },
-          { title: '状态', dataIndex: 'status', width: 80 },
+          {
+            title: '封面',
+            dataIndex: 'cover',
+            width: 72,
+            render: (_: unknown, record: any) => (
+              <BookCoverPreview cover={resolveBookCover(record)} name={record.name} />
+            )
+          },
+          ellipsisColumn('code', 'code', 160),
+          ellipsisColumn('名称', 'name', 140),
+          ellipsisColumn('语种', 'languageCode', 90),
+          ellipsisColumn('分类', 'categoryCode', 110),
+          { title: '词数', dataIndex: 'wordCount', width: 72, align: 'center' as const },
+          { title: '状态', dataIndex: 'status', width: 72, align: 'center' as const },
           {
             title: '操作',
-            width: 220,
+            width: 120,
+            fixed: 'right' as const,
             render: (_, record) => (
-              <Space>
-                <Button type="link" icon={<EyeOutlined />} onClick={() => openBookDetail(record)}>详情</Button>
-                <Button type="link" icon={<EditOutlined />} onClick={() => { setEditing(record); form.setFieldsValue(record); setModalVisible(true); }}>编辑</Button>
-                <Button type="link" danger icon={<DeleteOutlined />} onClick={() => {
+              <Space size={0}>
+                <Tooltip title="详情"><Button type="link" size="small" icon={<EyeOutlined />} onClick={() => openBookDetail(record)} /></Tooltip>
+                <Tooltip title="编辑"><Button type="link" size="small" icon={<EditOutlined />} onClick={() => { setEditing(record); form.setFieldsValue(record); setModalVisible(true); }} /></Tooltip>
+                <Tooltip title="删除"><Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={() => {
                   Modal.confirm({ title: '确认删除', onOk: async () => { await adminApi.deleteWordBook({ id: record.id }); message.success('删除成功'); loadData(); } });
-                }}>删除</Button>
+                }} /></Tooltip>
               </Space>
             )
           }
@@ -200,6 +215,17 @@ const WordBookManagement: React.FC = () => {
         onClose={() => setDetailBook(null)}
         destroyOnClose
       >
+        {detailBook && (
+          <div style={{ marginBottom: 16, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+            <BookCoverPreview cover={resolveBookCover(detailBook)} name={detailBook.name} size={96} />
+            <div style={{ lineHeight: 1.7 }}>
+              <div><b>{detailBook.name}</b></div>
+              <div style={{ color: '#888' }}>{detailBook.code}</div>
+              <div style={{ color: '#888' }}>词数 {detailBook.wordCount ?? 0}</div>
+              {detailBook.originName && <div style={{ color: '#888' }}>来源 {detailBook.originName}</div>}
+            </div>
+          </div>
+        )}
         <Space style={{ marginBottom: 16 }}>
           <Input
             allowClear
@@ -222,6 +248,8 @@ const WordBookManagement: React.FC = () => {
           rowKey="id"
           loading={entryLoading}
           dataSource={entryList}
+          size="middle"
+          tableLayout="fixed"
           pagination={{
             current: entryPageNum,
             pageSize: entryPageSize,
@@ -237,14 +265,16 @@ const WordBookManagement: React.FC = () => {
           }}
           columns={[
             { title: 'ID', dataIndex: 'id', width: 80 },
-            { title: '单词 code', dataIndex: 'wordCode' },
-            { title: '词条', dataIndex: 'word' },
-            { title: '排序', dataIndex: 'sortNo', width: 80 },
+            ellipsisColumn('单词 code', 'wordCode', 200),
+            ellipsisColumn('词条', 'word', 140),
+            { title: '排序', dataIndex: 'sortNo', width: 72, align: 'center' as const },
             {
               title: '操作',
-              width: 100,
+              width: 72,
               render: (_, record) => (
-                <Button type="link" onClick={() => openEntryDetail(record)}>查看</Button>
+                <Tooltip title="查看">
+                  <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => openEntryDetail(record)} />
+                </Tooltip>
               )
             }
           ]}
@@ -260,10 +290,14 @@ const WordBookManagement: React.FC = () => {
       >
         {entryDetail && (
           <div style={{ lineHeight: 1.8 }}>
-            <div><b>词本</b>：{entryDetail.bookCode}</div>
+            <div><b>词本 code</b>：{entryDetail.bookCode}</div>
+            <div><b>词本名称</b>：{entryDetail.bookName || '-'}</div>
             <div><b>单词 code</b>：{entryDetail.wordCode}</div>
             <div><b>词条</b>：{entryDetail.word}</div>
             <div><b>排序</b>：{entryDetail.sortNo}</div>
+            <div style={{ marginTop: 12 }}>
+              <EntryMediaPreview word={entryDetail.word} extInfo={entryDetail.extInfo} />
+            </div>
             <div style={{ marginTop: 12 }}><b>拓展 JSON</b></div>
             <pre style={{ background: '#f5f5f5', padding: 12, maxHeight: 360, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
               {(() => {

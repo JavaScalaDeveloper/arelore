@@ -13,6 +13,7 @@ import com.arelore.server.core.registration.enums.AccountTypeEnum;
 import com.arelore.server.core.registration.mapper.UserRegistrationApplicationMapper;
 import com.arelore.server.core.registration.mapper.UserRegistrationResultMapper;
 import com.arelore.server.core.registration.support.PasswordHashUtils;
+import com.arelore.server.core.biz.user.UserAuthSessionService;
 import com.arelore.server.core.biz.user.dto.AuthLoginResponse;
 import com.arelore.server.core.biz.user.dto.AuthUserInfoResponse;
 import com.arelore.server.core.biz.user.dto.MiniManualLoginRequest;
@@ -41,13 +42,16 @@ public class MiniAuthServiceImpl implements MiniAuthService {
 
     private final UserRegistrationApplicationMapper applicationMapper;
     private final UserRegistrationResultMapper resultMapper;
+    private final UserAuthSessionService userAuthSessionService;
 
     public MiniAuthServiceImpl(
         UserRegistrationApplicationMapper applicationMapper,
-        UserRegistrationResultMapper resultMapper
+        UserRegistrationResultMapper resultMapper,
+        UserAuthSessionService userAuthSessionService
     ) {
         this.applicationMapper = applicationMapper;
         this.resultMapper = resultMapper;
+        this.userAuthSessionService = userAuthSessionService;
     }
 
     @Override
@@ -93,13 +97,15 @@ public class MiniAuthServiceImpl implements MiniAuthService {
             resultMapper.updateById(result);
         }
 
-        // 3) 返回 token + user
+        // 3) 返回 token + user（会话落库，重启可恢复）
         String token = "Bearer " + IdUtil.fastSimpleUUID();
         AuthUserInfoResponse user = new AuthUserInfoResponse();
         user.setId(result.getUserId() == null ? "" : result.getUserId().toPlainString());
         user.setUsername(mobile);
         user.setNickname(mobile);
         user.setAvatar("");
+
+        userAuthSessionService.issue(token, user);
 
         AuthLoginResponse resp = new AuthLoginResponse();
         resp.setToken(token);

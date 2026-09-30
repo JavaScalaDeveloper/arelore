@@ -63,7 +63,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28rpx 32rpx;
+  padding: 24rpx 28rpx;
   margin-bottom: 20rpx;
   background: #ffffff;
   border-radius: 20rpx;
@@ -73,6 +73,26 @@
 .book-item.active {
   border-color: #3b82f6;
   background: #eff6ff;
+}
+
+.book-cover {
+  width: 96rpx;
+  height: 128rpx;
+  border-radius: 12rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+  background: #e5e7eb;
+}
+
+.book-cover.placeholder,
+.plan-cover.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #dbeafe;
+  color: #3b82f6;
+  font-size: 28rpx;
+  font-weight: 600;
 }
 
 .book-text {
@@ -112,4 +132,130 @@
   text-align: center;
   color: #9ca3af;
   font-size: 26rpx;
+}
+
+.plan-card {
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+}
+
+.plan-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 24rpx;
+}
+
+.plan-cover {
+  width: 140rpx;
+  height: 186rpx;
+  border-radius: 14rpx;
+  flex-shrink: 0;
+  background: #e5e7eb;
+}
+
+.plan-header-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.plan-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.35;
+}
+
+.plan-meta {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.plan-source {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: #6b7280;
+}
+
+.plan-desc {
+  display: block;
+  margin-top: 20rpx;
+  font-size: 26rpx;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.book-item .sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-form {
+  padding: 8rpx 32rpx;
+  margin-bottom: 32rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 96rpx;
+  border-bottom: 1rpx solid #f3f4f6;
+}
+
+.form-row:last-child {
+  border-bottom: none;
+}
+
+.form-label {
+  font-size: 28rpx;
+  color: #374151;
+}
+
+.form-picker {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 28rpx;
+  color: #111827;
+  font-weight: 500;
+}
+
+.picker-arrow {
+  color: #9ca3af;
+  font-size: 28rpx;
+}
+
+.form-value {
+  font-size: 28rpx;
+  color: #111827;
+  font-weight: 500;
+}
+
+.form-row.readonly .form-value {
+  color: #6b7280;
+}
+
+.confirm-btn {
+  margin-top: 8rpx;
+  background: #3b82f6;
+  color: #ffffff;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.confirm-btn[disabled] {
+  opacity: 0.7;
 }

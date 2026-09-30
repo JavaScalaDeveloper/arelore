@@ -1,5 +1,6 @@
 package com.arelore.server.core.datasource.education;
 
+import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.spring.MybatisSqlSessionFactoryBean;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.mybatis.spring.SqlSessionTemplate;
@@ -45,9 +46,14 @@ public class EducationDataSourceConfig {
 
     @Bean(name = "educationSqlSessionFactory")
     @Primary
-    public SqlSessionFactory educationSqlSessionFactory(@Qualifier("educationDataSource") DataSource dataSource) throws Exception {
+    public SqlSessionFactory educationSqlSessionFactory(
+        @Qualifier("educationDataSource") DataSource dataSource,
+        MybatisPlusInterceptor mybatisPlusInterceptor
+    ) throws Exception {
         MybatisSqlSessionFactoryBean factoryBean = new MybatisSqlSessionFactoryBean();
         factoryBean.setDataSource(dataSource);
+        // 自定义 SqlSessionFactory 不会自动挂插件；不设置则 selectPage 无 LIMIT，pageSize 失效
+        factoryBean.setPlugins(mybatisPlusInterceptor);
         return factoryBean.getObject();
     }
 

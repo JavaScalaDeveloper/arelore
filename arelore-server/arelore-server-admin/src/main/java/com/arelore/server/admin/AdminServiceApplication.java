@@ -7,14 +7,17 @@ import org.springframework.context.annotation.FilterType;
 
 /**
  * 管理员服务启动类。
- * 只扫描 education 侧能力；用户库 Mapper/Service 依赖 spring.datasource.user，管理端未配置该数据源。
+ * 排除 C 端认证/注册短信实现；启用用户库后可查注册用户与背单词进度。
  */
 @SpringBootApplication
 @ComponentScan(
     basePackages = "com.arelore.server",
     excludeFilters = {
         @ComponentScan.Filter(type = FilterType.REGEX, pattern = "com\\.arelore\\.server\\.core\\.registration\\.sms\\..*"),
-        @ComponentScan.Filter(type = FilterType.REGEX, pattern = "com\\.arelore\\.server\\.core\\.biz\\.user\\..*ServiceImpl"),
+        @ComponentScan.Filter(
+            type = FilterType.REGEX,
+            pattern = "com\\.arelore\\.server\\.core\\.biz\\.user\\.(AuthServiceImpl|UserRegistrationServiceImpl|UserAuthSessionServiceImpl)"
+        ),
         @ComponentScan.Filter(type = FilterType.REGEX, pattern = "com\\.arelore\\.server\\.user\\..*")
     }
 )

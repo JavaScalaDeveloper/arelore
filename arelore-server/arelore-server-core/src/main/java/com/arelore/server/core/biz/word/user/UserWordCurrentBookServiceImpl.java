@@ -37,7 +37,15 @@ public class UserWordCurrentBookServiceImpl
     }
 
     @Override
+    protected UserWordCurrentBookResponse toResponse(UserWordCurrentBook entity) {
+        UserWordCurrentBookResponse response = super.toResponse(entity);
+        com.arelore.server.core.biz.word.user.support.WordUserIdStrSupport.fillIdStr(response);
+        return response;
+    }
+
+    @Override
     protected LambdaQueryWrapper<UserWordCurrentBook> buildWrapper(UserWordCurrentBookRequest request) {
+        com.arelore.server.core.biz.word.user.support.WordUserIdStrSupport.applyIdStrToUserId(request);
         LambdaQueryWrapper<UserWordCurrentBook> wrapper = new LambdaQueryWrapper<>();
         if (request == null) {
             return wrapper;
@@ -84,17 +92,21 @@ public class UserWordCurrentBookServiceImpl
         }
         int wordCount = book.getWordCount() == null ? 0 : book.getWordCount();
         boolean reset = exists == null || !request.getBookCode().equals(exists.getBookCode());
+        Integer learnTodo = request.getLearnTodo();
+        Integer reviewTodo = request.getReviewTodo();
+        Integer learnDone = request.getLearnDone();
+        Integer reviewDone = request.getReviewDone();
         if (reset) {
-            request.setLearnDone(0);
-            request.setLearnTodo(wordCount);
-            request.setReviewDone(0);
-            request.setReviewTodo(0);
+            request.setLearnDone(learnDone != null ? learnDone : 0);
+            request.setLearnTodo(learnTodo != null ? learnTodo : wordCount);
+            request.setReviewDone(reviewDone != null ? reviewDone : 0);
+            request.setReviewTodo(reviewTodo != null ? reviewTodo : 0);
             return;
         }
-        request.setLearnDone(exists.getLearnDone() == null ? 0 : exists.getLearnDone());
-        request.setLearnTodo(exists.getLearnTodo() == null ? wordCount : exists.getLearnTodo());
-        request.setReviewDone(exists.getReviewDone() == null ? 0 : exists.getReviewDone());
-        request.setReviewTodo(exists.getReviewTodo() == null ? 0 : exists.getReviewTodo());
+        request.setLearnDone(learnDone != null ? learnDone : (exists.getLearnDone() == null ? 0 : exists.getLearnDone()));
+        request.setLearnTodo(learnTodo != null ? learnTodo : (exists.getLearnTodo() == null ? wordCount : exists.getLearnTodo()));
+        request.setReviewDone(reviewDone != null ? reviewDone : (exists.getReviewDone() == null ? 0 : exists.getReviewDone()));
+        request.setReviewTodo(reviewTodo != null ? reviewTodo : (exists.getReviewTodo() == null ? 0 : exists.getReviewTodo()));
     }
 
     private void fillBook(UserWordCurrentBookResponse current) {

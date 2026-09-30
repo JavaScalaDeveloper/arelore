@@ -4,19 +4,24 @@
     <text class="sep">›</text>
     <text class="step {{step === 'category' ? 'on' : (language ? 'done' : '')}}">2 分类</text>
     <text class="sep">›</text>
-    <text class="step {{step === 'book' ? 'on' : ''}}">3 单词本</text>
+    <text class="step {{step === 'book' ? 'on' : (selectedBook || step === 'plan' ? 'done' : '')}}">3 单词本</text>
+    <text class="sep">›</text>
+    <text class="step {{step === 'plan' ? 'on' : ''}}">4 计划</text>
   </view>
 
   <view class="path" wx:if="{{language}}">
     <text class="path-item">{{language.name}}</text>
     <text class="sep" wx:if="{{category}}">›</text>
     <text class="path-item" wx:if="{{category}}">{{category.name}}</text>
+    <text class="sep" wx:if="{{selectedBook}}">›</text>
+    <text class="path-item" wx:if="{{selectedBook}}">{{selectedBook.name}}</text>
     <text class="back" wx:if="{{step !== 'language'}}" bindtap="onBackStep">返回上一步</text>
   </view>
 
   <text class="hint" wx:if="{{step === 'language'}}">请先选择要学习的语种</text>
   <text class="hint" wx:elif="{{step === 'category'}}">请选择该语种下的单词本分类</text>
-  <text class="hint" wx:else>请选择一本词书；登录后进度会同步到服务端</text>
+  <text class="hint" wx:elif="{{step === 'book'}}">请选择一本词书，进入后可配置学习计划</text>
+  <text class="hint" wx:else>配置每日新学与复习比例，确认后保存到云端</text>
 
   <view wx:if="{{loading}}" class="empty">加载中…</view>
 
@@ -54,7 +59,7 @@
     <view class="empty" wx:if="{{!categories.length}}">该语种下暂无分类</view>
   </block>
 
-  <block wx:else>
+  <block wx:elif="{{step === 'book'}}">
     <view
       class="book-item {{item.code === currentCode ? 'active' : ''}}"
       wx:for="{{books}}"
@@ -62,6 +67,16 @@
       data-code="{{item.code}}"
       bindtap="onSelectBook"
     >
+      <image
+        wx:if="{{item.cover}}"
+        class="book-cover"
+        src="{{item.cover}}"
+        mode="aspectFill"
+        lazy-load
+      />
+      <view class="book-cover placeholder" wx:else>
+        <text>词</text>
+      </view>
       <view class="book-text">
         <text class="name">{{item.name}}</text>
         <text class="sub">{{item.subtitle}}</text>
@@ -70,5 +85,71 @@
       <text class="arrow" wx:else>›</text>
     </view>
     <view class="empty" wx:if="{{!books.length}}">该分类下暂无单词本</view>
+  </block>
+
+  <block wx:elif="{{step === 'plan' && selectedBook}}">
+    <view class="plan-card">
+      <view class="plan-header">
+        <image
+          wx:if="{{selectedBook.cover}}"
+          class="plan-cover"
+          src="{{selectedBook.cover}}"
+          mode="aspectFill"
+        />
+        <view class="plan-cover placeholder" wx:else>
+          <text>词</text>
+        </view>
+        <view class="plan-header-text">
+          <text class="plan-title">{{selectedBook.name}}</text>
+          <text class="plan-meta">共 {{selectedBook.wordCount || 0}} 词</text>
+          <text class="plan-source" wx:if="{{selectedBook.originName}}">来源：{{selectedBook.originName}}</text>
+        </view>
+      </view>
+      <text class="plan-desc">{{selectedBook.description || '暂无描述'}}</text>
+    </view>
+
+    <view class="plan-form">
+      <view class="form-row">
+        <text class="form-label">新学 : 复习</text>
+        <picker mode="selector" range="{{ratioOptions}}" range-key="label" value="{{ratioIndex}}" bindchange="onRatioChange">
+          <view class="form-picker">
+            <text>{{ratioOptions[ratioIndex].label}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-row">
+        <text class="form-label">每日新学</text>
+        <picker mode="selector" range="{{newCountOptions}}" value="{{newCountIndex}}" bindchange="onNewCountChange">
+          <view class="form-picker">
+            <text>{{newCountOptions[newCountIndex]}} 个</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-row" wx:if="{{showVoiceOption}}">
+        <text class="form-label">默认发音</text>
+        <picker mode="selector" range="{{voiceOptions}}" range-key="label" value="{{voiceIndex}}" bindchange="onVoiceChange">
+          <view class="form-picker">
+            <text>{{voiceOptions[voiceIndex].label}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-row readonly">
+        <text class="form-label">每日复习</text>
+        <text class="form-value">{{dailyReviewCount}} 个</text>
+      </view>
+
+      <view class="form-row readonly">
+        <text class="form-label">预计完成</text>
+        <text class="form-value">{{planDays}} 天</text>
+      </view>
+    </view>
+
+    <button class="confirm-btn" loading="{{saving}}" disabled="{{saving}}" bindtap="onConfirmPlan">确认并开始</button>
   </block>
 </view>
