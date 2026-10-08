@@ -32,7 +32,8 @@ Page({
     playingType: 0,
     elapsedText: '00:00',
     submitting: false,
-    playing: false
+    playing: false,
+    pictureError: false
   },
 
   timer: null,
@@ -158,7 +159,8 @@ Page({
         learnDone,
         reviewDone,
         voiceType,
-        elapsedText: '00:00'
+        elapsedText: '00:00',
+        pictureError: false
       });
       this.startTimer();
       this.autoPlayCurrent();
@@ -202,6 +204,27 @@ Page({
     this.audio.play();
   },
 
+  onPictureError() {
+    this.setData({ pictureError: true });
+  },
+
+  onPreviewPictures() {
+    const card = this.data.card;
+    if (!card) {
+      return;
+    }
+    const urls = Array.isArray(card.pictures) && card.pictures.length
+      ? card.pictures.filter(Boolean)
+      : (card.picture ? [card.picture] : []);
+    if (!urls.length) {
+      return;
+    }
+    wx.previewImage({
+      current: urls[0],
+      urls
+    });
+  },
+
   onHint() {
     if (!this.data.card || this.data.revealed) {
       return;
@@ -235,7 +258,8 @@ Page({
       revealed: true,
       hintShown: false,
       pendingRemember: !!rememberFlag,
-      answered: true
+      answered: true,
+      pictureError: false
     });
     postWithAuth('/user/word/study/answer', {
       bookCode: this.data.bookCode,
@@ -254,10 +278,14 @@ Page({
         return;
       }
       const patch = {};
-      if (card.mode === 'review') {
-        patch.reviewDone = this.data.reviewDone + 1;
-      } else {
-        patch.learnDone = this.data.learnDone + 1;
+      // 进度以后端为准：只有「认识」才会计入完成
+      if (res.data) {
+        if (res.data.learnDone != null) {
+          patch.learnDone = res.data.learnDone;
+        }
+        if (res.data.reviewDone != null) {
+          patch.reviewDone = res.data.reviewDone;
+        }
       }
       this.setData(patch);
       if (rememberFlag) {
@@ -276,32 +304,56 @@ Page({
     this.goNext();
   },
 
-  goNext() {
-    this.clearAutoNext();
-    this.stopAudio();
-    const nextIndex = this.data.index + 1;
-    const cards = this.data.cards || [];
-    if (nextIndex >= cards.length) {
-      this.stopTimer();
-      this.setData({
-        status: 'done',
-        card: null,
-        revealed: false,
-        hintShown: false,
-        pendingRemember: null,
-        answered: false,
-        elapsedText: formatElapsed(Date.now() - this.startedAt)
-      });
-      return;
-    }
+  finishRound() {
+    this.stopTimer();
     this.setData({
-      index: nextIndex,
-      card: cards[nextIndex],
+      status: 'done',
+      cards: [],
+      index: 0,
+      card: null,
       revealed: false,
       hintShown: false,
       pendingRemember: null,
       answered: false,
       submitting: false
+    });
+  },
+
+  goNext() {
+    this.clearAutoNext();
+    this.stopAudio();
+    const remembered = this.data.pendingRemember === true;
+    const cards = (this.data.cards || []).slice();
+    let index = this.data.index;
+    if (!cards.length || index < 0 || index >= cards.length) {
+      this.finishRound();
+      return;
+    }
+    const current = cards[index];
+    const wasLast = index >= cards.length - 1;
+    // 认识：移出队列；不认识：放到队尾，本轮还会再出现
+    cards.splice(index, 1);
+    if (!remembered && current) {
+      cards.push(current);
+    }
+    if (!cards.length) {
+      this.finishRound();
+      return;
+    }
+    // 答完队尾后：从队头继续，避免未记住的词立刻再弹一次
+    if (index >= cards.length || (!remembered && wasLast && cards.length > 1)) {
+      index = 0;
+    }
+    this.setData({
+      cards,
+      index,
+      card: cards[index],
+      revealed: false,
+      hintShown: false,
+      pendingRemember: null,
+      answered: false,
+      submitting: false,
+      pictureError: false
     });
     this.autoPlayCurrent();
   },

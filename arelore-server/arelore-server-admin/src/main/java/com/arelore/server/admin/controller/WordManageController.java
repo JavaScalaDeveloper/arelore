@@ -3,6 +3,9 @@ package com.arelore.server.admin.controller;
 import com.arelore.server.core.common.dto.IdRequest;
 import com.arelore.server.core.common.dto.PageResult;
 import com.arelore.server.core.common.result.Result;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoResponse;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoSyncResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBookRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBookResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordCategoryRequest;
@@ -11,6 +14,7 @@ import com.arelore.server.core.biz.word.admin.dto.AdminWordEntryRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordEntryResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordLanguageRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordLanguageResponse;
+import com.arelore.server.core.biz.word.admin.AdminWordBaseInfoService;
 import com.arelore.server.core.biz.word.admin.AdminWordBookService;
 import com.arelore.server.core.biz.word.admin.AdminWordCategoryService;
 import com.arelore.server.core.biz.word.admin.AdminWordEntryService;
@@ -27,17 +31,20 @@ public class WordManageController {
     private final AdminWordCategoryService categoryService;
     private final AdminWordBookService bookService;
     private final AdminWordEntryService entryService;
+    private final AdminWordBaseInfoService baseInfoService;
 
     public WordManageController(
         AdminWordLanguageService languageService,
         AdminWordCategoryService categoryService,
         AdminWordBookService bookService,
-        AdminWordEntryService entryService
+        AdminWordEntryService entryService,
+        AdminWordBaseInfoService baseInfoService
     ) {
         this.languageService = languageService;
         this.categoryService = categoryService;
         this.bookService = bookService;
         this.entryService = entryService;
+        this.baseInfoService = baseInfoService;
     }
 
     @PostMapping("/language/list")
@@ -177,5 +184,20 @@ public class WordManageController {
         }
         entryService.deleteById(id);
         return Result.success("删除成功");
+    }
+
+    @PostMapping("/base-info/list")
+    public Result<PageResult<AdminWordBaseInfoResponse>> baseInfoList(
+        @RequestBody(required = false) AdminWordBaseInfoRequest request
+    ) {
+        return Result.success(baseInfoService.pageQuery(request == null ? new AdminWordBaseInfoRequest() : request));
+    }
+
+    /** 分页扫描词条全部词形，从有道拉取配图等并 upsert 到 admin_word_base_info */
+    @PostMapping("/base-info/sync")
+    public Result<AdminWordBaseInfoSyncResponse> baseInfoSync(
+        @RequestBody(required = false) AdminWordBaseInfoRequest request
+    ) {
+        return Result.success(baseInfoService.syncFromEntries());
     }
 }

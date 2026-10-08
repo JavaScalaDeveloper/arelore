@@ -13,8 +13,10 @@ public class UserWordStudyCardResponse {
     private String word;
     private String phonetic;
     private String meaning;
-    /** 配图 URL（ext_info.picture） */
+    /** 首张配图（来自 admin_word_base_info，便于单图展示） */
     private String picture;
+    /** 全部配图 URL（来自 admin_word_base_info.ext_info.pictures） */
+    private List<String> pictures = new ArrayList<>();
     /** 记忆法（ext_info.remMethod.val） */
     private String mnemonic;
     /** 英文例句（提示用，取首条） */

@@ -23,12 +23,19 @@ export function resolveBookCover(record: any): string {
   return (ext.cover || '').trim();
 }
 
-/** http → https，避免管理端混合内容被拦截 */
+/** 配图/封面 URL：有道 NOS 走可用 HTTPS 域名，其它 http 升 https */
 export function toHttpsUrl(url?: string | null): string {
   if (!url) {
     return '';
   }
-  const s = String(url).trim();
+  let s = String(url).trim();
+  // ydschool-online.nos.netease.com 的 HTTPS 握手失败，改走官方 HTTPS 域名
+  s = s
+    .replace('http://ydschool-online.nos.netease.com/', 'https://ydschool-online.nosdn.127.net/')
+    .replace('https://ydschool-online.nos.netease.com/', 'https://ydschool-online.nosdn.127.net/');
+  if (s.startsWith('//')) {
+    return `https:${s}`;
+  }
   if (s.startsWith('http://')) {
     return `https://${s.slice('http://'.length)}`;
   }

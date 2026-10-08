@@ -127,4 +127,9 @@ export const adminApi = {
   getWordUserCurrentBookList: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/user/current-book/list', data),
   getWordUserStudyPlanList: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/user/study-plan/list', data),
   getWordUserLearnRecordList: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/user/learn-record/list', data),
+
+  getWordBaseInfoList: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/base-info/list', data),
+  /** 全量同步可能很久：词条多 + 有道限速间隔 */
+  syncWordBaseInfo: (data?: any): Promise<ApiResponse<any>> =>
+    request.post('/admin/word/base-info/sync', data || {}, { timeout: 30 * 60 * 1000 }),
 };

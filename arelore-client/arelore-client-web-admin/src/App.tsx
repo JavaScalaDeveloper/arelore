@@ -14,6 +14,7 @@ import WordLanguageManagement from './pages/WordLanguageManagement';
 import WordCategoryManagement from './pages/WordCategoryManagement';
 import WordBookManagement from './pages/WordBookManagement';
 import WordEntryManagement from './pages/WordEntryManagement';
+import WordBaseInfoManagement from './pages/WordBaseInfoManagement';
 import WordUserManagement from './pages/WordUserManagement';
 
 function ProductIndex() {
@@ -47,6 +48,7 @@ function App() {
             <Route path="categories" element={<WordCategoryManagement />} />
             <Route path="books" element={<WordBookManagement />} />
             <Route path="entries" element={<WordEntryManagement />} />
+            <Route path="base-info" element={<WordBaseInfoManagement />} />
             <Route index element={<ProductIndex />} />
           </Route>
         </Routes>

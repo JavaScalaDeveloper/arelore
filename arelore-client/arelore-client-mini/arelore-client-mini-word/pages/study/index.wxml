@@ -16,7 +16,7 @@
 <view class="page" wx:elif="{{status === 'done'}}">
   <view class="state-card">
     <text class="state-title">本轮完成</text>
-    <text class="state-desc">新学 {{learnDone}}/{{learnTotal}} · 复习 {{reviewDone}}/{{reviewTotal}} · 耗时 {{elapsedText}}</text>
+    <text class="state-desc">新学 {{learnDone}}/{{learnTotal}} · 复习 {{reviewDone}}/{{reviewTotal}}</text>
     <button class="primary-btn" bindtap="onBack">返回首页</button>
   </view>
 </view>
@@ -68,13 +68,18 @@
     </view>
 
     <view class="reveal" wx:if="{{revealed}}">
-      <image
-        wx:if="{{card.picture}}"
-        class="word-picture"
-        src="{{card.picture}}"
-        mode="aspectFit"
-        lazy-load
-      />
+      <view class="picture-wrap" wx:if="{{card.picture && !pictureError}}" bindtap="onPreviewPictures">
+        <image
+          class="word-picture"
+          src="{{card.picture}}"
+          mode="aspectFit"
+          lazy-load
+          binderror="onPictureError"
+        />
+        <text class="picture-tip" wx:if="{{card.pictures && card.pictures.length > 1}}">
+          点击查看全部 {{card.pictures.length}} 张
+        </text>
+      </view>
       <text class="meaning" wx:if="{{card.meaning}}">{{card.meaning}}</text>
       <text class="meaning muted" wx:else>暂无释义</text>
       <text class="mnemonic" wx:if="{{card.mnemonic}}">记忆：{{card.mnemonic}}</text>

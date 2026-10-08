@@ -4,8 +4,13 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.arelore.server.core.biz.word.admin.AdminWordBookService;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBookResponse;
+import com.arelore.server.core.biz.word.admin.entity.AdminWordBaseInfo;
 import com.arelore.server.core.biz.word.admin.entity.AdminWordEntry;
+import com.arelore.server.core.biz.word.admin.mapper.AdminWordBaseInfoMapper;
 import com.arelore.server.core.biz.word.admin.mapper.AdminWordEntryMapper;
+import com.arelore.server.core.biz.word.admin.support.YoudaoDictClient;
 import com.arelore.server.core.biz.word.user.dto.UserWordCurrentBookRequest;
 import com.arelore.server.core.biz.word.user.dto.UserWordCurrentBookResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordLearnRecordRequest;
@@ -43,17 +48,23 @@ public class UserWordLearnRecordServiceImpl
 
     private final UserWordLearnRecordMapper mapper;
     private final AdminWordEntryMapper entryMapper;
+    private final AdminWordBaseInfoMapper baseInfoMapper;
+    private final AdminWordBookService bookService;
     private final UserWordCurrentBookService currentBookService;
     private final UserWordStudyPlanService studyPlanService;
 
     public UserWordLearnRecordServiceImpl(
         UserWordLearnRecordMapper mapper,
         AdminWordEntryMapper entryMapper,
+        AdminWordBaseInfoMapper baseInfoMapper,
+        AdminWordBookService bookService,
         UserWordCurrentBookService currentBookService,
         UserWordStudyPlanService studyPlanService
     ) {
         this.mapper = mapper;
         this.entryMapper = entryMapper;
+        this.baseInfoMapper = baseInfoMapper;
+        this.bookService = bookService;
         this.currentBookService = currentBookService;
         this.studyPlanService = studyPlanService;
     }
@@ -223,9 +234,12 @@ public class UserWordLearnRecordServiceImpl
 
         List<AdminWordEntry> learnEntries = loadEntriesByCodes(bookCode, sessionLearnCodes);
         List<AdminWordEntry> reviewEntries = loadEntriesByCodes(bookCode, sessionReviewCodes);
-        List<UserWordStudyCardResponse> learnCards = toCards(learnEntries, "learn", voiceType);
-        List<UserWordStudyCardResponse> reviewCards = toCards(reviewEntries, "review", voiceType);
-        List<UserWordStudyCardResponse> mixed = interleave(learnCards, reviewCards);
+        String languageCode = resolveBookLanguageCode(bookCode);
+        Map<String, List<String>> picturesByWord = loadBasePicturesByWord(languageCode, learnEntries, reviewEntries);
+        List<UserWordStudyCardResponse> learnCards = toCards(learnEntries, "learn", voiceType, picturesByWord);
+        List<UserWordStudyCardResponse> reviewCards = toCards(reviewEntries, "review", voiceType, picturesByWord);
+        // 先复习未完成词，再学新词
+        List<UserWordStudyCardResponse> mixed = concatReviewThenLearn(reviewCards, learnCards);
 
         UserWordStudySessionResponse response = new UserWordStudySessionResponse();
         response.setBookCode(bookCode);
@@ -328,16 +342,20 @@ public class UserWordLearnRecordServiceImpl
         int reviewDone = planExt.getIntValue("reviewDone");
         int reviewTodo = planExt.containsKey("reviewTodo") ? planExt.getIntValue("reviewTodo") : nvl(current.getReviewTodo());
 
-        if ("review".equals(mode)) {
-            if (!countedReview.contains(wordCode) && reviewTodo > 0) {
-                countedReview.add(wordCode);
-                reviewDone += 1;
-                reviewTodo = Math.max(0, reviewTodo - 1);
+        // 仅「认识」才计入本轮完成；不认识的词会在本轮队列中再次出现
+        boolean remembered = Boolean.TRUE.equals(request.getRememberFlag());
+        if (remembered) {
+            if ("review".equals(mode)) {
+                if (!countedReview.contains(wordCode) && reviewTodo > 0) {
+                    countedReview.add(wordCode);
+                    reviewDone += 1;
+                    reviewTodo = Math.max(0, reviewTodo - 1);
+                }
+            } else if (!countedLearn.contains(wordCode) && learnTodo > 0) {
+                countedLearn.add(wordCode);
+                learnDone += 1;
+                learnTodo = Math.max(0, learnTodo - 1);
             }
-        } else if (!countedLearn.contains(wordCode) && learnTodo > 0) {
-            countedLearn.add(wordCode);
-            learnDone += 1;
-            learnTodo = Math.max(0, learnTodo - 1);
         }
         planExt.put("countedLearnWordCodes", toJsonArray(countedLearn));
         planExt.put("countedReviewWordCodes", toJsonArray(countedReview));
@@ -371,18 +389,28 @@ public class UserWordLearnRecordServiceImpl
         return current;
     }
 
-    private List<UserWordStudyCardResponse> toCards(List<AdminWordEntry> entries, String mode, int voiceType) {
+    private List<UserWordStudyCardResponse> toCards(
+        List<AdminWordEntry> entries,
+        String mode,
+        int voiceType,
+        Map<String, List<String>> picturesByWord
+    ) {
         List<UserWordStudyCardResponse> cards = new ArrayList<>();
         if (entries == null) {
             return cards;
         }
         for (AdminWordEntry entry : entries) {
-            cards.add(toCard(entry, mode, voiceType));
+            cards.add(toCard(entry, mode, voiceType, picturesByWord));
         }
         return cards;
     }
 
-    private UserWordStudyCardResponse toCard(AdminWordEntry entry, String mode, int voiceType) {
+    private UserWordStudyCardResponse toCard(
+        AdminWordEntry entry,
+        String mode,
+        int voiceType,
+        Map<String, List<String>> picturesByWord
+    ) {
         UserWordStudyCardResponse card = new UserWordStudyCardResponse();
         card.setMode(mode);
         card.setWordCode(entry.getWordCode());
@@ -394,9 +422,12 @@ public class UserWordLearnRecordServiceImpl
             card.setPhonetic(firstNonBlank(ext.getString("usphone"), ext.getString("ukphone"), ext.getString("phone")));
         }
         card.setMeaning(buildMeaning(ext));
-        String picture = normalizePictureUrl(ext.getString("picture"));
-        if (StringUtils.hasText(picture)) {
-            card.setPicture(picture);
+        List<String> pictures = picturesByWord == null || entry.getWord() == null
+            ? List.of()
+            : picturesByWord.getOrDefault(entry.getWord(), List.of());
+        card.setPictures(new ArrayList<>(pictures));
+        if (!pictures.isEmpty()) {
+            card.setPicture(pictures.get(0));
         }
         JSONObject remMethod = ext.getJSONObject("remMethod");
         if (remMethod != null) {
@@ -412,6 +443,82 @@ public class UserWordLearnRecordServiceImpl
             card.setExampleCn(examples.get(0).getCn());
         }
         return card;
+    }
+
+    private String resolveBookLanguageCode(String bookCode) {
+        if (!StringUtils.hasText(bookCode)) {
+            return "EN";
+        }
+        AdminWordBookResponse book = bookService.getByCode(bookCode.trim());
+        if (book != null && StringUtils.hasText(book.getLanguageCode())) {
+            return book.getLanguageCode().trim();
+        }
+        return "EN";
+    }
+
+    @SafeVarargs
+    private final Map<String, List<String>> loadBasePicturesByWord(
+        String languageCode,
+        List<AdminWordEntry>... entryLists
+    ) {
+        Map<String, List<String>> result = new HashMap<>();
+        Set<String> words = new LinkedHashSet<>();
+        if (entryLists != null) {
+            for (List<AdminWordEntry> list : entryLists) {
+                if (list == null) {
+                    continue;
+                }
+                for (AdminWordEntry entry : list) {
+                    if (entry != null && StringUtils.hasText(entry.getWord())) {
+                        words.add(entry.getWord());
+                    }
+                }
+            }
+        }
+        if (words.isEmpty()) {
+            return result;
+        }
+        String lang = StringUtils.hasText(languageCode) ? languageCode.trim() : "EN";
+        List<AdminWordBaseInfo> rows = baseInfoMapper.selectList(new LambdaQueryWrapper<AdminWordBaseInfo>()
+            .eq(AdminWordBaseInfo::getLanguageCode, lang)
+            .in(AdminWordBaseInfo::getWord, words)
+            .select(AdminWordBaseInfo::getWord, AdminWordBaseInfo::getExtInfo));
+        if (rows == null) {
+            return result;
+        }
+        for (AdminWordBaseInfo row : rows) {
+            if (row == null || !StringUtils.hasText(row.getWord())) {
+                continue;
+            }
+            result.put(row.getWord(), extractPictures(row.getExtInfo()));
+        }
+        return result;
+    }
+
+    private List<String> extractPictures(String extInfo) {
+        List<String> pictures = new ArrayList<>();
+        JSONObject ext = parseExt(extInfo);
+        JSONArray arr = ext.getJSONArray("pictures");
+        if (arr == null || arr.isEmpty()) {
+            return pictures;
+        }
+        LinkedHashSet<String> unique = new LinkedHashSet<>();
+        for (int i = 0; i < arr.size(); i++) {
+            Object item = arr.get(i);
+            String url = null;
+            if (item instanceof String) {
+                url = (String) item;
+            } else if (item instanceof JSONObject) {
+                JSONObject obj = (JSONObject) item;
+                url = firstNonBlank(obj.getString("url"), obj.getString("image"));
+            }
+            url = YoudaoDictClient.normalizePictureUrl(url);
+            if (StringUtils.hasText(url)) {
+                unique.add(url);
+            }
+        }
+        pictures.addAll(unique);
+        return pictures;
     }
 
     private String buildMeaning(JSONObject ext) {
@@ -477,20 +584,18 @@ public class UserWordLearnRecordServiceImpl
         return value.replaceAll("<[^>]+>", "").trim();
     }
 
-    private List<UserWordStudyCardResponse> interleave(
-        List<UserWordStudyCardResponse> learnCards,
-        List<UserWordStudyCardResponse> reviewCards
+    private List<UserWordStudyCardResponse> concatReviewThenLearn(
+        List<UserWordStudyCardResponse> reviewCards,
+        List<UserWordStudyCardResponse> learnCards
     ) {
-        List<UserWordStudyCardResponse> mixed = new ArrayList<>(learnCards.size() + reviewCards.size());
-        int i = 0;
-        int j = 0;
-        while (i < learnCards.size() || j < reviewCards.size()) {
-            if (i < learnCards.size()) {
-                mixed.add(learnCards.get(i++));
-            }
-            if (j < reviewCards.size()) {
-                mixed.add(reviewCards.get(j++));
-            }
+        List<UserWordStudyCardResponse> mixed = new ArrayList<>(
+            (reviewCards == null ? 0 : reviewCards.size()) + (learnCards == null ? 0 : learnCards.size())
+        );
+        if (reviewCards != null) {
+            mixed.addAll(reviewCards);
+        }
+        if (learnCards != null) {
+            mixed.addAll(learnCards);
         }
         return mixed;
     }
@@ -514,19 +619,6 @@ public class UserWordLearnRecordServiceImpl
             return voiceType;
         }
         return 2;
-    }
-
-    private String normalizePictureUrl(String url) {
-        if (!StringUtils.hasText(url)) {
-            return "";
-        }
-        String value = url.trim();
-        if (value.startsWith("//")) {
-            value = "https:" + value;
-        } else if (value.startsWith("http://")) {
-            value = "https://" + value.substring("http://".length());
-        }
-        return value;
     }
 
     private List<String> readStringList(JSONObject ext, String key) {
