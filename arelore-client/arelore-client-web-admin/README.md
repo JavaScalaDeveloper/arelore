@@ -28,13 +28,32 @@ cd arelore-client/arelore-client-web-admin
 npm install
 ```
 
-### 启动开发服务器
+### 本地开发
 
 ```bash
 npm start
 ```
 
-访问 http://localhost:3001（需要修改端口，避免与用户端冲突）
+访问 http://localhost:3001（`.env` 默认连 admin-api `8082`）。
+
+### 按环境脚本启动（同机多环境）
+
+```bash
+chmod +x start.sh
+./start.sh test          # 默认 test
+./start.sh start prd
+./start.sh stop test
+./start.sh status
+```
+
+同机无网络隔离时靠端口区分：
+
+| 环境 | admin-web | admin-api | user-web | user-api |
+|------|-----------|-----------|----------|----------|
+| prd  | 3001      | 8082      | 3000     | 8081     |
+| pre  | 3101      | 8182      | 3100     | 8181     |
+| test | 3201      | 8282      | 3200     | 8281     |
+| dev  | 3301      | 8382      | 3300     | 8381     |
 
 ### 构建生产版本
 
@@ -71,7 +90,7 @@ arelore-client-web-admin/
 
 所有 API 请求都通过 Axios 发送到后端服务：
 
-- **基础 URL**: `http://localhost:8080/api/admin` (开发环境)
+- **基础 URL**: `http://localhost:8082/api`（本地 `.env`）；脚本启动时按环境连对应 admin-api 端口
 - **认证方式**: JWT Token
 - **数据格式**: JSON
 

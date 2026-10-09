@@ -91,11 +91,20 @@ arelore-client-mini-word/
 4. `POST /api/user/auth/wechat/quick`，body 含 `code` 与 `userInfo`
 5. 本地写入 `token`、`word_current_user`
 
-默认接口根地址：`http://localhost:8081/api`。开发者工具 Storage 写入 `miniApiBaseUrl` 可覆盖。请先启动用户服务，并保持 `project.config.json` 里 `urlCheck: false`（否则本地 HTTP 会被拦截）。
+默认接口根地址：`http://localhost:8281/api`（对应本地 user 服务默认 `spring.profiles.active=test`）。
+
+| 环境 | user-api | Storage `miniApiEnv` |
+|------|----------|----------------------|
+| prd  | 8081     | `prd`                |
+| pre  | 8181     | `pre`                |
+| test | 8281     | `test`（默认）       |
+| dev  | 8381     | `dev`                |
+
+开发者工具 Storage 可写 `miniApiBaseUrl`（完整地址）或 `miniApiEnv` 覆盖。请先启动用户服务，并保持 `project.config.json` 里 `urlCheck: false`。
 
 未接微信开放平台时，openid 使用本机模拟值 `miniOpenid`（与考证宝一致），避免每次登录新建账号。
 
-### 单词本接口（用户服务 8081）
+### 单词本接口（用户服务，本地默认 8281）
 
 | 路径 | 说明 |
 |------|------|

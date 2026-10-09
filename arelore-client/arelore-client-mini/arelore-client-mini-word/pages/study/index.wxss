@@ -138,11 +138,35 @@
   box-sizing: border-box;
 }
 
+.hint-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10rpx;
+}
+
 .hint-label {
-  display: block;
   font-size: 22rpx;
   color: #94a3b8;
-  margin-bottom: 10rpx;
+}
+
+.example-en-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12rpx;
+}
+
+.example-voice-btn {
+  flex-shrink: 0;
+  margin: 0 !important;
+  padding: 0 16rpx !important;
+  height: 48rpx !important;
+  line-height: 48rpx !important;
+  font-size: 22rpx !important;
+  background: #eff6ff !important;
+  color: #2563eb !important;
+  border-radius: 999rpx !important;
 }
 
 .hint-en {
@@ -225,11 +249,12 @@
 }
 
 .example-en {
-  display: block;
+  flex: 1;
+  min-width: 0;
   font-size: 26rpx;
   color: #334155;
   line-height: 1.45;
-  text-align: center;
+  text-align: left;
 }
 
 .example-cn {

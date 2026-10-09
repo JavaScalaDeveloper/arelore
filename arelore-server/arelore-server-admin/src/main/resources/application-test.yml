@@ -9,7 +9,7 @@
 # =====================================================
 
 server:
-  port: 8082
+  port: 8282
 
 spring:
   application:
@@ -35,6 +35,14 @@ spring:
         idle-timeout: 520000
         connection-timeout: 30000
         keepalive-time: 60000
+
+arelore:
+  word:
+    image:
+      unsplash-access-key: ${ARELORE_UNSPLASH_ACCESS_KEY:}
+      pexels-api-key: ${ARELORE_PEXELS_API_KEY:}
+      min-count: 4
+      search-count: 12
 
 logging:
   level:

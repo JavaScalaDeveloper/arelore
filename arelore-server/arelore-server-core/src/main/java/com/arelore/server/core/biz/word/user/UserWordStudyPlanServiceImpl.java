@@ -127,7 +127,8 @@ public class UserWordStudyPlanServiceImpl
         currentReq.setLearnDone(0);
         currentReq.setLearnTodo(request.getDailyNewCount());
         currentReq.setReviewDone(0);
-        currentReq.setReviewTodo(request.getDailyReviewCount());
+        // 复习=上一学习日新学词；确认计划时尚无历史，待办为 0
+        currentReq.setReviewTodo(0);
         // 当前词书行只镜像展示；今日词表落在 plan.ext_info（按书隔离）
         currentReq.setExtInfo(null);
         if (userCurrent == null) {
@@ -233,7 +234,7 @@ public class UserWordStudyPlanServiceImpl
             ext.put("learnDone", 0);
             ext.put("learnTodo", request.getDailyNewCount());
             ext.put("reviewDone", 0);
-            ext.put("reviewTodo", request.getDailyReviewCount());
+            ext.put("reviewTodo", 0);
         }
         request.setExtInfo(ext.isEmpty() ? null : ext.toJSONString());
     }

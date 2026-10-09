@@ -49,6 +49,16 @@ mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
 
+# 单词配图图库（优先 Unsplash；Pexels 新 Key 已暂停申请，仅作旧 Key 回退）
+# Unsplash 申请：https://unsplash.com/developers
+arelore:
+  word:
+    image:
+      unsplash-access-key: ${ARELORE_UNSPLASH_ACCESS_KEY:}
+      pexels-api-key: ${ARELORE_PEXELS_API_KEY:}
+      min-count: 4
+      search-count: 12
+
 logging:
   level:
     root: INFO

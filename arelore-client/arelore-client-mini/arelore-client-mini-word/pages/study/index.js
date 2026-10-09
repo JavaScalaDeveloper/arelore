@@ -1,5 +1,6 @@
 const { postWithAuth } = require('../../utils/request');
 const storage = require('../../utils/storage');
+const tts = require('../../utils/tts');
 
 function pad2(n) {
   return n < 10 ? `0${n}` : `${n}`;
@@ -30,6 +31,7 @@ Page({
     reviewDone: 0,
     voiceType: 2,
     playingType: 0,
+    playingExampleKey: '',
     elapsedText: '00:00',
     submitting: false,
     playing: false,
@@ -40,6 +42,7 @@ Page({
   autoNextTimer: null,
   startedAt: 0,
   audio: null,
+  ttsSession: null,
 
   onLoad() {
     this.initAudio();
@@ -65,17 +68,20 @@ Page({
   initAudio() {
     const audio = wx.createInnerAudioContext();
     audio.obeyMuteSwitch = false;
-    audio.onPlay(() => this.setData({ playing: true }));
-    audio.onEnded(() => this.setData({ playing: false }));
-    audio.onStop(() => this.setData({ playing: false }));
+    // playing / playingExampleKey 由 tts.playText 的 onStart/onEnd/onError 维护；
+    // 例句按词排队时中间会 stop+play，不能在 onStop 里清空状态。
     audio.onError(() => {
-      this.setData({ playing: false });
-      wx.showToast({ title: '发音播放失败', icon: 'none' });
+      // 排队播词时个别词失败由 tts 继续下一词；整段失败才 toast
+      if (!this.ttsSession) {
+        this.setData({ playing: false, playingExampleKey: '' });
+        wx.showToast({ title: '发音播放失败', icon: 'none' });
+      }
     });
     this.audio = audio;
   },
 
   destroyAudio() {
+    this.stopAudio();
     if (this.audio) {
       this.audio.destroy();
       this.audio = null;
@@ -83,6 +89,12 @@ Page({
   },
 
   stopAudio() {
+    if (this.ttsSession) {
+      try {
+        this.ttsSession.stop();
+      } catch (e) {}
+      this.ttsSession = null;
+    }
     if (this.audio) {
       try {
         this.audio.stop();
@@ -191,17 +203,34 @@ Page({
   },
 
   playWord(word, type) {
-    if (!this.audio || !word) {
+    this.playSpeech(word, type, { playingType: type === 1 ? 1 : 2, playingExampleKey: '' });
+  },
+
+  onPlayExample(e) {
+    const text = (e.currentTarget.dataset.text || '').trim();
+    if (!text) {
       return;
     }
-    const voiceType = type === 1 ? 1 : 2;
-    const src = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=${voiceType}`;
-    this.setData({ playingType: voiceType });
-    try {
-      this.audio.stop();
-    } catch (e) {}
-    this.audio.src = src;
-    this.audio.play();
+    const key = e.currentTarget.dataset.key || '';
+    const type = this.data.voiceType === 1 ? 1 : 2;
+    this.playSpeech(text, type, { playingType: 0, playingExampleKey: key });
+  },
+
+  /** 单词走有道整段发音；例句按词排队播放（有道整句常 500）。 */
+  playSpeech(text, type, uiState) {
+    if (!this.audio || !text) {
+      return;
+    }
+    this.stopAudio();
+    this.setData(Object.assign({ playingType: 0, playingExampleKey: '' }, uiState || {}));
+    this.ttsSession = tts.playText(this.audio, text, type === 1 ? 1 : 2, {
+      onStart: () => this.setData({ playing: true }),
+      onEnd: () => this.setData({ playing: false, playingExampleKey: '' }),
+      onError: () => {
+        this.setData({ playing: false, playingExampleKey: '' });
+        wx.showToast({ title: '发音播放失败', icon: 'none' });
+      }
+    });
   },
 
   onPictureError() {

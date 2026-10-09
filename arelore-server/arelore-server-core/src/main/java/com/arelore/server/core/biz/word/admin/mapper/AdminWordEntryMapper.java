@@ -25,17 +25,45 @@ public interface AdminWordEntryMapper extends BaseMapper<AdminWordEntry> {
         @Param("limit") int limit
     );
 
+    /**
+     * 复习词：除今天外，之前「最后一天」新学过的单词（以 learn_record.create_time 日期为准）。
+     * 从未学过时子查询为 NULL，结果为空。
+     */
     @Select("SELECT e.id, e.create_time, e.modify_time, e.book_code, e.word_code, e.word, e.sort_no, e.ext_info "
         + "FROM admin_word_entry e "
         + "INNER JOIN user_word_learn_record r "
         + "  ON r.book_code = e.book_code AND r.word_code = e.word_code AND r.user_id = #{userId} "
         + "WHERE e.book_code = #{bookCode} "
-        + "ORDER BY r.modify_time ASC, e.sort_no ASC "
+        + "AND DATE(r.create_time) = ("
+        + "  SELECT MAX(DATE(r2.create_time)) FROM user_word_learn_record r2 "
+        + "  WHERE r2.user_id = #{userId} AND r2.book_code = #{bookCode} "
+        + "  AND DATE(r2.create_time) < CURDATE()"
+        + ") "
+        + "ORDER BY r.create_time ASC, e.sort_no ASC "
         + "LIMIT #{limit}")
     List<AdminWordEntry> selectForReview(
         @Param("userId") BigDecimal userId,
         @Param("bookCode") String bookCode,
         @Param("limit") int limit
+    );
+
+    @Select("SELECT COUNT(1) FROM user_word_learn_record "
+        + "WHERE user_id = #{userId} AND book_code = #{bookCode}")
+    int countLearned(
+        @Param("userId") BigDecimal userId,
+        @Param("bookCode") String bookCode
+    );
+
+    @Select("SELECT COUNT(1) FROM user_word_learn_record r "
+        + "WHERE r.user_id = #{userId} AND r.book_code = #{bookCode} "
+        + "AND DATE(r.create_time) = ("
+        + "  SELECT MAX(DATE(r2.create_time)) FROM user_word_learn_record r2 "
+        + "  WHERE r2.user_id = #{userId} AND r2.book_code = #{bookCode} "
+        + "  AND DATE(r2.create_time) < CURDATE()"
+        + ")")
+    int countPreviousLearnDay(
+        @Param("userId") BigDecimal userId,
+        @Param("bookCode") String bookCode
     );
 
     @Select("<script>"

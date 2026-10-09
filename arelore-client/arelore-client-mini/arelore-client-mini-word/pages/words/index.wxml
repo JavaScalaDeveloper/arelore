@@ -33,6 +33,20 @@
     </view>
   </view>
 
+  <view class="progress-card">
+    <view class="progress-head">
+      <text class="progress-title">整书进度</text>
+      <text class="progress-pct">{{book.progressPercent}}%</text>
+    </view>
+    <view class="progress-track">
+      <view class="progress-fill" style="width: {{book.progressPercent}}%;"></view>
+    </view>
+    <view class="progress-meta">
+      <text class="progress-meta-text">已学 {{book.learnedCount}} / {{book.wordCount}}</text>
+      <text class="progress-meta-text">剩余约 {{book.remainingDays}} 天</text>
+    </view>
+  </view>
+
   <view class="cards">
     <view class="card learn" bindtap="onStartStudy">
       <text class="card-title">新学</text>
@@ -51,7 +65,7 @@
 
     <view class="card review" bindtap="onStartStudy">
       <text class="card-title">复习</text>
-      <text class="card-desc">巩固已学</text>
+      <text class="card-desc">上一学习日新学</text>
       <view class="stats">
         <view class="stat">
           <text class="stat-num">{{book.reviewTodo}}</text>

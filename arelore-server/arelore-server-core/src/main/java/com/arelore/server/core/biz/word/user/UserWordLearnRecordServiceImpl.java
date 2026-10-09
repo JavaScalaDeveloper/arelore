@@ -139,16 +139,14 @@ public class UserWordLearnRecordServiceImpl
             planExt.put("countedLearnWordCodes", new JSONArray());
             planExt.put("countedReviewWordCodes", new JSONArray());
             planExt.put("learnDone", 0);
-            planExt.put("learnTodo", learnLimit);
+            planExt.put("learnTodo", 0);
             planExt.put("reviewDone", 0);
-            planExt.put("reviewTodo", reviewLimit);
-            studyPlanService.saveDailyProgress(plan.getId(), planExt.toJSONString());
-            syncCurrentFromPlan(current, request.getUserId(), bookCode, planExt);
+            planExt.put("reviewTodo", 0);
         }
 
         List<String> todayLearnCodes = readStringList(planExt, "todayLearnWordCodes");
         List<String> todayReviewCodes = readStringList(planExt, "todayReviewWordCodes");
-        boolean codesChanged = false;
+        boolean codesChanged = newDay;
 
         if (todayLearnCodes.size() < learnLimit) {
             Set<String> exists = new HashSet<>(todayLearnCodes);
@@ -168,60 +166,57 @@ public class UserWordLearnRecordServiceImpl
             }
         }
 
-        if (todayReviewCodes.size() < reviewLimit) {
-            Set<String> blocked = new HashSet<>(todayLearnCodes);
-            blocked.addAll(todayReviewCodes);
-            int need = reviewLimit - todayReviewCodes.size();
+        List<String> countedLearn = readStringList(planExt, "countedLearnWordCodes");
+        List<String> countedReview = readStringList(planExt, "countedReviewWordCodes");
+        int learnDone = planExt.containsKey("learnDone") ? planExt.getIntValue("learnDone") : countedLearn.size();
+        int reviewDone = planExt.containsKey("reviewDone") ? planExt.getIntValue("reviewDone") : countedReview.size();
+
+        // 复习：上一学习日（不含今天）新学过的词；未开始复习时可重建（兼容旧配额逻辑）
+        if (todayReviewCodes.isEmpty() || reviewDone == 0) {
+            List<String> rebuilt = new ArrayList<>();
             List<AdminWordEntry> candidates = entryMapper.selectForReview(
-                request.getUserId(), bookCode, Math.max(need * 3, need + todayLearnCodes.size())
+                request.getUserId(), bookCode, reviewLimit
             );
+            Set<String> blocked = new HashSet<>(todayLearnCodes);
             for (AdminWordEntry entry : candidates) {
                 if (entry == null || !StringUtils.hasText(entry.getWordCode())) {
                     continue;
                 }
                 if (blocked.add(entry.getWordCode())) {
-                    todayReviewCodes.add(entry.getWordCode());
-                    codesChanged = true;
-                    if (todayReviewCodes.size() >= reviewLimit) {
+                    rebuilt.add(entry.getWordCode());
+                    if (rebuilt.size() >= reviewLimit) {
                         break;
                     }
                 }
             }
+            if (!rebuilt.equals(todayReviewCodes)) {
+                todayReviewCodes = rebuilt;
+                codesChanged = true;
+            }
         }
 
-        if (codesChanged) {
+        int learnTodo = Math.max(0, todayLearnCodes.size() - learnDone);
+        int reviewTodo = Math.max(0, todayReviewCodes.size() - reviewDone);
+
+        if (codesChanged || newDay) {
             planExt.put("todayLearnWordCodes", toJsonArray(todayLearnCodes));
             planExt.put("todayReviewWordCodes", toJsonArray(todayReviewCodes));
-            if (!planExt.containsKey("learnDone")) {
-                planExt.put("learnDone", 0);
-            }
-            if (!planExt.containsKey("learnTodo")) {
-                planExt.put("learnTodo", learnLimit);
-            }
-            if (!planExt.containsKey("reviewDone")) {
-                planExt.put("reviewDone", 0);
-            }
-            if (!planExt.containsKey("reviewTodo")) {
-                planExt.put("reviewTodo", reviewLimit);
-            }
+            planExt.put("learnDone", learnDone);
+            planExt.put("learnTodo", learnTodo);
+            planExt.put("reviewDone", reviewDone);
+            planExt.put("reviewTodo", reviewTodo);
             planExt.put("studyDate", today);
             studyPlanService.saveDailyProgress(plan.getId(), planExt.toJSONString());
             syncCurrentFromPlan(current, request.getUserId(), bookCode, planExt);
         } else {
-            // 确保首页进度与当前词书 plan 对齐
+            planExt.put("learnTodo", learnTodo);
+            planExt.put("reviewTodo", reviewTodo);
             syncCurrentFromPlan(current, request.getUserId(), bookCode, planExt);
         }
 
-        List<String> countedLearn = readStringList(planExt, "countedLearnWordCodes");
-        List<String> countedReview = readStringList(planExt, "countedReviewWordCodes");
-        int learnDone = planExt.containsKey("learnDone") ? planExt.getIntValue("learnDone") : countedLearn.size();
-        int reviewDone = planExt.containsKey("reviewDone") ? planExt.getIntValue("reviewDone") : countedReview.size();
-        int learnTodo = planExt.containsKey("learnTodo") ? planExt.getIntValue("learnTodo") : Math.max(0, todayLearnCodes.size() - learnDone);
-        int reviewTodo = planExt.containsKey("reviewTodo") ? planExt.getIntValue("reviewTodo") : Math.max(0, todayReviewCodes.size() - reviewDone);
-
         // 未完成今日配额：只返回未作答词，便于断点续学；已完成则可重复练今日全部词
         boolean dayFinished = learnTodo <= 0 && reviewTodo <= 0
-            && !todayLearnCodes.isEmpty();
+            && (!todayLearnCodes.isEmpty() || !todayReviewCodes.isEmpty());
         List<String> sessionLearnCodes;
         List<String> sessionReviewCodes;
         if (dayFinished) {
@@ -247,10 +242,84 @@ public class UserWordLearnRecordServiceImpl
         response.setVoiceType(voiceType);
         response.setLearnDone(learnDone);
         response.setReviewDone(reviewDone);
-        response.setLearnTotal(Math.max(todayLearnCodes.size(), learnLimit));
-        response.setReviewTotal(Math.max(todayReviewCodes.size(), reviewLimit));
+        response.setLearnTotal(todayLearnCodes.size());
+        response.setReviewTotal(todayReviewCodes.size());
         response.setCards(mixed);
         return response;
+    }
+
+    @Override
+    public UserWordCurrentBookResponse enrichHome(UserWordCurrentBookResponse current) {
+        if (current == null || current.getUserId() == null || !StringUtils.hasText(current.getBookCode())) {
+            return current;
+        }
+        String bookCode = current.getBookCode();
+        int wordCount = current.getWordCount() == null ? 0 : current.getWordCount();
+        int learnedCount = entryMapper.countLearned(current.getUserId(), bookCode);
+        current.setLearnedCount(learnedCount);
+        int progressPercent = wordCount <= 0 ? 0 : Math.min(100, (int) Math.round(learnedCount * 100.0 / wordCount));
+        current.setProgressPercent(progressPercent);
+
+        UserWordStudyPlanRequest planQuery = new UserWordStudyPlanRequest();
+        planQuery.setUserId(current.getUserId());
+        planQuery.setBookCode(bookCode);
+        List<UserWordStudyPlanResponse> plans = studyPlanService.list(planQuery);
+        if (plans.isEmpty()) {
+            current.setPlanDays(0);
+            current.setRemainingDays(0);
+            return current;
+        }
+        UserWordStudyPlanResponse plan = plans.get(0);
+        int dailyNew = plan.getDailyNewCount() != null && plan.getDailyNewCount() > 0
+            ? plan.getDailyNewCount() : 10;
+        int reviewLimit = plan.getDailyReviewCount() != null && plan.getDailyReviewCount() > 0
+            ? plan.getDailyReviewCount() : dailyNew;
+        int planDays = plan.getPlanDays() != null ? plan.getPlanDays() : 0;
+        current.setPlanDays(planDays);
+        int remainWords = Math.max(0, wordCount - learnedCount);
+        int remainingDays = dailyNew <= 0 ? 0 : (int) Math.ceil(remainWords * 1.0 / dailyNew);
+        current.setRemainingDays(remainingDays);
+
+        JSONObject planExt = parseExt(plan.getExtInfo());
+        String today = LocalDate.now().toString();
+        boolean sameDay = today.equals(planExt.getString("studyDate"));
+        int prevDayCount = Math.min(reviewLimit, entryMapper.countPreviousLearnDay(current.getUserId(), bookCode));
+
+        if (!sameDay) {
+            // 新的一天尚未开练：新学=计划配额与剩余词取小；复习=上一学习日新学数
+            int learnTodo = Math.min(dailyNew, remainWords);
+            current.setLearnDone(0);
+            current.setLearnTodo(learnTodo);
+            current.setReviewDone(0);
+            current.setReviewTodo(prevDayCount);
+            return current;
+        }
+
+        List<String> todayReviewCodes = readStringList(planExt, "todayReviewWordCodes");
+        int reviewDone = planExt.containsKey("reviewDone") ? planExt.getIntValue("reviewDone") : nvl(current.getReviewDone());
+        int reviewTodo;
+        if (!todayReviewCodes.isEmpty()) {
+            reviewTodo = Math.max(0, todayReviewCodes.size() - reviewDone);
+        } else {
+            // 兼容旧数据：曾把配额写入 reviewTodo，无实际复习词时归零
+            reviewTodo = prevDayCount > 0 ? Math.max(0, prevDayCount - reviewDone) : 0;
+        }
+        current.setReviewDone(reviewDone);
+        current.setReviewTodo(reviewTodo);
+
+        List<String> todayLearnCodes = readStringList(planExt, "todayLearnWordCodes");
+        int learnDone = planExt.containsKey("learnDone") ? planExt.getIntValue("learnDone") : nvl(current.getLearnDone());
+        int learnTodo;
+        if (!todayLearnCodes.isEmpty()) {
+            learnTodo = Math.max(0, todayLearnCodes.size() - learnDone);
+        } else {
+            learnTodo = planExt.containsKey("learnTodo")
+                ? planExt.getIntValue("learnTodo")
+                : Math.min(dailyNew, remainWords);
+        }
+        current.setLearnDone(learnDone);
+        current.setLearnTodo(learnTodo);
+        return current;
     }
 
     @Override
@@ -324,15 +393,14 @@ public class UserWordLearnRecordServiceImpl
         JSONObject planExt = parseExt(plan.getExtInfo());
         String today = LocalDate.now().toString();
         if (!today.equals(planExt.getString("studyDate"))) {
+            // 跨日作答极少见；待办在 createSession 按实际上一学习日重算
             planExt.put("studyDate", today);
             planExt.put("countedLearnWordCodes", new JSONArray());
             planExt.put("countedReviewWordCodes", new JSONArray());
-            int learnLimit = plan.getDailyNewCount() != null ? plan.getDailyNewCount() : 10;
-            int reviewLimit = plan.getDailyReviewCount() != null ? plan.getDailyReviewCount() : 10;
             planExt.put("learnDone", 0);
-            planExt.put("learnTodo", learnLimit);
+            planExt.put("learnTodo", 0);
             planExt.put("reviewDone", 0);
-            planExt.put("reviewTodo", reviewLimit);
+            planExt.put("reviewTodo", 0);
         }
         List<String> countedLearn = readStringList(planExt, "countedLearnWordCodes");
         List<String> countedReview = readStringList(planExt, "countedReviewWordCodes");

@@ -1,15 +1,15 @@
 #!/bin/bash
 
 # ==============================================================================
-# Arelore Server User 启动脚本
+# Arelore 管理端 Web 启动脚本
 # ==============================================================================
-# 同机多环境端口约定（无网络隔离时靠端口隔离）：
+# 同机多环境部署时端口必须区分（无网络隔离时靠端口隔离）：
 #
-#   环境   user-api  user-web  admin-api  admin-web
-#   prd    8081      3000      8082       3001
-#   pre    8181      3100      8182       3101
-#   test   8281      3200      8282       3201
-#   dev    8381      3300      8382       3301
+#   环境   admin-web  admin-api   user-web  user-api
+#   prd    3001       8082        3000      8081
+#   pre    3101       8182        3100      8181
+#   test   3201       8282        3200      8281
+#   dev    3301       8382        3300      8381
 #
 # 使用方法：
 #   ./start.sh [环境]              # 启动，环境：dev/test/pre/prd（默认 test）
@@ -22,16 +22,8 @@
 # ==============================================================================
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_NAME="arelore-server-user"
-LOG_DIR="${APP_DIR}/logs"
+APP_NAME="arelore-client-web-admin"
 ENVIRONMENT="test"
-
-APPLICATION_DEV="application.yml"
-APPLICATION_TEST="application-test.yml"
-APPLICATION_PRE="application-pre.yml"
-APPLICATION_PRD="application-prd.yml"
-
-mkdir -p "$LOG_DIR"
 
 resolve_env() {
     local env_param="$1"
@@ -48,16 +40,32 @@ resolve_env() {
     esac
 }
 
+# 按环境设置前端端口与后端 API
 apply_env_ports() {
     case "$ENVIRONMENT" in
-        prd) PORT=8081 ;;
-        pre) PORT=8181 ;;
-        test) PORT=8281 ;;
-        dev) PORT=8381 ;;
-        *) PORT=8281 ;;
+        prd)
+            PORT=3001
+            API_BASE_URL="http://127.0.0.1:8082/api"
+            ;;
+        pre)
+            PORT=3101
+            API_BASE_URL="http://127.0.0.1:8182/api"
+            ;;
+        test)
+            PORT=3201
+            API_BASE_URL="http://127.0.0.1:8282/api"
+            ;;
+        dev)
+            PORT=3301
+            API_BASE_URL="http://127.0.0.1:8382/api"
+            ;;
+        *)
+            PORT=3201
+            API_BASE_URL="http://127.0.0.1:8282/api"
+            ;;
     esac
-    LOG_FILE="${LOG_DIR}/${APP_NAME}-${ENVIRONMENT}.log"
-    PID_FILE="${LOG_DIR}/${APP_NAME}-${ENVIRONMENT}.pid"
+    LOG_FILE="$APP_DIR/app-${ENVIRONMENT}.log"
+    PID_FILE="$APP_DIR/app-${ENVIRONMENT}.pid"
 }
 
 start_app() {
@@ -66,27 +74,16 @@ start_app() {
 
     echo "启动 ${APP_NAME} (环境: $ENVIRONMENT)..."
     echo "端口: $PORT"
-
-    cd "$APP_DIR" || { echo "无法进入目录: $APP_DIR"; return 1; }
-
-    if [ ! -d "../target" ]; then
-        echo "首次运行，安装父模块和依赖..."
-        cd ..
-        mvn clean install -DskipTests || { echo "父模块安装失败"; return 1; }
-        cd arelore-server-user
-    fi
-
-    echo "Maven 构建中..."
-    mvn clean package -DskipTests || { echo "Maven 构建失败"; return 1; }
+    echo "API:  $API_BASE_URL"
 
     if [ -f "$PID_FILE" ]; then
-        OLD_PID=$(cat "$PID_FILE")
-        if ps -p "$OLD_PID" > /dev/null 2>&1; then
-            echo "停止旧进程 (PID: $OLD_PID)..."
-            kill "$OLD_PID"
+        PID=$(cat "$PID_FILE")
+        if ps -p "$PID" > /dev/null 2>&1; then
+            echo "${APP_NAME}[$ENVIRONMENT] 已在运行 (PID: $PID)，先停止..."
+            kill "$PID" 2>/dev/null
             sleep 2
-            if ps -p "$OLD_PID" > /dev/null 2>&1; then
-                kill -9 "$OLD_PID"
+            if ps -p "$PID" > /dev/null 2>&1; then
+                kill -9 "$PID" 2>/dev/null
                 sleep 1
             fi
         fi
@@ -105,66 +102,35 @@ start_app() {
         done
     fi
 
-    JAR_FILE=$(find target -name "*.jar" -type f ! -name "*-sources.jar" | head -n 1)
-    if [ -z "$JAR_FILE" ]; then
-        echo "未找到 JAR 文件"
+    cd "$APP_DIR" || { echo "无法进入目录: $APP_DIR"; return 1; }
+
+    if ! command -v npm &> /dev/null; then
+        echo "错误: npm 未安装"
         return 1
     fi
 
-    case "$ENVIRONMENT" in
-        dev)
-            ACTIVE_PROFILE="dev"
-            CONFIG_FILE="$APPLICATION_DEV"
-            ;;
-        test)
-            ACTIVE_PROFILE="test"
-            CONFIG_FILE="$APPLICATION_TEST"
-            ;;
-        pre)
-            ACTIVE_PROFILE="pre"
-            CONFIG_FILE="$APPLICATION_PRE"
-            ;;
-        prd)
-            ACTIVE_PROFILE="prd"
-            CONFIG_FILE="$APPLICATION_PRD"
-            ;;
-        *)
-            ACTIVE_PROFILE="test"
-            CONFIG_FILE="$APPLICATION_TEST"
-            ;;
-    esac
-
-    if [ ! -f "src/main/resources/$CONFIG_FILE" ]; then
-        echo "警告: 配置文件不存在: src/main/resources/$CONFIG_FILE"
+    if [ ! -d "node_modules" ]; then
+        echo "正在安装依赖..."
+        npm install || { echo "依赖安装失败"; return 1; }
     fi
 
-    echo "JAR: $JAR_FILE"
-    echo "Profile: $ACTIVE_PROFILE"
-    echo "日志: $LOG_FILE"
+    echo "正在启动应用..."
+    export PORT
+    export REACT_APP_API_BASE_URL="$API_BASE_URL"
+    export BROWSER=none
+    nohup npm start > "$LOG_FILE" 2>&1 &
+    PID=$!
+    echo "$PID" > "$PID_FILE"
 
-    nohup java -jar "$JAR_FILE" \
-        --spring.profiles.active="$ACTIVE_PROFILE" \
-        --server.port="$PORT" \
-        > "$LOG_FILE" 2>&1 &
-    NEW_PID=$!
-    echo "$NEW_PID" > "$PID_FILE"
-
-    sleep 3
-    echo "最新日志 (末 50 行):"
-    echo "----------------------------------------"
-    tail -n 50 "$LOG_FILE"
-
-    if ps -p "$NEW_PID" > /dev/null 2>&1; then
-        echo "${APP_NAME}[$ENVIRONMENT] 已启动 PID=$NEW_PID 端口=$PORT"
+    sleep 5
+    if ps -p "$PID" > /dev/null 2>&1; then
+        echo "${APP_NAME}[$ENVIRONMENT] 启动成功"
+        echo "PID: $PID"
         echo "访问: http://127.0.0.1:$PORT"
-        if grep -q "Started.*Application" "$LOG_FILE"; then
-            echo "Spring Boot 启动成功"
-        else
-            echo "Spring Boot 可能仍在启动，请稍后查看日志"
-        fi
+        echo "日志: $LOG_FILE"
         return 0
     fi
-    echo "启动失败，见: $LOG_FILE"
+    echo "${APP_NAME}[$ENVIRONMENT] 启动失败，见日志: $LOG_FILE"
     rm -f "$PID_FILE"
     return 1
 }
@@ -207,7 +173,7 @@ stop_app() {
     fi
     local any=0
     for env_name in prd pre test dev; do
-        if [ -f "${LOG_DIR}/${APP_NAME}-${env_name}.pid" ]; then
+        if [ -f "$APP_DIR/app-${env_name}.pid" ]; then
             stop_one "$env_name"
             any=1
         fi
@@ -232,11 +198,11 @@ status_app() {
     fi
     local found=0
     for env_name in prd pre test dev; do
-        local pf="${LOG_DIR}/${APP_NAME}-${env_name}.pid"
+        local pf="$APP_DIR/app-${env_name}.pid"
         if [ -f "$pf" ] && ps -p "$(cat "$pf")" > /dev/null 2>&1; then
             ENVIRONMENT="$env_name"
             apply_env_ports
-            echo "${APP_NAME}[$env_name] 运行中 PID=$(cat "$pf") 端口=$PORT"
+            echo "${APP_NAME}[$env_name] 运行中 PID=$(cat "$pf") 端口=$PORT API=$API_BASE_URL"
             found=1
         fi
     done
@@ -273,10 +239,14 @@ show_help() {
 命令: start | stop | restart | status | logs | help
 环境: prd | pre | test | dev（默认 test）
 
-端口: prd=8081 pre=8181 test=8281 dev=8381
+端口约定（同机多环境）:
+  prd  admin-web=3001  admin-api=8082
+  pre  admin-web=3101  admin-api=8182
+  test admin-web=3201  admin-api=8282
+  dev  admin-web=3301  admin-api=8382
 
 示例:
-  $0 test
+  $0 test              # 启动 test
   $0 start prd
   $0 stop test
   $0 status

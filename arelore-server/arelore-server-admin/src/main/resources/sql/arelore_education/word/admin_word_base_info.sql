@@ -12,7 +12,7 @@ CREATE TABLE `admin_word_base_info`
     `modify_time`   datetime              default current_timestamp not null on update current_timestamp comment '修改时间',
     `language_code` varchar(32)  not null default 'EN' comment '语种code，与 admin_word_language.code 对齐',
     `word`          varchar(128) collate utf8mb4_bin not null comment '词形原文，大小写敏感（us 与 US 不同行）',
-    `ext_info`      text                  default null comment '拓展信息(JSON)：pictures[{url}], source, lastSyncTime, ukphone/usphone 等；勿存完整 jsonapi',
+    `ext_info`      text                  default null comment '拓展信息(JSON)：pictures[{url,source}], pictureConfirmed, pictureConfirmedAt, ukphone/usphone, source, lastSyncTime；候选图不落库；勿存完整 jsonapi',
     primary key (`id`),
     key `idx_create_time` (`create_time`),
     key `idx_modify_time` (`modify_time`),

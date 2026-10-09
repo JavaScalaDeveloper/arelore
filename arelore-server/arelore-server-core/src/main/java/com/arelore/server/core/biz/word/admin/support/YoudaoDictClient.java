@@ -31,6 +31,11 @@ public final class YoudaoDictClient {
     }
 
     public static JSONObject fetchSlimExt(String word) throws Exception {
+        return toSlimExt(fetchRoot(word).root);
+    }
+
+    /** 管理端调试用：返回 HTTP 状态、耗时、完整 JSON 根节点（勿直接落库） */
+    public static RawFetch fetchRoot(String word) throws Exception {
         if (!StringUtils.hasText(word)) {
             throw new IllegalArgumentException("word 为空");
         }
@@ -41,7 +46,12 @@ public final class YoudaoDictClient {
             .header("User-Agent", "arelore-admin/1.0")
             .GET()
             .build();
+        long start = System.currentTimeMillis();
         HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        long elapsedMs = System.currentTimeMillis() - start;
+        RawFetch raw = new RawFetch();
+        raw.httpStatus = response.statusCode();
+        raw.elapsedMs = elapsedMs;
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             throw new IllegalStateException("有道接口 HTTP " + response.statusCode());
         }
@@ -53,10 +63,17 @@ public final class YoudaoDictClient {
         if (root == null) {
             throw new IllegalStateException("有道响应非 JSON");
         }
-        return toSlimExt(root);
+        raw.root = root;
+        return raw;
     }
 
-    static JSONObject toSlimExt(JSONObject root) {
+    public static final class RawFetch {
+        public int httpStatus;
+        public long elapsedMs;
+        public JSONObject root;
+    }
+
+    public static JSONObject toSlimExt(JSONObject root) {
         JSONObject ext = new JSONObject();
         ext.put("source", "YOUDAO");
         List<Map<String, String>> pictures = new ArrayList<>();

@@ -5,13 +5,22 @@ function mapCurrent(current) {
   if (!current || !current.bookCode) {
     return null;
   }
+  const wordCount = current.wordCount || 0;
+  const learnedCount = current.learnedCount || 0;
   return {
     code: current.bookCode,
     name: current.bookName || current.bookCode,
     learnTodo: current.learnTodo || 0,
     learnDone: current.learnDone || 0,
     reviewTodo: current.reviewTodo || 0,
-    reviewDone: current.reviewDone || 0
+    reviewDone: current.reviewDone || 0,
+    wordCount,
+    learnedCount,
+    planDays: current.planDays || 0,
+    remainingDays: current.remainingDays != null ? current.remainingDays : 0,
+    progressPercent: current.progressPercent != null
+      ? current.progressPercent
+      : (wordCount <= 0 ? 0 : Math.min(100, Math.round((learnedCount * 100) / wordCount)))
   };
 }
 

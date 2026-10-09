@@ -129,6 +129,14 @@ export const adminApi = {
   getWordUserLearnRecordList: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/user/learn-record/list', data),
 
   getWordBaseInfoList: (data: any): Promise<ApiResponse<any>> => request.post('/admin/word/base-info/list', data),
+  getWordBaseInfoDetail: (data: { id: number }): Promise<ApiResponse<any>> =>
+    request.post('/admin/word/base-info/detail', data),
+  testWordBaseInfoYoudao: (data: { word: string }): Promise<ApiResponse<any>> =>
+    request.post('/admin/word/base-info/test-youdao', data, { timeout: 30000 }),
+  searchWordBaseInfoPictures: (data: { id: number }): Promise<ApiResponse<any>> =>
+    request.post('/admin/word/base-info/search-pictures', data, { timeout: 30000 }),
+  adoptWordBaseInfoPictures: (data: { id: number; pictureUrls: string[] }): Promise<ApiResponse<any>> =>
+    request.post('/admin/word/base-info/adopt-pictures', data),
   /** 全量同步可能很久：词条多 + 有道限速间隔 */
   syncWordBaseInfo: (data?: any): Promise<ApiResponse<any>> =>
     request.post('/admin/word/base-info/sync', data || {}, { timeout: 30 * 60 * 1000 }),

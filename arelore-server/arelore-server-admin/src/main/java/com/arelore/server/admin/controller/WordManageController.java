@@ -3,9 +3,12 @@ package com.arelore.server.admin.controller;
 import com.arelore.server.core.common.dto.IdRequest;
 import com.arelore.server.core.common.dto.PageResult;
 import com.arelore.server.core.common.result.Result;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoAdoptPicturesRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoPictureSearchResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoSyncResponse;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoYoudaoTestResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBookRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBookResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordCategoryRequest;
@@ -199,5 +202,53 @@ public class WordManageController {
         @RequestBody(required = false) AdminWordBaseInfoRequest request
     ) {
         return Result.success(baseInfoService.syncFromEntries());
+    }
+
+    @PostMapping("/base-info/detail")
+    public Result<AdminWordBaseInfoResponse> baseInfoDetail(@RequestBody IdRequest request) {
+        Long id = request == null ? null : request.getId();
+        if (id == null) {
+            return Result.error("ID 不能为空");
+        }
+        AdminWordBaseInfoResponse detail = baseInfoService.getById(id);
+        if (detail == null) {
+            return Result.error("记录不存在");
+        }
+        return Result.success(detail);
+    }
+
+    /** 管理端调试：实时请求有道 jsonapi，不落库 */
+    @PostMapping("/base-info/test-youdao")
+    public Result<AdminWordBaseInfoYoudaoTestResponse> baseInfoTestYoudao(
+        @RequestBody AdminWordBaseInfoRequest request
+    ) {
+        String word = request == null ? null : request.getWord();
+        return Result.success(baseInfoService.testYoudao(word));
+    }
+
+    /** 图库搜图（优先 Unsplash），候选不落库 */
+    @PostMapping("/base-info/search-pictures")
+    public Result<AdminWordBaseInfoPictureSearchResponse> baseInfoSearchPictures(@RequestBody IdRequest request) {
+        Long id = request == null ? null : request.getId();
+        if (id == null) {
+            return Result.error("ID 不能为空");
+        }
+        try {
+            return Result.success(baseInfoService.searchStockPictures(id));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /** 人工采纳配图并锁定 */
+    @PostMapping("/base-info/adopt-pictures")
+    public Result<AdminWordBaseInfoResponse> baseInfoAdoptPictures(
+        @RequestBody AdminWordBaseInfoAdoptPicturesRequest request
+    ) {
+        try {
+            return Result.success(baseInfoService.adoptPictures(request));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return Result.error(e.getMessage());
+        }
     }
 }

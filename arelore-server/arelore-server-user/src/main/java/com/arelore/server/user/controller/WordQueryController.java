@@ -118,7 +118,8 @@ public class WordQueryController {
             UserWordCurrentBookRequest query = request == null ? new UserWordCurrentBookRequest() : request;
             query.setUserId(requireUserId(token));
             List<UserWordCurrentBookResponse> list = currentBookService.list(query);
-            return Result.success(list.isEmpty() ? null : list.get(0));
+            UserWordCurrentBookResponse current = list.isEmpty() ? null : list.get(0);
+            return Result.success(current == null ? null : learnRecordService.enrichHome(current));
         } catch (IllegalArgumentException e) {
             return Result.error(401, e.getMessage());
         }
