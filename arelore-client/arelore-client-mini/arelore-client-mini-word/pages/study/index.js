@@ -203,27 +203,12 @@ Page({
   },
 
   playWord(word, type) {
-    this.playSpeech(word, type, { playingType: type === 1 ? 1 : 2, playingExampleKey: '' });
-  },
-
-  onPlayExample(e) {
-    const text = (e.currentTarget.dataset.text || '').trim();
-    if (!text) {
-      return;
-    }
-    const key = e.currentTarget.dataset.key || '';
-    const type = this.data.voiceType === 1 ? 1 : 2;
-    this.playSpeech(text, type, { playingType: 0, playingExampleKey: key });
-  },
-
-  /** 单词走有道整段发音；例句按词排队播放（有道整句常 500）。 */
-  playSpeech(text, type, uiState) {
-    if (!this.audio || !text) {
+    if (!this.audio || !word) {
       return;
     }
     this.stopAudio();
-    this.setData(Object.assign({ playingType: 0, playingExampleKey: '' }, uiState || {}));
-    this.ttsSession = tts.playText(this.audio, text, type === 1 ? 1 : 2, {
+    this.setData({ playingType: type === 1 ? 1 : 2, playingExampleKey: '' });
+    this.ttsSession = tts.playText(this.audio, word, type === 1 ? 1 : 2, {
       onStart: () => this.setData({ playing: true }),
       onEnd: () => this.setData({ playing: false, playingExampleKey: '' }),
       onError: () => {

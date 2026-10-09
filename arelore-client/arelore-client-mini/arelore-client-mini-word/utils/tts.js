@@ -1,21 +1,11 @@
 /**
- * 发音工具：有道 dictvoice。
- * 单词可整段朗读；整句常返回 500 null audio，因此例句按词排队播放。
+ * 单词发音：有道 dictvoice（type=1 英音，type=2 美音）。
+ * 整句接口常返回 500 null audio，例句朗读暂未启用。
  */
 
 function dictVoiceUrl(text, type) {
   const voiceType = type === 1 ? 1 : 2;
   return `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=${voiceType}`;
-}
-
-function isSingleWord(text) {
-  const t = String(text || '').trim();
-  return /^[A-Za-z][A-Za-z'-]*$/.test(t);
-}
-
-function splitWords(text) {
-  const matched = String(text || '').match(/[A-Za-z']+/g);
-  return matched || [];
 }
 
 /**
@@ -28,8 +18,6 @@ function splitWords(text) {
 function playText(audio, text, type, hooks) {
   const h = hooks || {};
   let stopped = false;
-  let queue = [];
-  let queueIndex = 0;
 
   const clearHandlers = () => {
     if (audio && audio._areloreOnEnded) {
@@ -60,76 +48,41 @@ function playText(audio, text, type, hooks) {
     }
   };
 
-  const playSrc = (src) => {
-    try {
-      audio.stop();
-    } catch (e) {}
-    audio.src = src;
-    audio.play();
-  };
-
-  const playNextInQueue = () => {
-    if (stopped) {
-      return;
-    }
-    if (queueIndex >= queue.length) {
-      finishOk();
-      return;
-    }
-    const word = queue[queueIndex++];
-    playSrc(dictVoiceUrl(word, type));
-  };
-
-  const startWordQueue = (sourceText) => {
-    queue = splitWords(sourceText);
-    if (!queue.length) {
-      finishErr(new Error('empty sentence'));
-      return;
-    }
-    queueIndex = 0;
-    clearHandlers();
-    const onEnded = () => playNextInQueue();
-    const onError = () => playNextInQueue();
-    audio._areloreOnEnded = onEnded;
-    audio._areloreOnError = onError;
-    audio.onEnded(onEnded);
-    audio.onError(onError);
-    if (h.onStart) {
-      h.onStart();
-    }
-    playNextInQueue();
-  };
-
-  const start = () => {
-    if (!audio || !text) {
-      finishErr(new Error('no audio/text'));
-      return;
-    }
-    const trimmed = String(text).trim();
-    if (!trimmed) {
-      finishErr(new Error('empty text'));
-      return;
-    }
-
-    if (isSingleWord(trimmed)) {
-      if (h.onStart) {
-        h.onStart();
+  if (!audio || !text) {
+    finishErr(new Error('no audio/text'));
+    return {
+      stop() {
+        stopped = true;
       }
-      clearHandlers();
-      const onEnded = () => finishOk();
-      const onError = () => finishErr(new Error('dictvoice fail'));
-      audio._areloreOnEnded = onEnded;
-      audio._areloreOnError = onError;
-      audio.onEnded(onEnded);
-      audio.onError(onError);
-      playSrc(dictVoiceUrl(trimmed, type));
-      return;
-    }
+    };
+  }
 
-    startWordQueue(trimmed);
-  };
+  const trimmed = String(text).trim();
+  if (!trimmed) {
+    finishErr(new Error('empty text'));
+    return {
+      stop() {
+        stopped = true;
+      }
+    };
+  }
 
-  start();
+  clearHandlers();
+  const onEnded = () => finishOk();
+  const onError = () => finishErr(new Error('dictvoice fail'));
+  audio._areloreOnEnded = onEnded;
+  audio._areloreOnError = onError;
+  audio.onEnded(onEnded);
+  audio.onError(onError);
+
+  if (h.onStart) {
+    h.onStart();
+  }
+  try {
+    audio.stop();
+  } catch (e) {}
+  audio.src = dictVoiceUrl(trimmed, type);
+  audio.play();
 
   return {
     stop() {
@@ -144,6 +97,5 @@ function playText(audio, text, type, hooks) {
 
 module.exports = {
   dictVoiceUrl,
-  isSingleWord,
   playText
 };

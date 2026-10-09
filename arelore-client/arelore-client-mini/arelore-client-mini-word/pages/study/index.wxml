@@ -62,18 +62,7 @@
     </view>
 
     <view class="hint-box" wx:if="{{hintShown && !revealed}}">
-      <view class="hint-label-row">
-        <text class="hint-label">例句提示</text>
-        <button
-          wx:if="{{card.exampleEn}}"
-          class="example-voice-btn"
-          size="mini"
-          data-text="{{card.exampleEn}}"
-          data-key="hint"
-          bindtap="onPlayExample"
-          loading="{{playing && playingExampleKey === 'hint'}}"
-        >朗读</button>
-      </view>
+      <text class="hint-label">例句提示</text>
       <text class="hint-en" wx:if="{{card.exampleEn}}">{{card.exampleEn}}</text>
       <text class="hint-en muted" wx:else>暂无英文例句</text>
     </view>
@@ -96,18 +85,7 @@
       <text class="mnemonic" wx:if="{{card.mnemonic}}">记忆：{{card.mnemonic}}</text>
       <view class="example-list" wx:if="{{card.examples && card.examples.length}}">
         <view class="example-item" wx:for="{{card.examples}}" wx:key="en">
-          <view class="example-en-row">
-            <text class="example-en">{{item.en}}</text>
-            <button
-              wx:if="{{item.en}}"
-              class="example-voice-btn"
-              size="mini"
-              data-text="{{item.en}}"
-              data-key="ex-{{index}}"
-              bindtap="onPlayExample"
-              loading="{{playing && playingExampleKey === ('ex-' + index)}}"
-            >朗读</button>
-          </view>
+          <text class="example-en">{{item.en}}</text>
           <text class="example-cn" wx:if="{{item.cn}}">{{item.cn}}</text>
         </view>
       </view>
