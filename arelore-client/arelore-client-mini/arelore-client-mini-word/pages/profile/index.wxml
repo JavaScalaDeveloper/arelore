@@ -1,22 +1,36 @@
 <view class="page">
-  <view class="user-card" wx:if="{{user}}">
-    <image class="avatar" wx:if="{{user.avatarUrl}}" src="{{user.avatarUrl}}" mode="aspectFill" />
-    <view class="avatar placeholder" wx:else>词</view>
-    <view class="user-meta">
-      <text class="nickname">{{user.nickName}}</text>
-      <text class="tip">微信用户</text>
-    </view>
-  </view>
-
-  <view class="user-card guest" wx:else>
-    <view class="user-row">
-      <view class="avatar placeholder">词</view>
+  <view class="page-main">
+    <view class="user-card" wx:if="{{user}}">
+      <image class="avatar" wx:if="{{user.avatarUrl}}" src="{{user.avatarUrl}}" mode="aspectFill" />
+      <view class="avatar placeholder" wx:else>词</view>
       <view class="user-meta">
-        <text class="nickname">未登录</text>
-        <text class="tip">登录后展示微信头像与昵称</text>
+        <text class="nickname">{{user.nickName}}</text>
+        <text class="tip">微信用户</text>
       </view>
     </view>
-    <button class="login-btn" bindtap="onLogin">微信一键登录</button>
+
+    <view class="user-card guest" wx:else>
+      <view class="user-row">
+        <view class="avatar placeholder">词</view>
+        <view class="user-meta">
+          <text class="nickname">未登录</text>
+          <text class="tip">登录后展示微信头像与昵称</text>
+        </view>
+      </view>
+      <button class="login-btn" bindtap="onLogin">微信一键登录</button>
+    </view>
+
+    <view class="stats-card" wx:if="{{user}}">
+      <view class="stat-item">
+        <text class="stat-value">{{totalStudyDays}}</text>
+        <text class="stat-label">累计学习</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-item">
+        <text class="stat-value">{{consecutiveStudyDays}}</text>
+        <text class="stat-label">连续学习</text>
+      </view>
+    </view>
   </view>
 
   <button class="logout-btn" wx:if="{{user}}" bindtap="onLogout">退出登录</button>

@@ -40,6 +40,10 @@ Page({
 
   timer: null,
   autoNextTimer: null,
+  /** 同步锁：防止连点「认识/不认识」在 setData 生效前重复提交 */
+  answeringLock: false,
+  /** 当前卡片世代，用于作废过期的自动下一词定时器 */
+  cardEpoch: 0,
   startedAt: 0,
   audio: null,
   ttsSession: null,
@@ -156,6 +160,9 @@ Page({
         return;
       }
       this.startedAt = Date.now();
+      this.clearAutoNext();
+      this.answeringLock = false;
+      this.cardEpoch += 1;
       const voiceType = data.voiceType === 1 ? 1 : 2;
       this.setData({
         status: 'ready',
@@ -166,6 +173,8 @@ Page({
         revealed: false,
         hintShown: false,
         pendingRemember: null,
+        answered: false,
+        submitting: false,
         learnTotal,
         reviewTotal,
         learnDone,
@@ -261,12 +270,31 @@ Page({
     }
   },
 
+  scheduleAutoNext(expectEpoch, expectWordCode) {
+    this.clearAutoNext();
+    this.autoNextTimer = setTimeout(() => {
+      this.autoNextTimer = null;
+      // 已切到别的词 / 用户已手动下一词：丢弃过期定时器
+      if (this.cardEpoch !== expectEpoch) {
+        return;
+      }
+      const card = this.data.card;
+      if (!card || card.wordCode !== expectWordCode || !this.data.revealed) {
+        return;
+      }
+      this.goNext();
+    }, 1000);
+  },
+
   answerAndReveal(rememberFlag) {
     const card = this.data.card;
-    if (!card || this.data.submitting || this.data.revealed) {
+    if (!card || this.answeringLock || this.data.submitting || this.data.revealed) {
       return;
     }
+    this.answeringLock = true;
     this.clearAutoNext();
+    const answeredWordCode = card.wordCode;
+    const answeredEpoch = this.cardEpoch;
     this.setData({
       submitting: true,
       revealed: true,
@@ -281,13 +309,26 @@ Page({
       mode: card.mode,
       rememberFlag
     }).then((res) => {
+      this.answeringLock = false;
       this.setData({ submitting: false });
+      // 响应回来时已不在该词：忽略（防重复 answer 的迟到回调）
+      if (this.cardEpoch !== answeredEpoch
+        || !this.data.card
+        || this.data.card.wordCode !== answeredWordCode) {
+        return;
+      }
       if (res.code === 401) {
         storage.clearSession();
         wx.showToast({ title: '请重新登录', icon: 'none' });
         return;
       }
       if (res.code !== 200) {
+        // 提交失败：收回揭示态，允许重试
+        this.setData({
+          revealed: false,
+          answered: false,
+          pendingRemember: null
+        });
         wx.showToast({ title: res.message || '提交失败', icon: 'none' });
         return;
       }
@@ -303,17 +344,30 @@ Page({
       }
       this.setData(patch);
       if (rememberFlag) {
-        this.autoNextTimer = setTimeout(() => {
-          this.goNext();
-        }, 1000);
+        this.scheduleAutoNext(answeredEpoch, answeredWordCode);
       }
     }).catch((err) => {
-      this.setData({ submitting: false });
+      this.answeringLock = false;
+      if (this.cardEpoch === answeredEpoch
+        && this.data.card
+        && this.data.card.wordCode === answeredWordCode) {
+        this.setData({
+          submitting: false,
+          revealed: false,
+          answered: false,
+          pendingRemember: null
+        });
+      } else {
+        this.setData({ submitting: false });
+      }
       wx.showToast({ title: (err && err.errMsg) || '提交失败', icon: 'none' });
     });
   },
 
   onNextAfterReveal() {
+    if (!this.data.revealed || this.data.submitting) {
+      return;
+    }
     this.clearAutoNext();
     this.goNext();
   },
@@ -336,11 +390,16 @@ Page({
   goNext() {
     this.clearAutoNext();
     this.stopAudio();
+    this.answeringLock = false;
     const remembered = this.data.pendingRemember === true;
     const cards = (this.data.cards || []).slice();
     let index = this.data.index;
     if (!cards.length || index < 0 || index >= cards.length) {
       this.finishRound();
+      return;
+    }
+    // 未作答不得切下一词（防止过期 autoNext / 误触）
+    if (!this.data.revealed && !this.data.answered) {
       return;
     }
     const current = cards[index];
@@ -358,6 +417,7 @@ Page({
     if (index >= cards.length || (!remembered && wasLast && cards.length > 1)) {
       index = 0;
     }
+    this.cardEpoch += 1;
     this.setData({
       cards,
       index,

@@ -20,18 +20,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Pexels 免费图库：无水印、可商用（需保留摄影师署名信息于候选元数据）。
- * 文档：https://www.pexels.com/api/documentation/
+ * Pixabay 免费图库：无水印、可免费使用（需遵守 Pixabay 许可）。
+ * 文档：https://pixabay.com/api/docs/
  */
 @Component
-public class PexelsImageClient {
-    private static final String SEARCH_URL = "https://api.pexels.com/v1/search";
+public class PixabayImageClient {
+    private static final String SEARCH_URL = "https://pixabay.com/api/";
     private static final HttpClient CLIENT = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(8))
         .followRedirects(HttpClient.Redirect.NORMAL)
         .build();
 
-    @Value("${arelore.word.image.pexels-api-key:}")
+    @Value("${arelore.word.image.pixabay-api-key:}")
     private String apiKey;
 
     @Value("${arelore.word.image.min-count:4}")
@@ -48,72 +48,80 @@ public class PexelsImageClient {
         return Math.max(4, minCount);
     }
 
-    /**
-     * 搜索候选图，不落库。至少返回 minCount 张，否则抛错。
-     */
     public List<Map<String, String>> search(String query) throws Exception {
+        return search(query, minCount());
+    }
+
+    public List<Map<String, String>> search(String query, int minRequired) throws Exception {
         if (!configured()) {
-            throw new IllegalStateException("未配置 arelore.word.image.pexels-api-key（可用环境变量 ARELORE_PEXELS_API_KEY）");
+            throw new IllegalStateException("未配置 arelore.word.image.pixabay-api-key（可用环境变量 ARELORE_PIXABAY_API_KEY）");
         }
         if (!StringUtils.hasText(query)) {
             throw new IllegalArgumentException("搜索词为空");
         }
-        int perPage = Math.max(minCount(), Math.min(80, searchCount));
+        int need = Math.max(1, minRequired);
+        int perPage = Math.max(need, Math.min(50, Math.max(searchCount, need)));
         String q = URLEncoder.encode(query.trim(), StandardCharsets.UTF_8);
-        URI uri = URI.create(SEARCH_URL + "?query=" + q + "&per_page=" + perPage + "&orientation=landscape");
+        String key = URLEncoder.encode(apiKey.trim(), StandardCharsets.UTF_8);
+        URI uri = URI.create(SEARCH_URL + "?key=" + key
+            + "&q=" + q
+            + "&image_type=photo"
+            + "&lang=en"
+            + "&safesearch=true"
+            + "&per_page=" + perPage);
         HttpRequest request = HttpRequest.newBuilder()
             .uri(uri)
             .timeout(Duration.ofSeconds(20))
-            .header("Authorization", apiKey.trim())
             .header("User-Agent", "arelore-admin/1.0")
             .GET()
             .build();
         HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (response.statusCode() == 401 || response.statusCode() == 403) {
-            throw new IllegalStateException("Pexels API Key 无效或无权限");
+            throw new IllegalStateException("Pixabay API Key 无效或无权限");
         }
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new IllegalStateException("Pexels HTTP " + response.statusCode());
+            throw new IllegalStateException("Pixabay HTTP " + response.statusCode());
         }
         JSONObject root = JSON.parseObject(response.body());
         if (root == null) {
-            throw new IllegalStateException("Pexels 响应非 JSON");
+            throw new IllegalStateException("Pixabay 响应非 JSON");
         }
-        JSONArray photos = root.getJSONArray("photos");
+        JSONArray hits = root.getJSONArray("hits");
         List<Map<String, String>> list = new ArrayList<>();
-        if (photos != null) {
-            for (int i = 0; i < photos.size(); i++) {
-                JSONObject photo = photos.getJSONObject(i);
-                if (photo == null) {
+        if (hits != null) {
+            for (int i = 0; i < hits.size(); i++) {
+                JSONObject hit = hits.getJSONObject(i);
+                if (hit == null) {
                     continue;
                 }
-                JSONObject src = photo.getJSONObject("src");
-                if (src == null) {
-                    continue;
-                }
-                // large/original 为无水印直链
-                String url = firstNonBlank(src.getString("large"), src.getString("large2x"), src.getString("original"));
-                String thumb = firstNonBlank(src.getString("medium"), src.getString("small"), url);
+                String url = firstNonBlank(
+                    hit.getString("largeImageURL"),
+                    hit.getString("webformatURL"),
+                    hit.getString("previewURL")
+                );
+                String thumb = firstNonBlank(
+                    hit.getString("previewURL"),
+                    hit.getString("webformatURL"),
+                    url
+                );
                 if (!StringUtils.hasText(url)) {
                     continue;
                 }
                 Map<String, String> item = new LinkedHashMap<>();
                 item.put("url", url.trim());
                 item.put("thumbUrl", StringUtils.hasText(thumb) ? thumb.trim() : url.trim());
-                item.put("source", "PEXELS");
-                String photographer = photo.getString("photographer");
-                if (StringUtils.hasText(photographer)) {
-                    item.put("photographer", photographer.trim());
+                item.put("source", "PIXABAY");
+                if (StringUtils.hasText(hit.getString("user"))) {
+                    item.put("photographer", hit.getString("user").trim());
                 }
-                String page = photo.getString("url");
-                if (StringUtils.hasText(page)) {
-                    item.put("pageUrl", page.trim());
+                if (StringUtils.hasText(hit.getString("pageURL"))) {
+                    item.put("pageUrl", hit.getString("pageURL").trim());
                 }
                 list.add(item);
             }
         }
-        if (list.size() < minCount()) {
-            throw new IllegalStateException("图库结果不足 " + minCount() + " 张（当前 " + list.size() + "），可换关键词重试");
+        if (list.size() < need) {
+            throw new IllegalStateException("图库结果不足 " + need + " 张（当前 " + list.size() + "），可换关键词重试");
         }
         return list;
     }

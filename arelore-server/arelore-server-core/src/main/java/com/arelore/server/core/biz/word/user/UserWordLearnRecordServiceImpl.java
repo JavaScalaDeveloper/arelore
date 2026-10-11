@@ -23,15 +23,18 @@ import com.arelore.server.core.biz.word.user.dto.UserWordStudyPlanRequest;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudyPlanResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudySessionRequest;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudySessionResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyStatsResponse;
 import com.arelore.server.core.biz.word.user.entity.UserWordLearnRecord;
 import com.arelore.server.core.biz.word.user.mapper.UserWordLearnRecordMapper;
 import com.arelore.server.core.service.BaseServiceImpl;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -39,6 +42,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 @Service
 public class UserWordLearnRecordServiceImpl
@@ -131,7 +135,12 @@ public class UserWordLearnRecordServiceImpl
 
         JSONObject planExt = parseExt(plan.getExtInfo());
         String today = LocalDate.now().toString();
-        boolean newDay = !today.equals(planExt.getString("studyDate"));
+        // 学习记录为权威：今日已新学/复习数量（防 ABA 清 plan 后重发配额）
+        int learnedToday = entryMapper.countLearnedToday(request.getUserId(), bookCode);
+        int reviewedToday = entryMapper.countReviewedToday(request.getUserId(), bookCode);
+        int prevDayCount = Math.min(reviewLimit, entryMapper.countPreviousLearnDay(request.getUserId(), bookCode));
+        boolean newDay = !today.equals(planExt.getString("studyDate"))
+            && learnedToday <= 0 && reviewedToday <= 0;
         if (newDay) {
             planExt.put("studyDate", today);
             planExt.put("todayLearnWordCodes", new JSONArray());
@@ -142,37 +151,77 @@ public class UserWordLearnRecordServiceImpl
             planExt.put("learnTodo", 0);
             planExt.put("reviewDone", 0);
             planExt.put("reviewTodo", 0);
+        } else {
+            planExt.put("studyDate", today);
         }
 
         List<String> todayLearnCodes = readStringList(planExt, "todayLearnWordCodes");
         List<String> todayReviewCodes = readStringList(planExt, "todayReviewWordCodes");
-        boolean codesChanged = newDay;
+        List<String> countedLearn = readStringList(planExt, "countedLearnWordCodes");
+        List<String> countedReview = readStringList(planExt, "countedReviewWordCodes");
+        int planLearnDone = planExt.containsKey("learnDone")
+            ? planExt.getIntValue("learnDone") : countedLearn.size();
+        int planReviewDone = planExt.containsKey("reviewDone")
+            ? planExt.getIntValue("reviewDone") : countedReview.size();
+        AdminWordBookResponse bookMeta = bookService.getByCode(bookCode);
+        int bookWordCount = bookMeta != null && bookMeta.getWordCount() != null ? bookMeta.getWordCount() : 0;
+        int learnedTotal = entryMapper.countLearned(request.getUserId(), bookCode);
+        int remainWords = Math.max(0, bookWordCount - learnedTotal);
 
-        if (todayLearnCodes.size() < learnLimit) {
-            Set<String> exists = new HashSet<>(todayLearnCodes);
-            int need = learnLimit - todayLearnCodes.size();
+        int[] learnProgress = resolveDailyLearnProgress(
+            learnLimit, planLearnDone, learnedToday, countedLearn.size(), todayLearnCodes, remainWords);
+        int learnDone = learnProgress[0];
+        int learnTodo = learnProgress[1];
+        int[] reviewProgress = resolveDailyReviewProgress(
+            prevDayCount, planReviewDone, reviewedToday, countedReview.size(), todayReviewCodes);
+        int reviewDone = reviewProgress[0];
+        int reviewTodo = reviewProgress[1];
+
+        // 今日新学已达配额：禁止再抽新词；已有完整今日词表则冻结
+        boolean learnQuotaFilled = learnTodo <= 0 && learnDone > 0;
+        boolean hasFullLearnList = !todayLearnCodes.isEmpty() && todayLearnCodes.size() >= learnDone;
+        if (!learnQuotaFilled && todayLearnCodes.isEmpty()) {
+            // 词表丢失：只补「剩余待办」个新词，待办仍按配额公式（daily - done）
+            int need = learnTodo;
+            Set<String> existsCodes = new HashSet<>();
             List<AdminWordEntry> more = entryMapper.selectUnlearned(request.getUserId(), bookCode, need);
             for (AdminWordEntry entry : more) {
                 if (entry == null || !StringUtils.hasText(entry.getWordCode())) {
                     continue;
                 }
-                if (exists.add(entry.getWordCode())) {
+                if (existsCodes.add(entry.getWordCode())) {
                     todayLearnCodes.add(entry.getWordCode());
-                    codesChanged = true;
-                    if (todayLearnCodes.size() >= learnLimit) {
+                    if (todayLearnCodes.size() >= need) {
+                        break;
+                    }
+                }
+            }
+            // 补完后重算：词表是「仅剩待学」子集，todo 仍用配额
+            learnProgress = resolveDailyLearnProgress(
+                learnLimit, learnDone, learnedToday, countedLearn.size(), todayLearnCodes, remainWords);
+            learnDone = learnProgress[0];
+            learnTodo = learnProgress[1];
+        } else if (!learnQuotaFilled && !hasFullLearnList && todayLearnCodes.size() < learnTodo) {
+            // 词表偏短时补足到剩余待办数
+            Set<String> existsCodes = new HashSet<>(todayLearnCodes);
+            int need = Math.max(0, learnTodo - todayLearnCodes.size());
+            List<AdminWordEntry> more = entryMapper.selectUnlearned(request.getUserId(), bookCode, need);
+            for (AdminWordEntry entry : more) {
+                if (entry == null || !StringUtils.hasText(entry.getWordCode())) {
+                    continue;
+                }
+                if (existsCodes.add(entry.getWordCode())) {
+                    todayLearnCodes.add(entry.getWordCode());
+                    if (todayLearnCodes.size() >= learnTodo) {
                         break;
                     }
                 }
             }
         }
 
-        List<String> countedLearn = readStringList(planExt, "countedLearnWordCodes");
-        List<String> countedReview = readStringList(planExt, "countedReviewWordCodes");
-        int learnDone = planExt.containsKey("learnDone") ? planExt.getIntValue("learnDone") : countedLearn.size();
-        int reviewDone = planExt.containsKey("reviewDone") ? planExt.getIntValue("reviewDone") : countedReview.size();
-
-        // 复习：上一学习日（不含今天）新学过的词；未开始复习时可重建（兼容旧配额逻辑）
-        if (todayReviewCodes.isEmpty() || reviewDone == 0) {
+        // 复习：配额已完成则不再重建；否则仅在无词表时构建
+        boolean reviewQuotaFilled = reviewTodo <= 0 && (reviewDone > 0 || prevDayCount == 0);
+        if (!reviewQuotaFilled && todayReviewCodes.isEmpty()) {
             List<String> rebuilt = new ArrayList<>();
             List<AdminWordEntry> candidates = entryMapper.selectForReview(
                 request.getUserId(), bookCode, reviewLimit
@@ -189,34 +238,34 @@ public class UserWordLearnRecordServiceImpl
                     }
                 }
             }
-            if (!rebuilt.equals(todayReviewCodes)) {
-                todayReviewCodes = rebuilt;
-                codesChanged = true;
-            }
+            todayReviewCodes = rebuilt;
+            reviewProgress = resolveDailyReviewProgress(
+                prevDayCount, reviewDone, reviewedToday, countedReview.size(), todayReviewCodes);
+            reviewDone = reviewProgress[0];
+            reviewTodo = reviewProgress[1];
         }
 
-        int learnTodo = Math.max(0, todayLearnCodes.size() - learnDone);
-        int reviewTodo = Math.max(0, todayReviewCodes.size() - reviewDone);
+        // 同日完成数只增不减，防止开练回写时把已展示的 13 写成更小值
+        learnDone = Math.max(learnDone, planLearnDone);
+        reviewDone = Math.max(reviewDone, planReviewDone);
+        learnTodo = Math.max(0, Math.min(learnTodo, Math.max(0, learnLimit - learnDone)));
+        reviewTodo = Math.max(0, Math.min(reviewTodo, Math.max(0, prevDayCount - reviewDone)));
 
-        if (codesChanged || newDay) {
-            planExt.put("todayLearnWordCodes", toJsonArray(todayLearnCodes));
-            planExt.put("todayReviewWordCodes", toJsonArray(todayReviewCodes));
-            planExt.put("learnDone", learnDone);
-            planExt.put("learnTodo", learnTodo);
-            planExt.put("reviewDone", reviewDone);
-            planExt.put("reviewTodo", reviewTodo);
-            planExt.put("studyDate", today);
-            studyPlanService.saveDailyProgress(plan.getId(), planExt.toJSONString());
-            syncCurrentFromPlan(current, request.getUserId(), bookCode, planExt);
-        } else {
-            planExt.put("learnTodo", learnTodo);
-            planExt.put("reviewTodo", reviewTodo);
-            syncCurrentFromPlan(current, request.getUserId(), bookCode, planExt);
-        }
+        // 始终回写：校准后的完成数落库
+        planExt.put("todayLearnWordCodes", toJsonArray(todayLearnCodes));
+        planExt.put("todayReviewWordCodes", toJsonArray(todayReviewCodes));
+        planExt.put("learnDone", learnDone);
+        planExt.put("learnTodo", learnTodo);
+        planExt.put("reviewDone", reviewDone);
+        planExt.put("reviewTodo", reviewTodo);
+        planExt.put("studyDate", today);
+        studyPlanService.saveDailyProgress(plan.getId(), planExt.toJSONString());
+        syncCurrentFromPlan(current, request.getUserId(), bookCode, planExt);
 
-        // 未完成今日配额：只返回未作答词，便于断点续学；已完成则可重复练今日全部词
+        // 未完成今日配额：只返回未作答词；已完成（含 plan 词表丢失但记录已满配额）可重复练
         boolean dayFinished = learnTodo <= 0 && reviewTodo <= 0
-            && (!todayLearnCodes.isEmpty() || !todayReviewCodes.isEmpty());
+            && (learnQuotaFilled || reviewQuotaFilled || learnedToday > 0 || reviewedToday > 0
+            || !todayLearnCodes.isEmpty() || !todayReviewCodes.isEmpty());
         List<String> sessionLearnCodes;
         List<String> sessionReviewCodes;
         if (dayFinished) {
@@ -242,8 +291,9 @@ public class UserWordLearnRecordServiceImpl
         response.setVoiceType(voiceType);
         response.setLearnDone(learnDone);
         response.setReviewDone(reviewDone);
-        response.setLearnTotal(todayLearnCodes.size());
-        response.setReviewTotal(todayReviewCodes.size());
+        // 总数按每日配额展示（13+7=20），避免词表被收成「仅剩待学」后显示成 7/7
+        response.setLearnTotal(Math.max(learnDone + learnTodo, todayLearnCodes.size()));
+        response.setReviewTotal(Math.max(reviewDone + reviewTodo, todayReviewCodes.size()));
         response.setCards(mixed);
         return response;
     }
@@ -282,8 +332,10 @@ public class UserWordLearnRecordServiceImpl
 
         JSONObject planExt = parseExt(plan.getExtInfo());
         String today = LocalDate.now().toString();
-        boolean sameDay = today.equals(planExt.getString("studyDate"));
+        int learnedToday = entryMapper.countLearnedToday(current.getUserId(), bookCode);
+        int reviewedToday = entryMapper.countReviewedToday(current.getUserId(), bookCode);
         int prevDayCount = Math.min(reviewLimit, entryMapper.countPreviousLearnDay(current.getUserId(), bookCode));
+        boolean sameDay = today.equals(planExt.getString("studyDate")) || learnedToday > 0 || reviewedToday > 0;
 
         if (!sameDay) {
             // 新的一天尚未开练：新学=计划配额与剩余词取小；复习=上一学习日新学数
@@ -296,30 +348,87 @@ public class UserWordLearnRecordServiceImpl
         }
 
         List<String> todayReviewCodes = readStringList(planExt, "todayReviewWordCodes");
-        int reviewDone = planExt.containsKey("reviewDone") ? planExt.getIntValue("reviewDone") : nvl(current.getReviewDone());
-        int reviewTodo;
-        if (!todayReviewCodes.isEmpty()) {
-            reviewTodo = Math.max(0, todayReviewCodes.size() - reviewDone);
-        } else {
-            // 兼容旧数据：曾把配额写入 reviewTodo，无实际复习词时归零
-            reviewTodo = prevDayCount > 0 ? Math.max(0, prevDayCount - reviewDone) : 0;
-        }
-        current.setReviewDone(reviewDone);
-        current.setReviewTodo(reviewTodo);
+        List<String> countedReview = readStringList(planExt, "countedReviewWordCodes");
+        int planReviewDone = planExt.containsKey("reviewDone")
+            ? planExt.getIntValue("reviewDone") : nvl(current.getReviewDone());
+        int[] reviewProgress = resolveDailyReviewProgress(
+            prevDayCount, planReviewDone, reviewedToday, countedReview.size(), todayReviewCodes);
+        current.setReviewDone(reviewProgress[0]);
+        current.setReviewTodo(reviewProgress[1]);
 
         List<String> todayLearnCodes = readStringList(planExt, "todayLearnWordCodes");
-        int learnDone = planExt.containsKey("learnDone") ? planExt.getIntValue("learnDone") : nvl(current.getLearnDone());
-        int learnTodo;
-        if (!todayLearnCodes.isEmpty()) {
-            learnTodo = Math.max(0, todayLearnCodes.size() - learnDone);
-        } else {
-            learnTodo = planExt.containsKey("learnTodo")
-                ? planExt.getIntValue("learnTodo")
-                : Math.min(dailyNew, remainWords);
-        }
-        current.setLearnDone(learnDone);
-        current.setLearnTodo(learnTodo);
+        List<String> countedLearn = readStringList(planExt, "countedLearnWordCodes");
+        int planLearnDone = planExt.containsKey("learnDone")
+            ? planExt.getIntValue("learnDone") : nvl(current.getLearnDone());
+        int[] learnProgress = resolveDailyLearnProgress(
+            dailyNew, planLearnDone, learnedToday, countedLearn.size(), todayLearnCodes, remainWords);
+        current.setLearnDone(learnProgress[0]);
+        current.setLearnTodo(learnProgress[1]);
         return current;
+    }
+
+    /**
+     * 今日新学进度：[done, todo]
+     * done = max(plan完成, counted认识数)；二者都空才用今日建档数兜底。
+     * 同日不把已完成调低；词表被截成「仅剩待学」时 todo=配额-done。
+     */
+    private static int[] resolveDailyLearnProgress(
+        int dailyNew,
+        int planLearnDone,
+        int learnedToday,
+        int countedLearnSize,
+        List<String> todayLearnCodes,
+        int remainWords
+    ) {
+        int quota = Math.max(0, dailyNew);
+        int done = Math.max(Math.max(0, planLearnDone), Math.max(0, countedLearnSize));
+        if (done <= 0 && learnedToday > 0) {
+            done = Math.min(quota, learnedToday);
+        } else {
+            done = Math.min(quota, done);
+        }
+        int codeSize = todayLearnCodes == null ? 0 : todayLearnCodes.size();
+        int todo;
+        if (codeSize > 0 && codeSize >= done) {
+            todo = Math.max(0, codeSize - done);
+        } else {
+            todo = Math.max(0, quota - done);
+        }
+        if (remainWords >= 0) {
+            todo = Math.min(todo, remainWords);
+        }
+        if (done + todo > quota) {
+            todo = Math.max(0, quota - done);
+        }
+        return new int[]{done, todo};
+    }
+
+    /** 今日复习进度：[done, todo] */
+    private static int[] resolveDailyReviewProgress(
+        int reviewTarget,
+        int planReviewDone,
+        int reviewedToday,
+        int countedReviewSize,
+        List<String> todayReviewCodes
+    ) {
+        int target = Math.max(0, reviewTarget);
+        int done = Math.max(Math.max(0, planReviewDone), Math.max(0, countedReviewSize));
+        if (done <= 0 && reviewedToday > 0) {
+            done = Math.min(target, reviewedToday);
+        } else {
+            done = Math.min(target, done);
+        }
+        int codeSize = todayReviewCodes == null ? 0 : todayReviewCodes.size();
+        int todo;
+        if (codeSize > 0 && codeSize >= done) {
+            todo = Math.max(0, codeSize - done);
+        } else {
+            todo = Math.max(0, target - done);
+        }
+        if (done + todo > target) {
+            todo = Math.max(0, target - done);
+        }
+        return new int[]{done, todo};
     }
 
     @Override
@@ -432,6 +541,7 @@ public class UserWordLearnRecordServiceImpl
         planExt.put("reviewDone", reviewDone);
         planExt.put("reviewTodo", reviewTodo);
         planExt.put("studyDate", today);
+        appendStudyDate(planExt, today);
         studyPlanService.saveDailyProgress(plan.getId(), planExt.toJSONString());
         syncCurrentFromPlan(current, request.getUserId(), bookCode, planExt);
 
@@ -441,6 +551,112 @@ public class UserWordLearnRecordServiceImpl
         response.setReviewDone(reviewDone);
         response.setReviewTodo(reviewTodo);
         return response;
+    }
+
+    @Override
+    public UserWordStudyStatsResponse studyStats(BigDecimal userId) {
+        UserWordStudyStatsResponse resp = new UserWordStudyStatsResponse();
+        if (userId == null) {
+            return resp;
+        }
+        TreeSet<LocalDate> days = new TreeSet<>();
+
+        // 计划里维护的 studyDates（答题时写入）
+        UserWordStudyPlanRequest planQuery = new UserWordStudyPlanRequest();
+        planQuery.setUserId(userId);
+        List<UserWordStudyPlanResponse> plans = studyPlanService.list(planQuery);
+        if (plans != null) {
+            for (UserWordStudyPlanResponse plan : plans) {
+                if (plan == null) {
+                    continue;
+                }
+                collectStudyDatesFromExt(parseExt(plan.getExtInfo()), days);
+            }
+        }
+
+        // 历史记录回填：create/modify/lastLearnTime 的日期
+        LambdaQueryWrapper<UserWordLearnRecord> wrapper = new LambdaQueryWrapper<>();
+        wrapper.select(
+                UserWordLearnRecord::getCreateTime,
+                UserWordLearnRecord::getModifyTime,
+                UserWordLearnRecord::getExtInfo
+            )
+            .eq(UserWordLearnRecord::getUserId, userId);
+        List<UserWordLearnRecord> rows = mapper.selectList(wrapper);
+        if (rows != null) {
+            for (UserWordLearnRecord row : rows) {
+                if (row == null) {
+                    continue;
+                }
+                addDate(days, row.getCreateTime());
+                addDate(days, row.getModifyTime());
+                JSONObject ext = parseExt(row.getExtInfo());
+                addDateFromText(days, ext.getString("lastLearnTime"));
+            }
+        }
+
+        resp.setTotalStudyDays(days.size());
+        // 连续：从昨日往前，今日不计入；昨日未学则为 0
+        int streak = 0;
+        LocalDate cursor = LocalDate.now().minusDays(1);
+        while (days.contains(cursor)) {
+            streak++;
+            cursor = cursor.minusDays(1);
+        }
+        resp.setConsecutiveStudyDays(streak);
+        return resp;
+    }
+
+    private static void appendStudyDate(JSONObject planExt, String today) {
+        if (planExt == null || !StringUtils.hasText(today)) {
+            return;
+        }
+        JSONArray arr = planExt.getJSONArray("studyDates");
+        if (arr == null) {
+            arr = new JSONArray();
+        }
+        for (int i = 0; i < arr.size(); i++) {
+            if (today.equals(arr.getString(i))) {
+                planExt.put("studyDates", arr);
+                return;
+            }
+        }
+        arr.add(today);
+        planExt.put("studyDates", arr);
+    }
+
+    private static void collectStudyDatesFromExt(JSONObject ext, Set<LocalDate> days) {
+        if (ext == null || days == null) {
+            return;
+        }
+        addDateFromText(days, ext.getString("studyDate"));
+        JSONArray arr = ext.getJSONArray("studyDates");
+        if (arr == null) {
+            return;
+        }
+        for (int i = 0; i < arr.size(); i++) {
+            addDateFromText(days, arr.getString(i));
+        }
+    }
+
+    private static void addDate(Set<LocalDate> days, LocalDateTime dateTime) {
+        if (days != null && dateTime != null) {
+            days.add(dateTime.toLocalDate());
+        }
+    }
+
+    private static void addDateFromText(Set<LocalDate> days, String text) {
+        if (days == null || !StringUtils.hasText(text)) {
+            return;
+        }
+        String value = text.trim();
+        try {
+            if (value.length() >= 10) {
+                days.add(LocalDate.parse(value.substring(0, 10)));
+            }
+        } catch (DateTimeParseException ignored) {
+            // 忽略非法日期
+        }
     }
 
     private UserWordCurrentBookResponse requireCurrentBook(java.math.BigDecimal userId, String bookCode) {

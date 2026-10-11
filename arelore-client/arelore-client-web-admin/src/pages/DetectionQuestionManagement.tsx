@@ -21,6 +21,8 @@ const DetectionQuestionManagement: React.FC = () => {
       ]);
       setDataSource(questionRes.data?.list || []);
       setTypeList(typeRes.data?.list || []);
+    } catch {
+      // 错误已在 request 拦截器中提示
     } finally {
       setLoading(false);
     }

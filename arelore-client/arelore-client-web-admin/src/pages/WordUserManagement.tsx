@@ -62,6 +62,8 @@ const WordUserManagement: React.FC = () => {
       setTotal(Number(res.data?.total) || 0);
       setPageNum(res.data?.pageNum || nextPageNum);
       setPageSize(res.data?.pageSize || nextPageSize);
+    } catch {
+      // 错误已在 request 拦截器中提示
     } finally {
       setLoading(false);
     }
@@ -81,6 +83,8 @@ const WordUserManagement: React.FC = () => {
       ]);
       setCurrentBooks(currentRes.data?.list || []);
       setStudyPlans(planRes.data?.list || []);
+    } catch {
+      // 错误已在 request 拦截器中提示
     } finally {
       setBookLoading(false);
     }
@@ -111,6 +115,8 @@ const WordUserManagement: React.FC = () => {
       setRecordTotal(Number(res.data?.total) || 0);
       setRecordPageNum(res.data?.pageNum || nextPageNum);
       setRecordPageSize(res.data?.pageSize || nextPageSize);
+    } catch {
+      // 错误已在 request 拦截器中提示
     } finally {
       setRecordLoading(false);
     }

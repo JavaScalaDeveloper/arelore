@@ -66,6 +66,25 @@ public interface AdminWordEntryMapper extends BaseMapper<AdminWordEntry> {
         @Param("bookCode") String bookCode
     );
 
+    /** 今日新学词数（以 learn_record 首次创建日为准，换书无法刷掉） */
+    @Select("SELECT COUNT(1) FROM user_word_learn_record "
+        + "WHERE user_id = #{userId} AND book_code = #{bookCode} "
+        + "AND DATE(create_time) = CURDATE()")
+    int countLearnedToday(
+        @Param("userId") BigDecimal userId,
+        @Param("bookCode") String bookCode
+    );
+
+    /** 今日复习词数：非今日首次学会、但今日有作答（modify_time）的词 */
+    @Select("SELECT COUNT(1) FROM user_word_learn_record "
+        + "WHERE user_id = #{userId} AND book_code = #{bookCode} "
+        + "AND DATE(create_time) < CURDATE() "
+        + "AND DATE(modify_time) = CURDATE()")
+    int countReviewedToday(
+        @Param("userId") BigDecimal userId,
+        @Param("bookCode") String bookCode
+    );
+
     @Select("<script>"
         + "SELECT e.id, e.create_time, e.modify_time, e.book_code, e.word_code, e.word, e.sort_no, e.ext_info "
         + "FROM admin_word_entry e "

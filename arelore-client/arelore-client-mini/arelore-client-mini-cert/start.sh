@@ -5,7 +5,16 @@ set -euo pipefail
 
 ENV_NAME="${1:-dev}"
 
-cd "$(dirname "$0")"
+APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+CLIENT_ROOT="$(cd "${APP_DIR}/../.." && pwd)"
+LOG_DIR="${CLIENT_ROOT}/logs"
+APP_NAME="arelore-client-mini-cert"
+mkdir -p "$LOG_DIR"
+
+LOG_FILE="${LOG_DIR}/${APP_NAME}-${ENV_NAME}.log"
+PID_FILE="${LOG_DIR}/${APP_NAME}-${ENV_NAME}.pid"
+
+cd "$APP_DIR"
 
 API_BASE_URL=""
 case "$ENV_NAME" in
@@ -26,6 +35,8 @@ case "$ENV_NAME" in
     # 允许直接传入自定义 baseUrl，如：./start.sh "http://1.2.3.4:8081/api"
     API_BASE_URL="$ENV_NAME"
     ENV_NAME="custom"
+    LOG_FILE="${LOG_DIR}/${APP_NAME}-${ENV_NAME}.log"
+    PID_FILE="${LOG_DIR}/${APP_NAME}-${ENV_NAME}.pid"
     ;;
 esac
 
@@ -45,10 +56,19 @@ npm install
 echo "[mini-cert] rebuild & start watcher"
 npm run build:weapp
 
-nohup npm run dev:weapp >/var/logs/arelore-mini-cert-dev.log 2>&1 &
-echo $! > .taro-dev.pid
+if [ -f "$PID_FILE" ]; then
+  OLD_PID="$(cat "$PID_FILE" || true)"
+  if [ -n "${OLD_PID:-}" ] && kill -0 "$OLD_PID" >/dev/null 2>&1; then
+    echo "[mini-cert] stopping previous pid=$OLD_PID"
+    kill "$OLD_PID" || true
+    sleep 1
+  fi
+  rm -f "$PID_FILE"
+fi
 
-echo "[mini-cert] started. pid=$(cat .taro-dev.pid)"
-echo "[mini-cert] dev log: /var/logs/arelore-mini-cert-dev.log"
+nohup npm run dev:weapp >"$LOG_FILE" 2>&1 &
+echo $! > "$PID_FILE"
+
+echo "[mini-cert] started. pid=$(cat "$PID_FILE")"
+echo "[mini-cert] dev log: $LOG_FILE"
 echo "[mini-cert] 微信开发者工具请导入本目录（project.config.json 已指向 dist/），勿直接打开 src/"
-

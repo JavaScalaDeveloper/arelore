@@ -40,6 +40,8 @@ const WordCategoryManagement: React.FC = () => {
       setTotal(Number(catRes.data?.total) || 0);
       setPageNum(catRes.data?.pageNum || nextPageNum);
       setPageSize(catRes.data?.pageSize || nextPageSize);
+    } catch {
+      // 错误已在 request 拦截器中提示
     } finally {
       setLoading(false);
     }

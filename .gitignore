@@ -2,6 +2,13 @@
 .DS_Store
 **/.DS_Store
 /logs/
+# 客户端各模块 start.sh 统一输出目录
+/arelore-client/logs/
+# 历史遗留：模块根目录下的 app.log / app.pid
+**/arelore-client/**/app.log
+**/arelore-client/**/app.pid
+**/arelore-client/**/app-*.log
+**/arelore-client/**/app-*.pid
 /arelore-client/arelore-client-mini/*/dist/
 /arelore-client/arelore-client-mini/*/node_modules/
 /arelore-client/arelore-client-mini/*/.swc/

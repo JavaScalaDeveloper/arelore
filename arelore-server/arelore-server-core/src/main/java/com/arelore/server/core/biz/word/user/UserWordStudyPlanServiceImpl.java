@@ -5,6 +5,7 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.arelore.server.core.biz.word.admin.AdminWordBookService;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBookResponse;
+import com.arelore.server.core.biz.word.admin.mapper.AdminWordEntryMapper;
 import com.arelore.server.core.biz.word.user.dto.UserWordCurrentBookRequest;
 import com.arelore.server.core.biz.word.user.dto.UserWordCurrentBookResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudyPlanRequest;
@@ -31,15 +32,18 @@ public class UserWordStudyPlanServiceImpl
     private final UserWordStudyPlanMapper mapper;
     private final AdminWordBookService bookService;
     private final UserWordCurrentBookService currentBookService;
+    private final AdminWordEntryMapper entryMapper;
 
     public UserWordStudyPlanServiceImpl(
         UserWordStudyPlanMapper mapper,
         AdminWordBookService bookService,
-        UserWordCurrentBookService currentBookService
+        UserWordCurrentBookService currentBookService,
+        AdminWordEntryMapper entryMapper
     ) {
         this.mapper = mapper;
         this.bookService = bookService;
         this.currentBookService = currentBookService;
+        this.entryMapper = entryMapper;
     }
 
     @Override
@@ -87,30 +91,66 @@ public class UserWordStudyPlanServiceImpl
 
     @Override
     public UserWordStudyPlanResponse confirm(UserWordStudyPlanRequest request) {
-        normalizeAndValidate(request, true);
-        UserWordStudyPlanRequest query = new UserWordStudyPlanRequest();
-        query.setUserId(request.getUserId());
-        query.setBookCode(request.getBookCode());
-        List<UserWordStudyPlanResponse> existsList = list(query);
-        UserWordStudyPlanResponse exists = existsList.isEmpty() ? null : existsList.get(0);
+        if (request == null || request.getUserId() == null) {
+            throw new IllegalArgumentException("用户ID不能为空");
+        }
+        if (!StringUtils.hasText(request.getBookCode())) {
+            throw new IllegalArgumentException("单词本code不能为空");
+        }
 
-        // 换书前：把旧词书今日进度写回对应 plan，避免进度串书
+        // 换书前：把旧词书今日进度写回对应 plan，避免进度串书 / 丢失
         UserWordCurrentBookRequest byUser = new UserWordCurrentBookRequest();
         byUser.setUserId(request.getUserId());
         List<UserWordCurrentBookResponse> userCurrentList = currentBookService.list(byUser);
         UserWordCurrentBookResponse userCurrent = userCurrentList.isEmpty() ? null : userCurrentList.get(0);
         if (userCurrent != null
             && StringUtils.hasText(userCurrent.getBookCode())
-            && !userCurrent.getBookCode().equals(request.getBookCode())
+            && !userCurrent.getBookCode().equals(request.getBookCode().trim())
         ) {
             persistCurrentProgressToPlan(userCurrent);
+        }
+
+        UserWordStudyPlanRequest query = new UserWordStudyPlanRequest();
+        query.setUserId(request.getUserId());
+        query.setBookCode(request.getBookCode().trim());
+        List<UserWordStudyPlanResponse> existsList = list(query);
+        UserWordStudyPlanResponse exists = existsList.isEmpty() ? null : existsList.get(0);
+
+        String targetBook = request.getBookCode().trim();
+        // 目标词书今日已开练/已完成（plan 或学习记录）：禁止重置配额（防 ABA）
+        boolean preserveToday = hasTodayProgress(exists)
+            || entryMapper.countLearnedToday(request.getUserId(), targetBook) > 0
+            || entryMapper.countReviewedToday(request.getUserId(), targetBook) > 0;
+        if (preserveToday) {
+            JSONObject merged = exists != null ? parseExt(exists.getExtInfo()) : new JSONObject();
+            JSONObject reqExt = parseExt(request.getExtInfo());
+            if (reqExt.containsKey("voiceType")) {
+                merged.put("voiceType", reqExt.get("voiceType"));
+            }
+            Integer dailyNew = request.getDailyNewCount() != null
+                ? request.getDailyNewCount()
+                : (exists != null ? exists.getDailyNewCount() : null);
+            reconcileTodayProgressFromRecords(merged, request.getUserId(), targetBook, dailyNew);
+            request.setExtInfo(merged.toJSONString());
+        }
+
+        normalizeAndValidate(request, !preserveToday);
+
+        // 重置当日进度时仍保留历史 studyDates（累计学习用）
+        if (!preserveToday && exists != null) {
+            JSONObject oldExt = parseExt(exists.getExtInfo());
+            JSONArray studyDates = oldExt.getJSONArray("studyDates");
+            if (studyDates != null && !studyDates.isEmpty()) {
+                JSONObject newExt = parseExt(request.getExtInfo());
+                newExt.put("studyDates", studyDates);
+                request.setExtInfo(newExt.toJSONString());
+            }
         }
 
         if (exists == null) {
             super.create(request);
         } else {
             request.setId(exists.getId());
-            // 保留历史 plan 行，仅覆盖计划字段；今日进度在 normalize 已按新计划重置
             UserWordStudyPlan patch = new UserWordStudyPlan();
             patch.setId(exists.getId());
             patch.setNewReviewRatio(request.getNewReviewRatio());
@@ -121,15 +161,11 @@ public class UserWordStudyPlanServiceImpl
             mapper.updateById(patch);
         }
 
+        // 当前词书行只镜像展示；今日词表/完成数以 plan.ext_info 为准
         UserWordCurrentBookRequest currentReq = new UserWordCurrentBookRequest();
         currentReq.setUserId(request.getUserId());
         currentReq.setBookCode(request.getBookCode());
-        currentReq.setLearnDone(0);
-        currentReq.setLearnTodo(request.getDailyNewCount());
-        currentReq.setReviewDone(0);
-        // 复习=上一学习日新学词；确认计划时尚无历史，待办为 0
-        currentReq.setReviewTodo(0);
-        // 当前词书行只镜像展示；今日词表落在 plan.ext_info（按书隔离）
+        applyPlanProgressToCurrent(currentReq, parseExt(request.getExtInfo()), request.getDailyNewCount());
         currentReq.setExtInfo(null);
         if (userCurrent == null) {
             currentBookService.create(currentReq);
@@ -269,11 +305,166 @@ public class UserWordStudyPlanServiceImpl
         if (StringUtils.hasText(curExt.getString("studyDate"))) {
             ext.put("studyDate", curExt.getString("studyDate"));
         }
-        ext.put("learnDone", nvl(current.getLearnDone()));
-        ext.put("learnTodo", nvl(current.getLearnTodo()));
-        ext.put("reviewDone", nvl(current.getReviewDone()));
-        ext.put("reviewTodo", nvl(current.getReviewTodo()));
+        // 同日完成数只增不减；待办按词表完整性选择公式（防截断词表把 13 已完成算坏）
+        boolean sameDay = LocalDate.now().toString().equals(ext.getString("studyDate"));
+        int dailyNew = 0;
+        try {
+            UserWordStudyPlanResponse p = plan;
+            if (p.getDailyNewCount() != null && p.getDailyNewCount() > 0) {
+                dailyNew = p.getDailyNewCount();
+            }
+        } catch (Exception ignored) {
+            // ignore
+        }
+        if (dailyNew <= 0) {
+            dailyNew = Math.max(nvl(current.getLearnDone()) + nvl(current.getLearnTodo()), 10);
+        }
+        int learnDone = Math.max(ext.getIntValue("learnDone"), nvl(current.getLearnDone()));
+        int reviewDone = Math.max(ext.getIntValue("reviewDone"), nvl(current.getReviewDone()));
+        if (!sameDay && learnDone <= 0 && reviewDone <= 0) {
+            ext.put("learnDone", nvl(current.getLearnDone()));
+            ext.put("learnTodo", nvl(current.getLearnTodo()));
+            ext.put("reviewDone", nvl(current.getReviewDone()));
+            ext.put("reviewTodo", nvl(current.getReviewTodo()));
+        } else {
+            ext.put("studyDate", LocalDate.now().toString());
+            ext.put("learnDone", learnDone);
+            ext.put("reviewDone", reviewDone);
+            int learnCodes = ext.getJSONArray("todayLearnWordCodes") == null
+                ? 0 : ext.getJSONArray("todayLearnWordCodes").size();
+            int reviewCodes = ext.getJSONArray("todayReviewWordCodes") == null
+                ? 0 : ext.getJSONArray("todayReviewWordCodes").size();
+            // 词表长度 < 已完成：说明词表被收成「仅剩待学」，待办必须用配额公式
+            if (learnCodes > 0 && learnCodes >= learnDone) {
+                ext.put("learnTodo", Math.max(0, learnCodes - learnDone));
+            } else {
+                ext.put("learnTodo", Math.max(0, dailyNew - learnDone));
+            }
+            if (reviewCodes > 0 && reviewCodes >= reviewDone) {
+                ext.put("reviewTodo", Math.max(0, reviewCodes - reviewDone));
+            } else {
+                ext.put("reviewTodo", Math.max(0, nvl(current.getReviewTodo())));
+            }
+        }
         saveDailyProgress(plan.getId(), ext.toJSONString());
+    }
+
+    /**
+     * 目标词书今日是否已有进度：studyDate=今天则一律保留（避免清掉 learnDone）；
+     * 或学习记录表已有今日新学/复习。
+     */
+    private boolean hasTodayProgress(UserWordStudyPlanResponse exists) {
+        if (exists == null || exists.getUserId() == null || !StringUtils.hasText(exists.getBookCode())) {
+            return false;
+        }
+        JSONObject ext = parseExt(exists.getExtInfo());
+        // 只要标记过今天，就禁止重置（含已完成数），防止 ABA 把 13 写成 12
+        if (LocalDate.now().toString().equals(ext.getString("studyDate"))) {
+            return true;
+        }
+        return entryMapper.countLearnedToday(exists.getUserId(), exists.getBookCode()) > 0
+            || entryMapper.countReviewedToday(exists.getUserId(), exists.getBookCode()) > 0;
+    }
+
+    /**
+     * 用学习记录校准今日完成/待办：即便 plan 词表被换书逻辑清空，已学过的配额也不能再发。
+     */
+    private void reconcileTodayProgressFromRecords(
+        JSONObject ext,
+        java.math.BigDecimal userId,
+        String bookCode,
+        Integer dailyNewCount
+    ) {
+        if (ext == null || userId == null || !StringUtils.hasText(bookCode)) {
+            return;
+        }
+        int dailyNew = dailyNewCount == null || dailyNewCount <= 0 ? 10 : dailyNewCount;
+        // confirm 时尚不知 reviewLimit，复习侧用记录数与已有 todo/done 取大
+        int learnedToday = entryMapper.countLearnedToday(userId, bookCode);
+        int reviewedToday = entryMapper.countReviewedToday(userId, bookCode);
+        if (learnedToday <= 0 && reviewedToday <= 0) {
+            return;
+        }
+        String today = LocalDate.now().toString();
+        ext.put("studyDate", today);
+
+        JSONArray learnCodes = ext.getJSONArray("todayLearnWordCodes");
+        JSONArray countedLearn = ext.getJSONArray("countedLearnWordCodes");
+        int prevDone = Math.max(0, ext.getIntValue("learnDone"));
+        int countedSize = countedLearn == null ? 0 : countedLearn.size();
+        // 完成数取 plan 与 counted 较大值；都空才用建档数（防 13→12，且可用 counted 救回）
+        int learnDone = Math.max(prevDone, countedSize);
+        if (learnDone <= 0) {
+            learnDone = learnedToday;
+        }
+        learnDone = Math.min(dailyNew, learnDone);
+        int codeSize = learnCodes == null ? 0 : learnCodes.size();
+        int learnTodo;
+        if (codeSize > 0 && codeSize >= learnDone) {
+            learnTodo = Math.max(0, codeSize - learnDone);
+        } else {
+            learnTodo = Math.max(0, dailyNew - learnDone);
+        }
+        if (learnDone + learnTodo > dailyNew) {
+            learnTodo = Math.max(0, dailyNew - learnDone);
+        }
+        ext.put("learnDone", learnDone);
+        ext.put("learnTodo", learnTodo);
+
+        int reviewDone = Math.max(ext.getIntValue("reviewDone"), reviewedToday);
+        ext.put("reviewDone", reviewDone);
+        JSONArray reviewCodes = ext.getJSONArray("todayReviewWordCodes");
+        int reviewCodeSize = reviewCodes == null ? 0 : reviewCodes.size();
+        if (reviewCodeSize > 0 && reviewCodeSize >= reviewDone) {
+            ext.put("reviewTodo", Math.max(0, reviewCodeSize - reviewDone));
+        } else if (reviewedToday > 0) {
+            // 有复习记录但词表丢失：不把待办抬回去刷复习；保留已有 reviewTodo 或 0
+            if (!ext.containsKey("reviewTodo")) {
+                ext.put("reviewTodo", 0);
+            }
+        }
+    }
+
+    /** 用 plan 今日进度镜像到 current_book 展示字段 */
+    private void applyPlanProgressToCurrent(
+        UserWordCurrentBookRequest currentReq,
+        JSONObject planExt,
+        Integer dailyNewCount
+    ) {
+        int dailyNew = dailyNewCount == null || dailyNewCount <= 0 ? 10 : dailyNewCount;
+        String today = LocalDate.now().toString();
+        if (planExt != null && today.equals(planExt.getString("studyDate"))) {
+            int learnDone = planExt.getIntValue("learnDone");
+            int reviewDone = planExt.getIntValue("reviewDone");
+            JSONArray learnCodes = planExt.getJSONArray("todayLearnWordCodes");
+            JSONArray reviewCodes = planExt.getJSONArray("todayReviewWordCodes");
+            int codeSize = learnCodes == null ? 0 : learnCodes.size();
+            int learnTodo;
+            if (planExt.containsKey("learnTodo")
+                && (codeSize <= 0 || codeSize < learnDone)) {
+                // 已按配额公式写好的 learnTodo（含 ABA 恢复）优先
+                learnTodo = Math.max(0, planExt.getIntValue("learnTodo"));
+            } else if (codeSize > 0 && codeSize >= learnDone) {
+                learnTodo = Math.max(0, codeSize - learnDone);
+            } else {
+                learnTodo = Math.max(0, dailyNew - learnDone);
+            }
+            int reviewTodo;
+            if (reviewCodes != null && !reviewCodes.isEmpty()) {
+                reviewTodo = Math.max(0, reviewCodes.size() - reviewDone);
+            } else {
+                reviewTodo = planExt.getIntValue("reviewTodo");
+            }
+            currentReq.setLearnDone(learnDone);
+            currentReq.setLearnTodo(learnTodo);
+            currentReq.setReviewDone(reviewDone);
+            currentReq.setReviewTodo(reviewTodo);
+            return;
+        }
+        currentReq.setLearnDone(0);
+        currentReq.setLearnTodo(dailyNew);
+        currentReq.setReviewDone(0);
+        currentReq.setReviewTodo(0);
     }
 
     private JSONObject parseExt(String extInfo) {

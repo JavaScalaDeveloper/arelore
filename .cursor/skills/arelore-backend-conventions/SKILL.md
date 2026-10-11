@@ -2,8 +2,9 @@
 name: arelore-backend-conventions
 description: >-
   Enforces Arelore Java backend conventions for MySQL DDL, Service interfaces,
-  HTTP controllers, and Response VO idStr for long numeric IDs. Use when writing
-  or reviewing SQL table DDL, MyBatis entities, Service/ServiceImpl, RestController,
+  HTTP controllers, typed Request/Response DTOs (no Map when keys are known),
+  and Response VO idStr for long numeric IDs. Use when writing or reviewing SQL
+  table DDL, MyBatis entities, Service/ServiceImpl, RestController,
   XxxResponse/XxxRequest DTOs, @RequestMapping, Spring MVC APIs, or any
   arelore-server code under arelore-server-user, arelore-server-admin, or
   arelore-server-core.
@@ -11,7 +12,7 @@ description: >-
 
 # Arelore 后端编码规范
 
-编写或修改 `arelore-server` 代码时必须遵守以下四条。不得用 REST 路径参数、GET query、或非 `BaseService` 的 Service 接口绕过。
+编写或修改 `arelore-server` 代码时必须遵守以下五条。不得用 REST 路径参数、GET query、或非 `BaseService` 的 Service 接口绕过。
 
 ## 1. MySQL 建表 DDL
 
@@ -94,3 +95,12 @@ public class FooResponse extends Foo {
 ```
 
 主键 `id` 为普通自增 `bigint` 且远小于安全整数时，可不额外加 `idStr`；一旦存在超长业务 ID（尤其 `userId`），对应 VO **必须**提供 `idStr`。
+
+## 5. 出入参禁止滥用 Map（key 确定则必须用 DTO）
+
+如果出入参的 key 是确定的（例如返回的是不确定的某个数据库表的字段名，就可以用 Map），请不要用 Map 作为出入参。
+
+- Controller / Service 的请求体、响应体、业务方法入参与返回值：字段名已知时，使用 `XxxRequest` / `XxxResponse`（或专用 VO），**禁止** `Map`、`Map<String, Object>`、`JSONObject` 充当契约。
+- 仅当结构本身不确定、key 集合无法在编译期固定时才允许 Map（例如动态透出未知表字段名、开放扩展袋）。
+- 错误示例：`Result<Map<String, Object>>`、`@RequestBody Map<String, Object> body`、`Map<String, String> search(...)`（而 url/photographer 等 key 已固定）。
+- 正确示例：为固定字段建立 DTO（如 `AdminWordBaseInfoPictureCandidate` 含 `url`、`photographer`），或沿用已有 `XxxRequest` / `XxxResponse`。

@@ -4,6 +4,8 @@ import com.arelore.server.core.common.dto.IdRequest;
 import com.arelore.server.core.common.dto.PageResult;
 import com.arelore.server.core.common.result.Result;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoAdoptPicturesRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoPictureSearchResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoResponse;
@@ -196,7 +198,7 @@ public class WordManageController {
         return Result.success(baseInfoService.pageQuery(request == null ? new AdminWordBaseInfoRequest() : request));
     }
 
-    /** 分页扫描词条全部词形，从有道拉取配图等并 upsert 到 admin_word_base_info */
+    /** 分页扫描词条全部词形，仅同步语种+词形到 admin_word_base_info（不查有道） */
     @PostMapping("/base-info/sync")
     public Result<AdminWordBaseInfoSyncResponse> baseInfoSync(
         @RequestBody(required = false) AdminWordBaseInfoRequest request
@@ -226,7 +228,7 @@ public class WordManageController {
         return Result.success(baseInfoService.testYoudao(word));
     }
 
-    /** 图库搜图（优先 Unsplash），候选不落库 */
+    /** 单词 Pixabay 搜图，候选不落库 */
     @PostMapping("/base-info/search-pictures")
     public Result<AdminWordBaseInfoPictureSearchResponse> baseInfoSearchPictures(@RequestBody IdRequest request) {
         Long id = request == null ? null : request.getId();
@@ -235,6 +237,18 @@ public class WordManageController {
         }
         try {
             return Result.success(baseInfoService.searchStockPictures(id));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /** 批量搜图：source=PIXABAY 未确认；source=YOUDAO 有道图直接确认可用 */
+    @PostMapping("/base-info/batch-search-pictures")
+    public Result<AdminWordBaseInfoBatchSearchResponse> baseInfoBatchSearchPictures(
+        @RequestBody(required = false) AdminWordBaseInfoBatchSearchRequest request
+    ) {
+        try {
+            return Result.success(baseInfoService.batchSearchPictures(request));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return Result.error(e.getMessage());
         }

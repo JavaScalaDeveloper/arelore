@@ -24,6 +24,7 @@ import com.arelore.server.core.biz.word.user.dto.UserWordStudyPlanRequest;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudyPlanResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudySessionRequest;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudySessionResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyStatsResponse;
 import com.arelore.server.core.biz.word.user.UserWordCurrentBookService;
 import com.arelore.server.core.biz.word.user.UserWordLearnRecordService;
 import com.arelore.server.core.biz.word.user.UserWordStudyPlanService;
@@ -144,7 +145,9 @@ public class WordQueryController {
                 currentBookService.update(request);
             }
             List<UserWordCurrentBookResponse> latest = currentBookService.list(query);
-            return Result.success(latest.isEmpty() ? null : latest.get(0));
+            UserWordCurrentBookResponse current = latest.isEmpty() ? null : latest.get(0);
+            // 换书后按学习记录校准今日待办，避免 ABA 展示被重置
+            return Result.success(current == null ? null : learnRecordService.enrichHome(current));
         } catch (IllegalArgumentException e) {
             if (e.getMessage() != null && e.getMessage().contains("未登录")) {
                 return Result.error(401, e.getMessage());
@@ -222,6 +225,22 @@ public class WordQueryController {
             }
             request.setUserId(requireUserId(token));
             return Result.success(learnRecordService.answer(request));
+        } catch (IllegalArgumentException e) {
+            if (e.getMessage() != null && e.getMessage().contains("未登录")) {
+                return Result.error(401, e.getMessage());
+            }
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /** 个人中心：累计学习 / 连续学习（自昨日往前） */
+    @PostMapping("/study/stats")
+    public Result<UserWordStudyStatsResponse> studyStats(
+        @RequestHeader(value = "Authorization", required = false) String token,
+        @RequestBody(required = false) java.util.Map<String, Object> body
+    ) {
+        try {
+            return Result.success(learnRecordService.studyStats(requireUserId(token)));
         } catch (IllegalArgumentException e) {
             if (e.getMessage() != null && e.getMessage().contains("未登录")) {
                 return Result.error(401, e.getMessage());

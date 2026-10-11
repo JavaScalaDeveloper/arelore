@@ -63,6 +63,8 @@ const WordEntryManagement: React.FC = () => {
       setTotal(Number(entryRes.data?.total) || 0);
       setPageNum(entryRes.data?.pageNum || nextPageNum);
       setPageSize(entryRes.data?.pageSize || nextPageSize);
+    } catch {
+      // 错误已在 request 拦截器中提示
     } finally {
       setLoading(false);
     }

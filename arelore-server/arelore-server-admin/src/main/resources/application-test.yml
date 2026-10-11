@@ -39,8 +39,7 @@ spring:
 arelore:
   word:
     image:
-      unsplash-access-key: ${ARELORE_UNSPLASH_ACCESS_KEY:}
-      pexels-api-key: ${ARELORE_PEXELS_API_KEY:}
+      pixabay-api-key: ${ARELORE_PIXABAY_API_KEY:57972734-fe8fdef2090500bc180d4cfb9}
       min-count: 4
       search-count: 12
 

@@ -29,6 +29,44 @@ function pictureUrls(extInfo?: string): string[] {
     .filter(Boolean);
 }
 
+function meaningLines(extInfo?: string): string[] {
+  const ext = parseExtInfo(extInfo);
+  const meanings = Array.isArray(ext.meanings) ? ext.meanings : [];
+  return meanings
+    .map((m: any) => {
+      const pos = m?.pos ? `${m.pos} ` : '';
+      const trans = m?.trans || '';
+      return `${pos}${trans}`.trim();
+    })
+    .filter(Boolean);
+}
+
+function tagList(extInfo?: string): string[] {
+  const ext = parseExtInfo(extInfo);
+  return Array.isArray(ext.tags) ? ext.tags.filter(Boolean) : [];
+}
+
+const TAG_OPTIONS = [
+  { value: 'no_picture', label: '无图' },
+  { value: 'has_picture', label: '有图' },
+  { value: 'unconfirmed', label: '未确认' },
+  { value: 'confirmed', label: '已确认' },
+  { value: 'source_youdao', label: '来源·有道' },
+  { value: 'source_pixabay', label: '来源·Pixabay' },
+  { value: 'source_none', label: '来源·无' },
+  { value: 'has_meaning', label: '有释义' },
+  { value: 'no_meaning', label: '无释义' },
+  { value: 'sync_error', label: '同步失败' },
+];
+
+const TAG_COLOR: Record<string, string> = {
+  no_picture: 'warning',
+  has_picture: 'blue',
+  confirmed: 'success',
+  unconfirmed: 'default',
+  sync_error: 'error',
+};
+
 const WordBaseInfoManagement: React.FC = () => {
   const [dataSource, setDataSource] = useState<any[]>([]);
   const [languages, setLanguages] = useState<any[]>([]);
@@ -46,13 +84,19 @@ const WordBaseInfoManagement: React.FC = () => {
   const [youdaoResult, setYoudaoResult] = useState<any | null>(null);
 
   const [searchingPics, setSearchingPics] = useState(false);
+  const [batchSearching, setBatchSearching] = useState(false);
   const [adoptingPics, setAdoptingPics] = useState(false);
   const [candidates, setCandidates] = useState<any[]>([]);
   const [selectedUrls, setSelectedUrls] = useState<string[]>([]);
+  const [activeStockSource, setActiveStockSource] = useState('');
 
   const loadLanguages = async () => {
-    const res = await adminApi.getWordLanguageList({ pageNum: 1, pageSize: 100 });
-    setLanguages(res.data?.list || []);
+    try {
+      const res = await adminApi.getWordLanguageList({ pageNum: 1, pageSize: 100 });
+      setLanguages(res.data?.list || []);
+    } catch {
+      // 错误已在 request 拦截器中提示
+    }
   };
 
   const loadData = async (overrides?: { pageNum?: number; pageSize?: number; filters?: any }) => {
@@ -72,6 +116,8 @@ const WordBaseInfoManagement: React.FC = () => {
       setTotal(Number(res.data?.total) || 0);
       setPageNum(res.data?.pageNum || nextPageNum);
       setPageSize(res.data?.pageSize || nextPageSize);
+    } catch {
+      // 错误已在 request 拦截器中提示
     } finally {
       setLoading(false);
     }
@@ -82,17 +128,24 @@ const WordBaseInfoManagement: React.FC = () => {
     loadData({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE, filters: {} });
   }, []);
 
-  const openDetail = async (row: any) => {
+  const openDetail = async (row: any, autoSearch = false) => {
     setDetailOpen(true);
     setYoudaoResult(null);
     setCandidates([]);
     setSelectedUrls([]);
+    setActiveStockSource('');
     setDetailLoading(true);
     try {
       const res = await adminApi.getWordBaseInfoDetail({ id: row.id });
-      setDetail(res.data || row);
+      const data = res.data || row;
+      setDetail(data);
+      if (autoSearch && data?.id) {
+        setTimeout(() => searchStockPicturesById(data.id), 0);
+      }
     } catch (e: any) {
-      message.error(e?.message || '加载详情失败');
+      if (!e?.notified) {
+        message.error(e?.message || '加载详情失败');
+      }
       setDetail(row);
     } finally {
       setDetailLoading(false);
@@ -105,6 +158,7 @@ const WordBaseInfoManagement: React.FC = () => {
     setYoudaoResult(null);
     setCandidates([]);
     setSelectedUrls([]);
+    setActiveStockSource('');
   };
 
   const testYoudao = async () => {
@@ -123,9 +177,36 @@ const WordBaseInfoManagement: React.FC = () => {
         message.error(res.data?.error || '有道请求失败');
       }
     } catch (e: any) {
-      message.error(e?.message || '有道请求失败');
+      if (!e?.notified) {
+        message.error(e?.message || '有道请求失败');
+      }
     } finally {
       setYoudaoTesting(false);
+    }
+  };
+
+  const searchStockPicturesById = async (id: number) => {
+    setSearchingPics(true);
+    setSelectedUrls([]);
+    setCandidates([]);
+    try {
+      const res = await adminApi.searchWordBaseInfoPictures({ id });
+      const list = res.data?.candidates || [];
+      setCandidates(list);
+      setActiveStockSource(res.data?.source || list[0]?.source || '');
+      if (list.length) {
+        message.success(
+          `已搜到 ${list.length} 张候选（${res.data?.source || '图库'}，未落库）`
+        );
+      } else {
+        message.warning('未搜到候选图');
+      }
+    } catch (e: any) {
+      if (!e?.notified) {
+        message.error(e?.message || '图库搜索失败');
+      }
+    } finally {
+      setSearchingPics(false);
     }
   };
 
@@ -133,23 +214,7 @@ const WordBaseInfoManagement: React.FC = () => {
     if (!detail?.id) {
       return;
     }
-    setSearchingPics(true);
-    setSelectedUrls([]);
-    setCandidates([]);
-    try {
-      const res = await adminApi.searchWordBaseInfoPictures({ id: detail.id });
-      const list = res.data?.candidates || [];
-      setCandidates(list);
-      if (list.length) {
-        message.success(`已搜到 ${list.length} 张候选（未落库，未采纳下次不会保留）`);
-      } else {
-        message.warning('未搜到候选图');
-      }
-    } catch (e: any) {
-      message.error(e?.message || '图库搜索失败，请确认已配置 Unsplash Access Key');
-    } finally {
-      setSearchingPics(false);
-    }
+    await searchStockPicturesById(detail.id);
   };
 
   const adoptSelected = async () => {
@@ -165,14 +230,17 @@ const WordBaseInfoManagement: React.FC = () => {
       const res = await adminApi.adoptWordBaseInfoPictures({
         id: detail.id,
         pictureUrls: selectedUrls,
+        pictureSource: activeStockSource || undefined,
       });
       setDetail(res.data || detail);
       setCandidates([]);
       setSelectedUrls([]);
-      message.success('已采纳并锁定，自动同步不会覆盖');
+      message.success('已采纳并打标锁定，自动同步不会覆盖');
       loadData();
     } catch (e: any) {
-      message.error(e?.message || '采纳失败');
+      if (!e?.notified) {
+        message.error(e?.message || '采纳失败');
+      }
     } finally {
       setAdoptingPics(false);
     }
@@ -189,8 +257,9 @@ const WordBaseInfoManagement: React.FC = () => {
 
   const handleSync = () => {
     Modal.confirm({
-      title: '同步单词基础信息',
-      content: '将分页扫描全部词条词形，从有道拉取配图等并写入基础表。已人工确认的配图不会被覆盖。',
+      title: '从词条同步单词',
+      content:
+        '将分页扫描全部词条词形，仅把语种+词形写入基础表（不查有道、不配图）。已存在的单词会跳过。配图请用「批量搜图」。',
       okText: '开始同步',
       cancelText: '取消',
       onOk: async () => {
@@ -199,11 +268,13 @@ const WordBaseInfoManagement: React.FC = () => {
           const res = await adminApi.syncWordBaseInfo({});
           const d = res.data || {};
           message.success(
-            `同步完成：扫描 ${d.scanned ?? 0}，去重 ${d.distinct ?? 0}，新增 ${d.inserted ?? 0}，更新 ${d.updated ?? 0}，失败 ${d.failed ?? 0}，跳过 ${d.skipped ?? 0}`
+            `同步完成：扫描 ${d.scanned ?? 0}，去重 ${d.distinct ?? 0}，新增 ${d.inserted ?? 0}，跳过 ${d.skipped ?? 0}`
           );
           loadData({ pageNum: 1 });
         } catch (e: any) {
-          message.error(e?.message || '同步失败');
+          if (!e?.notified) {
+            message.error(e?.message || '同步失败');
+          }
         } finally {
           setSyncing(false);
         }
@@ -211,17 +282,72 @@ const WordBaseInfoManagement: React.FC = () => {
     });
   };
 
+  const runBatchSearch = (source: 'YOUDAO' | 'PIXABAY') => {
+    const values = queryForm.getFieldsValue();
+    const isYoudao = source === 'YOUDAO';
+    Modal.confirm({
+      title: isYoudao ? '批量搜图（有道词典）' : '批量搜图（Pixabay）',
+      content: isYoudao
+        ? '将分页扫描全部「无图」单词，调用有道词典写入配图、释义、音标等。有道图写入后直接确认可用，无需人工采纳。词量大时可能较久。'
+        : '将分页扫描全部「无图」单词，调用 Pixabay 搜图并写入（每词最多 4 张）。写入后仍为未确认，请人工核对后采纳；词量大时可能较久。',
+      okText: '开始搜图',
+      cancelText: '取消',
+      onOk: async () => {
+        setBatchSearching(true);
+        try {
+          const res = await adminApi.batchSearchWordBaseInfoPictures({
+            languageCode: values.languageCode || undefined,
+            tag: 'no_picture',
+            source,
+            picturesPerWord: isYoudao ? undefined : 4,
+          });
+          const d = res.data || {};
+          message.success(
+            `批量搜图完成（${isYoudao ? '有道' : 'Pixabay'}）：扫描 ${d.scanned ?? 0}，写入 ${d.filled ?? 0}，失败 ${d.failed ?? 0}，跳过 ${d.skipped ?? 0}`
+          );
+          loadData({ pageNum: 1, filters: values });
+        } catch (e: any) {
+          if (!e?.notified) {
+            message.error(e?.message || '批量搜图失败');
+          }
+        } finally {
+          setBatchSearching(false);
+        }
+      },
+    });
+  };
+
   const detailExt = parseExtInfo(detail?.extInfo);
   const detailPics = pictureUrls(detail?.extInfo);
+  const detailMeanings = meaningLines(detail?.extInfo);
+  const detailTags = tagList(detail?.extInfo);
   const pictureConfirmed = !!detailExt.pictureConfirmed;
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0 }}>单词基础信息</h1>
-        <Button type="primary" icon={<CloudSyncOutlined />} loading={syncing} onClick={handleSync}>
-          从词条同步
-        </Button>
+        <Space wrap>
+          <Button
+            type="default"
+            icon={<PictureOutlined />}
+            loading={batchSearching}
+            onClick={() => runBatchSearch('YOUDAO')}
+          >
+            批量搜图（有道词典）
+          </Button>
+          <Button
+            type="default"
+            icon={<PictureOutlined />}
+            loading={batchSearching}
+            onClick={() => runBatchSearch('PIXABAY')}
+          >
+            批量搜图（Pixabay）
+          </Button>
+          <Button type="primary" icon={<CloudSyncOutlined />} loading={syncing} onClick={handleSync}>
+            从词条同步
+          </Button>
+        </Space>
       </div>
       <Form
         form={queryForm}
@@ -235,7 +361,7 @@ const WordBaseInfoManagement: React.FC = () => {
             showSearch
             optionFilterProp="label"
             placeholder="语种"
-            style={{ width: 180 }}
+            style={{ width: 160 }}
             options={languages.map((item) => ({
               value: item.code,
               label: `${item.code} - ${item.name}`,
@@ -243,7 +369,39 @@ const WordBaseInfoManagement: React.FC = () => {
           />
         </Form.Item>
         <Form.Item name="word">
-          <Input placeholder="词形前缀" allowClear style={{ width: 160 }} />
+          <Input placeholder="词形前缀" allowClear style={{ width: 140 }} />
+        </Form.Item>
+        <Form.Item name="tags">
+          <Select
+            mode="multiple"
+            allowClear
+            placeholder="标签（多选且）"
+            style={{ minWidth: 260 }}
+            maxTagCount="responsive"
+            options={TAG_OPTIONS}
+          />
+        </Form.Item>
+        <Form.Item name="hasPicture">
+          <Select
+            allowClear
+            placeholder="是否有图"
+            style={{ width: 120 }}
+            options={[
+              { value: false, label: '无图' },
+              { value: true, label: '有图' },
+            ]}
+          />
+        </Form.Item>
+        <Form.Item name="pictureConfirmed">
+          <Select
+            allowClear
+            placeholder="确认状态"
+            style={{ width: 120 }}
+            options={[
+              { value: false, label: '未确认' },
+              { value: true, label: '已确认' },
+            ]}
+          />
         </Form.Item>
         <Form.Item>
           <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
@@ -253,9 +411,9 @@ const WordBaseInfoManagement: React.FC = () => {
       </Form>
       <Table
         rowKey="id"
-        loading={loading || syncing}
+        loading={loading}
         dataSource={dataSource}
-        scroll={{ x: 1200 }}
+        scroll={{ x: 1500 }}
         pagination={{
           current: pageNum,
           pageSize,
@@ -266,24 +424,45 @@ const WordBaseInfoManagement: React.FC = () => {
         }}
         columns={[
           { title: 'ID', dataIndex: 'id', width: 80 },
-          { title: '语种', dataIndex: 'languageCode', width: 90 },
-          { title: '词形', dataIndex: 'word', width: 160, ellipsis: true },
+          { title: '语种', dataIndex: 'languageCode', width: 80 },
+          { title: '词形', dataIndex: 'word', width: 140, ellipsis: true },
           {
-            title: '配图',
-            key: 'pictures',
+            title: '标签',
+            key: 'tags',
             width: 220,
             render: (_, row) => {
-              const urls = pictureUrls(row.extInfo);
-              const confirmed = !!parseExtInfo(row.extInfo).pictureConfirmed;
-              if (!urls.length) {
-                return <Tag>无</Tag>;
+              const tags = tagList(row.extInfo);
+              if (!tags.length) {
+                return <Tag>未打标</Tag>;
               }
               return (
                 <Space size={4} wrap>
-                  {confirmed && <Tag color="success">已确认</Tag>}
+                  {tags.map((t) => (
+                    <Tag key={t} color={TAG_COLOR[t] || 'processing'}>
+                      {TAG_OPTIONS.find((o) => o.value === t)?.label || t}
+                    </Tag>
+                  ))}
+                </Space>
+              );
+            },
+          },
+          {
+            title: '配图',
+            key: 'pictures',
+            width: 200,
+            render: (_, row) => {
+              const urls = pictureUrls(row.extInfo);
+              const ext = parseExtInfo(row.extInfo);
+              if (!urls.length) {
+                return <Tag color="warning">无图</Tag>;
+              }
+              return (
+                <Space size={4} wrap>
+                  {ext.pictureSource && <Tag>{ext.pictureSource}</Tag>}
+                  {ext.pictureConfirmed && <Tag color="success">已确认</Tag>}
                   <Image.PreviewGroup>
                     <Space size={4} wrap>
-                      {urls.slice(0, 4).map((url) => (
+                      {urls.slice(0, 3).map((url) => (
                         <Image key={url} src={url} width={40} height={40} style={{ objectFit: 'cover' }} />
                       ))}
                     </Space>
@@ -293,9 +472,23 @@ const WordBaseInfoManagement: React.FC = () => {
             },
           },
           {
+            title: '释义',
+            key: 'meanings',
+            width: 260,
+            ellipsis: true,
+            render: (_, row) => {
+              const lines = meaningLines(row.extInfo);
+              return lines.length ? (
+                <span title={lines.join('\n')}>{lines.slice(0, 2).join('；')}</span>
+              ) : (
+                '-'
+              );
+            },
+          },
+          {
             title: '音标',
             key: 'phone',
-            width: 180,
+            width: 160,
             ellipsis: true,
             render: (_, row) => {
               const ext = parseExtInfo(row.extInfo);
@@ -306,35 +499,27 @@ const WordBaseInfoManagement: React.FC = () => {
               return parts.join(' / ') || '-';
             },
           },
-          {
-            title: '来源/同步',
-            key: 'source',
-            width: 200,
-            ellipsis: true,
-            render: (_, row) => {
-              const ext = parseExtInfo(row.extInfo);
-              if (ext.syncError) {
-                return (
-                  <span title={String(ext.syncError)} style={{ color: '#cf1322' }}>
-                    {[ext.source, ext.lastFailTime || ext.lastSyncTime].filter(Boolean).join(' · ')}
-                    {` · ${ext.syncError}`}
-                  </span>
-                );
-              }
-              return [ext.source, ext.lastSyncTime].filter(Boolean).join(' · ') || '-';
-            },
-          },
           { title: '修改时间', dataIndex: 'modifyTime', width: 170 },
           {
             title: '操作',
             key: 'actions',
-            width: 100,
+            width: 160,
             fixed: 'right',
-            render: (_, row) => (
-              <Button type="link" icon={<EyeOutlined />} onClick={() => openDetail(row)}>
-                详情
-              </Button>
-            ),
+            render: (_, row) => {
+              const noPic = pictureUrls(row.extInfo).length === 0;
+              return (
+                <Space size={0}>
+                  <Button type="link" icon={<EyeOutlined />} onClick={() => openDetail(row)}>
+                    详情
+                  </Button>
+                  {noPic && (
+                    <Button type="link" icon={<PictureOutlined />} onClick={() => openDetail(row, true)}>
+                      搜图
+                    </Button>
+                  )}
+                </Space>
+              );
+            },
           },
         ]}
       />
@@ -361,10 +546,41 @@ const WordBaseInfoManagement: React.FC = () => {
               <Descriptions.Item label="配图状态">
                 {pictureConfirmed ? <Tag color="success">已人工确认（锁定）</Tag> : <Tag>未确认</Tag>}
               </Descriptions.Item>
+              <Descriptions.Item label="图片来源">{detailExt.pictureSource || '-'}</Descriptions.Item>
               <Descriptions.Item label="确认时间">{detailExt.pictureConfirmedAt || '-'}</Descriptions.Item>
-              <Descriptions.Item label="来源">{detailExt.source || '-'}</Descriptions.Item>
-              <Descriptions.Item label="最近成功同步">{detailExt.lastSyncTime || '-'}</Descriptions.Item>
+              <Descriptions.Item label="词典来源">{detailExt.source || '-'}</Descriptions.Item>
+              <Descriptions.Item label="最近成功同步" span={2}>
+                {detailExt.lastSyncTime || '-'}
+              </Descriptions.Item>
+              <Descriptions.Item label="标签" span={2}>
+                {detailTags.length ? (
+                  <Space size={4} wrap>
+                    {detailTags.map((t) => (
+                      <Tag key={t} color={TAG_COLOR[t] || 'processing'}>
+                        {TAG_OPTIONS.find((o) => o.value === t)?.label || t}
+                      </Tag>
+                    ))}
+                  </Space>
+                ) : (
+                  '-'
+                )}
+              </Descriptions.Item>
             </Descriptions>
+
+            <div style={{ marginBottom: 16 }}>
+              <Text strong>一词多义（审图参考）</Text>
+              <div style={{ marginTop: 8 }}>
+                {detailMeanings.length ? (
+                  <ul style={{ margin: 0, paddingLeft: 20 }}>
+                    {detailMeanings.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <Tag>无释义</Tag>
+                )}
+              </div>
+            </div>
 
             <div style={{ marginBottom: 16 }}>
               <Text strong>正式配图（学习端使用）</Text>
@@ -385,7 +601,7 @@ const WordBaseInfoManagement: React.FC = () => {
 
             <div style={{ marginBottom: 16, padding: 12, background: '#fafafa', borderRadius: 8 }}>
               <Space style={{ marginBottom: 8 }} wrap>
-                <Text strong>图库补图（Unsplash）</Text>
+                <Text strong>图库补图（Pixabay）</Text>
                 <Button
                   type="primary"
                   icon={<PictureOutlined />}
@@ -400,13 +616,11 @@ const WordBaseInfoManagement: React.FC = () => {
                   loading={adoptingPics}
                   onClick={adoptSelected}
                 >
-                  采纳选中（{selectedUrls.length}）
+                  采纳并打标（{selectedUrls.length}）
                 </Button>
               </Space>
               <Paragraph type="secondary" style={{ marginBottom: 8 }}>
-                候选仅本次展示、不落库；未采纳下次搜图不会保留。请配置 Unsplash Access Key（
-                <a href="https://unsplash.com/developers" target="_blank" rel="noreferrer">申请</a>
-                ）。无水印、可免费使用。已确认配图不会被有道同步覆盖。
+                对照上方释义勾选合适配图。候选仅本次展示、不落库；采纳后写入 pictureConfirmed / source_pixabay 等标签，有道同步不会覆盖。
               </Paragraph>
               {candidates.length > 0 && (
                 <Space wrap size={12}>
@@ -434,7 +648,7 @@ const WordBaseInfoManagement: React.FC = () => {
                         </Checkbox>
                         <Image src={thumb} width="100%" height={90} style={{ objectFit: 'cover' }} />
                         <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }} title={c.photographer}>
-                          {c.photographer || 'Pexels'}
+                          {c.photographer || c.source || 'Pixabay'}
                         </div>
                       </div>
                     );

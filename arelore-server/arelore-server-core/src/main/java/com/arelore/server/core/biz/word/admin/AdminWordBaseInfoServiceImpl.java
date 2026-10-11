@@ -7,6 +7,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.arelore.server.core.service.BaseServiceImpl;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoAdoptPicturesRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoPictureSearchResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoResponse;
@@ -40,7 +42,10 @@ public class AdminWordBaseInfoServiceImpl
     implements AdminWordBaseInfoService {
     private static final Logger log = LoggerFactory.getLogger(AdminWordBaseInfoServiceImpl.class);
     private static final int ENTRY_PAGE_SIZE = 200;
+    /** 批量搜图每批从库拉取的无图词数 */
+    private static final int BATCH_SEARCH_PAGE_SIZE = 50;
     private static final long YOUDAO_GAP_MS = 200L;
+    private static final long PIXABAY_GAP_MS = 250L;
     private static final DateTimeFormatter SYNC_TIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final AdminWordBaseInfoMapper mapper;
@@ -83,8 +88,89 @@ public class AdminWordBaseInfoServiceImpl
         if (StringUtils.hasText(request.getWord())) {
             wrapper.likeRight(AdminWordBaseInfo::getWord, request.getWord().trim());
         }
+        // 多标签 AND：JSON_CONTAINS；无图额外兼容历史无 tags 数据
+        List<String> selectedTags = resolveSelectedTags(request);
+        boolean filterNoPicture = Boolean.FALSE.equals(request.getHasPicture())
+            || selectedTags.contains("no_picture");
+        boolean filterHasPicture = Boolean.TRUE.equals(request.getHasPicture())
+            || selectedTags.contains("has_picture");
+        if (filterNoPicture) {
+            applyNoPictureFilter(wrapper);
+        } else if (filterHasPicture) {
+            applyHasPictureFilter(wrapper);
+        }
+        for (String t : selectedTags) {
+            if ("no_picture".equals(t) || "has_picture".equals(t)) {
+                continue;
+            }
+            applyTagContains(wrapper, t);
+        }
+        if (request.getPictureConfirmed() != null) {
+            applyTagContains(wrapper, Boolean.TRUE.equals(request.getPictureConfirmed()) ? "confirmed" : "unconfirmed");
+        }
+        if (StringUtils.hasText(request.getPictureSource())) {
+            applyTagContains(wrapper, "source_" + request.getPictureSource().trim().toLowerCase());
+        }
         // 管理端分页不做 order by，避免大表 filesort 超时
         return wrapper;
+    }
+
+    private static List<String> resolveSelectedTags(AdminWordBaseInfoRequest request) {
+        LinkedHashSet<String> tags = new LinkedHashSet<>();
+        if (request.getTags() != null) {
+            for (String t : request.getTags()) {
+                if (!StringUtils.hasText(t)) {
+                    continue;
+                }
+                String safe = t.trim().toLowerCase().replaceAll("[^a-z0-9_]", "");
+                if (StringUtils.hasText(safe)) {
+                    tags.add(safe);
+                }
+            }
+        }
+        if (tags.isEmpty() && StringUtils.hasText(request.getTag())) {
+            String safe = request.getTag().trim().toLowerCase().replaceAll("[^a-z0-9_]", "");
+            if (StringUtils.hasText(safe)) {
+                tags.add(safe);
+            }
+        }
+        return new ArrayList<>(tags);
+    }
+
+    private static String trimToEmpty(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private static void applyNoPictureFilter(LambdaQueryWrapper<AdminWordBaseInfo> wrapper) {
+        wrapper.and(w -> w
+            .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"no_picture\"")
+            .or()
+            .isNull(AdminWordBaseInfo::getExtInfo)
+            .or()
+            .apply("JSON_EXTRACT(ext_info, '$.pictures') IS NULL")
+            .or()
+            .apply("JSON_LENGTH(COALESCE(JSON_EXTRACT(ext_info, '$.pictures'), JSON_ARRAY())) = 0")
+        );
+    }
+
+    private static void applyHasPictureFilter(LambdaQueryWrapper<AdminWordBaseInfo> wrapper) {
+        wrapper.and(w -> w
+            .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"has_picture\"")
+            .or()
+            .apply("JSON_LENGTH(COALESCE(JSON_EXTRACT(ext_info, '$.pictures'), JSON_ARRAY())) > 0")
+        );
+    }
+
+    private static void applyTagContains(LambdaQueryWrapper<AdminWordBaseInfo> wrapper, String tag) {
+        if (!StringUtils.hasText(tag)) {
+            return;
+        }
+        // 仅允许安全标签字符，避免注入
+        String safe = tag.trim().toLowerCase().replaceAll("[^a-z0-9_]", "");
+        if (!StringUtils.hasText(safe)) {
+            return;
+        }
+        wrapper.apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"" + safe + "\"");
     }
 
     @Override
@@ -125,14 +211,7 @@ public class AdminWordBaseInfoServiceImpl
                     continue;
                 }
                 result.setDistinct(result.getDistinct() + 1);
-                try {
-                    upsertFromYoudao(languageCode, word, result);
-                    Thread.sleep(YOUDAO_GAP_MS);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    log.warn("sync interrupted at word={}", word);
-                    return result;
-                }
+                upsertWordOnly(languageCode, word, result);
             }
             if (rows.size() < ENTRY_PAGE_SIZE) {
                 break;
@@ -193,7 +272,7 @@ public class AdminWordBaseInfoServiceImpl
             resp.setPictureCount(urls.size());
             resp.setSuccess(true);
             if (!hasPicDict) {
-                resp.setNote("有道 jsonapi 未返回 pic_dict（抽象词常见）。可改用 Unsplash 图搜补图。");
+                resp.setNote("有道 jsonapi 未返回 pic_dict（抽象词常见）。可改用 Pixabay 图搜补图。");
             } else if (urls.isEmpty()) {
                 resp.setNote("有 pic_dict 但未解析到可用图片 URL。");
             } else {
@@ -224,12 +303,11 @@ public class AdminWordBaseInfoServiceImpl
         try {
             List<Map<String, String>> candidates = stockImageClient.search(row.getWord());
             resp.setCandidates(candidates);
-            resp.setNote("候选仅本次返回、不落库；未采纳下次搜图不会保留。当前图源 "
-                + source + "：无水印、可免费使用（建议保留摄影师署名）。");
-            // 明确清理历史误存的候选，避免未采纳图残留
+            resp.setNote("候选仅本次返回、不落库；未采纳下次搜图不会保留。当前图源 Pixabay。");
             JSONObject ext = parseExt(row.getExtInfo());
             if (ext.containsKey("pictureCandidates")) {
                 ext.remove("pictureCandidates");
+                refreshMetaTags(ext);
                 row.setExtInfo(ext.toJSONString());
                 mapper.updateById(row);
             }
@@ -237,6 +315,182 @@ public class AdminWordBaseInfoServiceImpl
         } catch (Exception e) {
             throw new IllegalStateException(shortError(e.getMessage()), e);
         }
+    }
+
+    @Override
+    public AdminWordBaseInfoBatchSearchResponse batchSearchPictures(AdminWordBaseInfoBatchSearchRequest request) {
+        AdminWordBaseInfoBatchSearchRequest req = request == null ? new AdminWordBaseInfoBatchSearchRequest() : request;
+        // limit<=0 / null：扫完全部无图词；否则最多处理 limit 个
+        int maxWords = req.getLimit() == null || req.getLimit() <= 0
+            ? Integer.MAX_VALUE
+            : Math.max(1, Math.min(50_000, req.getLimit()));
+        int perWord = req.getPicturesPerWord() == null ? 4 : Math.max(1, Math.min(12, req.getPicturesPerWord()));
+        String tag = StringUtils.hasText(req.getTag()) ? req.getTag().trim() : "no_picture";
+        String source = StringUtils.hasText(req.getSource()) ? req.getSource().trim().toUpperCase() : "PIXABAY";
+        if (!"YOUDAO".equals(source) && !"PIXABAY".equals(source)) {
+            throw new IllegalArgumentException("source 仅支持 YOUDAO 或 PIXABAY");
+        }
+        boolean youdao = "YOUDAO".equals(source);
+        long gapMs = youdao ? YOUDAO_GAP_MS : PIXABAY_GAP_MS;
+
+        AdminWordBaseInfoBatchSearchResponse result = new AdminWordBaseInfoBatchSearchResponse();
+        result.setSource(source);
+
+        // 按 id 游标分页；失败词本轮跳过、下次可再跑
+        long lastId = 0L;
+        int pageRounds = 0;
+        while (result.getScanned() < maxWords && pageRounds < 100_000) {
+            pageRounds++;
+            AdminWordBaseInfoRequest query = new AdminWordBaseInfoRequest();
+            query.setLanguageCode(req.getLanguageCode());
+            query.setTag(tag);
+            if ("no_picture".equalsIgnoreCase(tag)) {
+                query.setHasPicture(false);
+            }
+            int fetchSize = Math.min(BATCH_SEARCH_PAGE_SIZE, maxWords - result.getScanned());
+            LambdaQueryWrapper<AdminWordBaseInfo> wrapper = buildWrapper(query)
+                .gt(AdminWordBaseInfo::getId, lastId)
+                .orderByAsc(AdminWordBaseInfo::getId)
+                .last("LIMIT " + fetchSize);
+            List<AdminWordBaseInfo> rows = mapper.selectList(wrapper);
+            if (rows == null || rows.isEmpty()) {
+                break;
+            }
+            for (AdminWordBaseInfo row : rows) {
+                if (row == null || row.getId() == null) {
+                    continue;
+                }
+                lastId = row.getId();
+                if (result.getScanned() >= maxWords) {
+                    break;
+                }
+                result.setScanned(result.getScanned() + 1);
+                if (!StringUtils.hasText(row.getWord())) {
+                    result.setSkipped(result.getSkipped() + 1);
+                    continue;
+                }
+                JSONObject ext = parseExt(row.getExtInfo());
+                if (pictureCount(ext) > 0) {
+                    // 已有图（含已确认）：批量搜图跳过
+                    result.setSkipped(result.getSkipped() + 1);
+                    continue;
+                }
+                try {
+                    boolean filled = youdao
+                        ? fillPicturesFromYoudao(row, ext, result)
+                        : fillPicturesFromPixabay(row, ext, perWord, result);
+                    if (filled) {
+                        Thread.sleep(gapMs);
+                    }
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    result.setNote("批量搜图被中断；已处理 " + result.getScanned() + " 个词");
+                    return result;
+                } catch (Exception e) {
+                    result.setFailed(result.getFailed() + 1);
+                    log.warn("batch search failed source={} id={} word={}: {}",
+                        source, row.getId(), row.getWord(), shortError(e.getMessage()));
+                }
+            }
+            if (rows.size() < fetchSize) {
+                break;
+            }
+        }
+        if (result.getScanned() == 0) {
+            result.setNote("没有需要搜图的单词");
+        } else if (youdao) {
+            result.setNote("已分页扫完无图词；有道配图已确认可用，释义/音标等一并落库。");
+        } else {
+            result.setNote("已分页扫完无图词并写入配图（仍为未确认），请人工核对后采纳锁定；图源 Pixabay。");
+        }
+        return result;
+    }
+
+    /** Pixabay：写入未确认配图；无候选计 failed */
+    private boolean fillPicturesFromPixabay(
+        AdminWordBaseInfo row,
+        JSONObject ext,
+        int perWord,
+        AdminWordBaseInfoBatchSearchResponse result
+    ) throws Exception {
+        List<Map<String, String>> candidates = stockImageClient.search(row.getWord(), 1);
+        JSONArray pictures = new JSONArray();
+        int take = Math.min(perWord, candidates.size());
+        for (int i = 0; i < take; i++) {
+            Map<String, String> c = candidates.get(i);
+            if (c == null || !StringUtils.hasText(c.get("url"))) {
+                continue;
+            }
+            JSONObject item = new JSONObject();
+            item.put("url", YoudaoDictClient.normalizePictureUrl(c.get("url")));
+            item.put("source", "PIXABAY");
+            if (StringUtils.hasText(c.get("photographer"))) {
+                item.put("photographer", c.get("photographer"));
+            }
+            pictures.add(item);
+        }
+        if (pictures.isEmpty()) {
+            result.setFailed(result.getFailed() + 1);
+            return false;
+        }
+        ext.put("pictures", pictures);
+        ext.put("pictureSource", "PIXABAY");
+        ext.put("pictureConfirmed", false);
+        ext.remove("pictureConfirmedAt");
+        ext.remove("syncError");
+        ext.put("lastBatchSearchTime", LocalDateTime.now().format(SYNC_TIME_FMT));
+        refreshMetaTags(ext);
+        row.setExtInfo(ext.toJSONString());
+        mapper.updateById(row);
+        result.setFilled(result.getFilled() + 1);
+        return true;
+    }
+
+    /** 有道：有图则写入并直接确认；释义/音标等一并落库；无图但有释义仍保存，计 failed */
+    private boolean fillPicturesFromYoudao(
+        AdminWordBaseInfo row,
+        JSONObject ext,
+        AdminWordBaseInfoBatchSearchResponse result
+    ) throws Exception {
+        JSONObject slim = YoudaoDictClient.fetchSlimExt(row.getWord());
+        boolean hasPic = pictureCount(slim) > 0;
+        JSONArray meanings = slim.getJSONArray("meanings");
+        boolean hasMeaning = meanings != null && !meanings.isEmpty();
+        boolean hasPhone = StringUtils.hasText(slim.getString("ukphone"))
+            || StringUtils.hasText(slim.getString("usphone"));
+        if (!hasPic && !hasMeaning && !hasPhone) {
+            result.setFailed(result.getFailed() + 1);
+            return false;
+        }
+        if (hasPic) {
+            ext.put("pictures", slim.getJSONArray("pictures"));
+            ext.put("pictureSource", "YOUDAO");
+            ext.put("pictureConfirmed", true);
+            ext.put("pictureConfirmedAt", LocalDateTime.now().format(SYNC_TIME_FMT));
+        }
+        ext.put("source", "YOUDAO");
+        if (hasMeaning) {
+            ext.put("meanings", meanings);
+        }
+        if (StringUtils.hasText(slim.getString("ukphone"))) {
+            ext.put("ukphone", slim.getString("ukphone"));
+        }
+        if (StringUtils.hasText(slim.getString("usphone"))) {
+            ext.put("usphone", slim.getString("usphone"));
+        }
+        ext.remove("syncError");
+        ext.remove("pictureCandidates");
+        ext.put("lastBatchSearchTime", LocalDateTime.now().format(SYNC_TIME_FMT));
+        refreshMetaTags(ext);
+        row.setExtInfo(ext.toJSONString());
+        mapper.updateById(row);
+        if (hasPic) {
+            result.setFilled(result.getFilled() + 1);
+        } else {
+            // 无图但已写入释义/音标
+            result.setFailed(result.getFailed() + 1);
+        }
+        return true;
     }
 
     @Override
@@ -252,9 +506,11 @@ public class AdminWordBaseInfoServiceImpl
         if (row == null) {
             throw new IllegalArgumentException("记录不存在");
         }
-        String pictureSource = StringUtils.hasText(stockImageClient.activeSource())
-            ? stockImageClient.activeSource()
-            : "UNSPLASH";
+        String pictureSource = StringUtils.hasText(request.getPictureSource())
+            ? request.getPictureSource().trim().toUpperCase()
+            : (StringUtils.hasText(stockImageClient.activeSource())
+                ? stockImageClient.activeSource()
+                : "PIXABAY");
         JSONObject ext = parseExt(row.getExtInfo());
         JSONArray pictures = new JSONArray();
         for (String url : urls) {
@@ -269,60 +525,27 @@ public class AdminWordBaseInfoServiceImpl
         ext.put("pictureConfirmedAt", LocalDateTime.now().format(SYNC_TIME_FMT));
         ext.remove("pictureCandidates");
         ext.remove("syncError");
+        refreshMetaTags(ext);
         row.setExtInfo(ext.toJSONString());
         mapper.updateById(row);
         return getById(row.getId());
     }
 
-    private void upsertFromYoudao(String languageCode, String word, AdminWordBaseInfoSyncResponse result) {
+    /** 仅落库语种+词形；已存在则跳过，不调有道、不改配图 */
+    private void upsertWordOnly(String languageCode, String word, AdminWordBaseInfoSyncResponse result) {
         AdminWordBaseInfo exists = mapper.selectOne(new LambdaQueryWrapper<AdminWordBaseInfo>()
             .eq(AdminWordBaseInfo::getLanguageCode, languageCode)
             .eq(AdminWordBaseInfo::getWord, word)
             .last("limit 1"));
-        try {
-            JSONObject slim = YoudaoDictClient.fetchSlimExt(word);
-            if (!isUsefulSlim(slim)) {
-                // 本次无有效数据：不覆盖上次成功结果，只记短错误
-                retainOnFailure(exists, languageCode, word, "无有效数据", result);
-                return;
-            }
-            slim.put("lastSyncTime", LocalDateTime.now().format(SYNC_TIME_FMT));
-            slim.remove("syncError");
-            slim.remove("lastFailTime");
-            slim.remove("pictureCandidates");
-            if (exists != null) {
-                JSONObject oldExt = parseExt(exists.getExtInfo());
-                // 人工确认过的配图：禁止自动覆盖
-                if (Boolean.TRUE.equals(oldExt.getBoolean("pictureConfirmed"))) {
-                    preserveConfirmedPictures(slim, oldExt);
-                } else if (pictureCount(slim) == 0) {
-                    // 新结果无图但旧结果有图：保留旧图，避免偶发空 pic_dict 冲掉历史配图
-                    JSONArray oldPics = oldExt.getJSONArray("pictures");
-                    if (oldPics != null && !oldPics.isEmpty()) {
-                        slim.put("pictures", oldPics);
-                    }
-                }
-            }
-            saveExt(exists, languageCode, word, slim.toJSONString(), result);
-        } catch (Exception e) {
-            String msg = shortError(e.getMessage());
-            log.warn("sync word failed language={} word={}: {}", languageCode, word, msg);
-            retainOnFailure(exists, languageCode, word, msg, result);
+        if (exists != null) {
+            result.setSkipped(result.getSkipped() + 1);
+            return;
         }
-    }
-
-    private static void preserveConfirmedPictures(JSONObject slim, JSONObject oldExt) {
-        JSONArray oldPics = oldExt.getJSONArray("pictures");
-        if (oldPics != null) {
-            slim.put("pictures", oldPics);
-        }
-        slim.put("pictureConfirmed", true);
-        if (StringUtils.hasText(oldExt.getString("pictureConfirmedAt"))) {
-            slim.put("pictureConfirmedAt", oldExt.getString("pictureConfirmedAt"));
-        }
-        if (StringUtils.hasText(oldExt.getString("pictureSource"))) {
-            slim.put("pictureSource", oldExt.getString("pictureSource"));
-        }
+        JSONObject ext = new JSONObject();
+        ext.put("source", "ENTRY");
+        ext.put("lastSyncTime", LocalDateTime.now().format(SYNC_TIME_FMT));
+        refreshMetaTags(ext);
+        saveExt(null, languageCode, word, ext.toJSONString(), result);
     }
 
     private static List<String> normalizeAdoptUrls(List<String> raw) {
@@ -338,33 +561,43 @@ public class AdminWordBaseInfoServiceImpl
         return new ArrayList<>(unique);
     }
 
-    /** 异常/无数据时：保留原 pictures/音标等，仅写入短错误信息 */
-    private void retainOnFailure(
-        AdminWordBaseInfo exists,
-        String languageCode,
-        String word,
-        String errorMsg,
-        AdminWordBaseInfoSyncResponse result
-    ) {
-        result.setFailed(result.getFailed() + 1);
-        JSONObject ext = exists == null ? new JSONObject() : parseExt(exists.getExtInfo());
-        if (!ext.containsKey("source")) {
-            ext.put("source", "YOUDAO");
+    /**
+     * 根据配图/确认/来源/释义刷新检索标签（写入 ext_info，无需额外表字段）。
+     * 标签示例：no_picture、has_picture、confirmed、source_pixabay、has_meaning、sync_error
+     */
+    static void refreshMetaTags(JSONObject ext) {
+        if (ext == null) {
+            return;
         }
-        ext.put("syncError", shortError(errorMsg));
-        ext.put("lastFailTime", LocalDateTime.now().format(SYNC_TIME_FMT));
-        if (exists == null) {
-            AdminWordBaseInfo row = new AdminWordBaseInfo();
-            row.setLanguageCode(languageCode);
-            row.setWord(word);
-            row.setExtInfo(ext.toJSONString());
-            mapper.insert(row);
-            result.setInserted(result.getInserted() + 1);
+        int picCount = pictureCount(ext);
+        boolean hasPicture = picCount > 0;
+        boolean confirmed = Boolean.TRUE.equals(ext.getBoolean("pictureConfirmed"));
+        String pictureSource = ext.getString("pictureSource");
+        if (!StringUtils.hasText(pictureSource)) {
+            pictureSource = hasPicture ? "YOUDAO" : "NONE";
         } else {
-            exists.setExtInfo(ext.toJSONString());
-            mapper.updateById(exists);
-            // 不计入 updated：业务数据未刷新
+            pictureSource = pictureSource.trim().toUpperCase();
         }
+        if (!hasPicture) {
+            pictureSource = "NONE";
+        }
+        ext.put("pictureSource", pictureSource);
+        ext.put("hasPicture", hasPicture);
+        ext.put("pictureCount", picCount);
+
+        JSONArray meanings = ext.getJSONArray("meanings");
+        boolean hasMeaning = meanings != null && !meanings.isEmpty();
+        boolean syncError = StringUtils.hasText(ext.getString("syncError"));
+
+        LinkedHashSet<String> tags = new LinkedHashSet<>();
+        tags.add(hasPicture ? "has_picture" : "no_picture");
+        tags.add(confirmed ? "confirmed" : "unconfirmed");
+        tags.add("source_" + pictureSource.toLowerCase());
+        tags.add(hasMeaning ? "has_meaning" : "no_meaning");
+        if (syncError) {
+            tags.add("sync_error");
+        }
+        ext.put("tags", new ArrayList<>(tags));
     }
 
     private void saveExt(
@@ -386,16 +619,6 @@ public class AdminWordBaseInfoServiceImpl
             mapper.updateById(exists);
             result.setUpdated(result.getUpdated() + 1);
         }
-    }
-
-    private static boolean isUsefulSlim(JSONObject slim) {
-        if (slim == null || slim.isEmpty()) {
-            return false;
-        }
-        if (pictureCount(slim) > 0) {
-            return true;
-        }
-        return StringUtils.hasText(slim.getString("ukphone")) || StringUtils.hasText(slim.getString("usphone"));
     }
 
     private static int pictureCount(JSONObject slim) {

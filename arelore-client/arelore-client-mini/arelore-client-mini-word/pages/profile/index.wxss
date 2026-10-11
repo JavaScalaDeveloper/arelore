@@ -2,6 +2,13 @@
   min-height: 100vh;
   padding: 32rpx;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: #f3f4f6;
+}
+
+.page-main {
+  flex: 1;
 }
 
 .user-card {
@@ -59,6 +66,42 @@
   color: #6b7280;
 }
 
+.stats-card {
+  margin-top: 24rpx;
+  padding: 36rpx 24rpx;
+  background: #ffffff;
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+}
+
+.stat-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-value {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.stat-label {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #6b7280;
+}
+
+.stat-divider {
+  width: 2rpx;
+  height: 64rpx;
+  background: #e5e7eb;
+  flex-shrink: 0;
+}
+
 .login-btn {
   margin: 32rpx 0 0;
   width: 100%;
@@ -74,9 +117,14 @@
 
 .logout-btn {
   margin-top: 48rpx;
+  margin-bottom: calc(24rpx + env(safe-area-inset-bottom));
   background: #ffffff;
   color: #ef4444;
   font-size: 30rpx;
   border-radius: 16rpx;
   border: 2rpx solid #fecaca;
+}
+
+.logout-btn::after {
+  border: none;
 }

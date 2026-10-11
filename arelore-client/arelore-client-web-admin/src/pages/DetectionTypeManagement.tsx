@@ -16,6 +16,8 @@ const DetectionTypeManagement: React.FC = () => {
     try {
       const res = await adminApi.getDetectionTypeList({ pageNum: 1, pageSize: 200, ...filters });
       setDataSource(res.data?.list || []);
+    } catch {
+      // 错误已在 request 拦截器中提示
     } finally {
       setLoading(false);
     }

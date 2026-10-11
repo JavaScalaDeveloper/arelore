@@ -5,47 +5,33 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 图库搜图统一入口：优先 Unsplash（可新申请 Key），其次 Pexels（若已有旧 Key）。
- */
+/** 图库搜图：仅 Pixabay */
 @Component
 public class StockImageClient {
-    private final UnsplashImageClient unsplashImageClient;
-    private final PexelsImageClient pexelsImageClient;
+    private final PixabayImageClient pixabayImageClient;
 
-    public StockImageClient(UnsplashImageClient unsplashImageClient, PexelsImageClient pexelsImageClient) {
-        this.unsplashImageClient = unsplashImageClient;
-        this.pexelsImageClient = pexelsImageClient;
+    public StockImageClient(PixabayImageClient pixabayImageClient) {
+        this.pixabayImageClient = pixabayImageClient;
     }
 
     public int minCount() {
-        if (unsplashImageClient.configured()) {
-            return unsplashImageClient.minCount();
-        }
-        return pexelsImageClient.minCount();
+        return pixabayImageClient.minCount();
     }
 
     public String activeSource() {
-        if (unsplashImageClient.configured()) {
-            return "UNSPLASH";
-        }
-        if (pexelsImageClient.configured()) {
-            return "PEXELS";
-        }
-        return "";
+        return pixabayImageClient.configured() ? "PIXABAY" : "";
     }
 
     public List<Map<String, String>> search(String query) throws Exception {
-        if (unsplashImageClient.configured()) {
-            return unsplashImageClient.search(query);
+        return search(query, minCount());
+    }
+
+    public List<Map<String, String>> search(String query, int minRequired) throws Exception {
+        if (!pixabayImageClient.configured()) {
+            throw new IllegalStateException(
+                "未配置 arelore.word.image.pixabay-api-key（环境变量 ARELORE_PIXABAY_API_KEY）"
+            );
         }
-        if (pexelsImageClient.configured()) {
-            return pexelsImageClient.search(query);
-        }
-        throw new IllegalStateException(
-            "未配置图库 Key。请申请 Unsplash Access Key 并配置 arelore.word.image.unsplash-access-key"
-                + "（环境变量 ARELORE_UNSPLASH_ACCESS_KEY）。申请：https://unsplash.com/developers"
-                + "；若已有 Pexels Key 可配置 arelore.word.image.pexels-api-key"
-        );
+        return pixabayImageClient.search(query, minRequired);
     }
 }

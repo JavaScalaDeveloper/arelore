@@ -59,6 +59,8 @@ const WordBookManagement: React.FC = () => {
       setTotal(Number(bookRes.data?.total) || 0);
       setPageNum(bookRes.data?.pageNum || nextPageNum);
       setPageSize(bookRes.data?.pageSize || nextPageSize);
+    } catch {
+      // 错误已在 request 拦截器中提示
     } finally {
       setLoading(false);
     }
@@ -77,6 +79,8 @@ const WordBookManagement: React.FC = () => {
       setEntryTotal(Number(res.data?.total) || 0);
       setEntryPageNum(res.data?.pageNum || nextPageNum);
       setEntryPageSize(res.data?.pageSize || nextPageSize);
+    } catch {
+      // 错误已在 request 拦截器中提示
     } finally {
       setEntryLoading(false);
     }

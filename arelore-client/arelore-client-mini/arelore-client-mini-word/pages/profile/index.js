@@ -11,7 +11,9 @@ function displayUser(raw) {
 
 Page({
   data: {
-    user: null
+    user: null,
+    totalStudyDays: 0,
+    consecutiveStudyDays: 0
   },
 
   onShow() {
@@ -21,7 +23,11 @@ Page({
   refreshUser() {
     const token = storage.getToken();
     if (!token) {
-      this.setData({ user: null });
+      this.setData({
+        user: null,
+        totalStudyDays: 0,
+        consecutiveStudyDays: 0
+      });
       return;
     }
     this.setData({ user: displayUser(storage.getUser()) });
@@ -29,11 +35,27 @@ Page({
       if (resp && resp.code === 200 && resp.data) {
         storage.setUser(resp.data);
         this.setData({ user: displayUser(resp.data) });
+        this.loadStudyStats();
         return;
       }
       if (resp && resp.code === 401) {
         storage.clearSession();
-        this.setData({ user: null });
+        this.setData({
+          user: null,
+          totalStudyDays: 0,
+          consecutiveStudyDays: 0
+        });
+      }
+    }).catch(() => {});
+  },
+
+  loadStudyStats() {
+    postWithAuth('/user/word/study/stats', {}).then((resp) => {
+      if (resp && resp.code === 200 && resp.data) {
+        this.setData({
+          totalStudyDays: resp.data.totalStudyDays || 0,
+          consecutiveStudyDays: resp.data.consecutiveStudyDays || 0
+        });
       }
     }).catch(() => {});
   },
@@ -52,7 +74,11 @@ Page({
           .catch(() => {})
           .then(() => {
             storage.clearSession();
-            this.setData({ user: null });
+            this.setData({
+              user: null,
+              totalStudyDays: 0,
+              consecutiveStudyDays: 0
+            });
             wx.showToast({ title: '已退出', icon: 'success' });
           });
       }

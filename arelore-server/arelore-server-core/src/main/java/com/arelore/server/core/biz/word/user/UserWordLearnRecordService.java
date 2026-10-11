@@ -7,7 +7,10 @@ import com.arelore.server.core.biz.word.user.dto.UserWordStudyAnswerRequest;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudyAnswerResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudySessionRequest;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudySessionResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyStatsResponse;
 import com.arelore.server.core.service.BaseService;
+
+import java.math.BigDecimal;
 
 public interface UserWordLearnRecordService extends BaseService<UserWordLearnRecordRequest, UserWordLearnRecordResponse> {
     UserWordStudySessionResponse createSession(UserWordStudySessionRequest request);
@@ -16,4 +19,7 @@ public interface UserWordLearnRecordService extends BaseService<UserWordLearnRec
 
     /** 首页：校正今日新学/复习待办，并填充整书进度与剩余天数 */
     UserWordCurrentBookResponse enrichHome(UserWordCurrentBookResponse current);
+
+    /** 个人中心：累计学习天数、连续学习天数（自昨日往前） */
+    UserWordStudyStatsResponse studyStats(BigDecimal userId);
 }

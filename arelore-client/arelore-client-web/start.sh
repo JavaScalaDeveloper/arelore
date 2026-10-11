@@ -22,8 +22,12 @@
 # ==============================================================================
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CLIENT_ROOT="$(cd "${APP_DIR}/.." && pwd)"
+LOG_DIR="${CLIENT_ROOT}/logs"
 APP_NAME="arelore-client-web"
 ENVIRONMENT="test"
+
+mkdir -p "$LOG_DIR"
 
 resolve_env() {
     local env_param="$1"
@@ -63,8 +67,8 @@ apply_env_ports() {
             API_BASE_URL="http://127.0.0.1:8281/api"
             ;;
     esac
-    LOG_FILE="$APP_DIR/app-${ENVIRONMENT}.log"
-    PID_FILE="$APP_DIR/app-${ENVIRONMENT}.pid"
+    LOG_FILE="${LOG_DIR}/${APP_NAME}-${ENVIRONMENT}.log"
+    PID_FILE="${LOG_DIR}/${APP_NAME}-${ENVIRONMENT}.pid"
 }
 
 start_app() {
@@ -172,7 +176,7 @@ stop_app() {
     fi
     local any=0
     for env_name in prd pre test dev; do
-        if [ -f "$APP_DIR/app-${env_name}.pid" ]; then
+        if [ -f "${LOG_DIR}/${APP_NAME}-${env_name}.pid" ]; then
             stop_one "$env_name"
             any=1
         fi
@@ -197,7 +201,7 @@ status_app() {
     fi
     local found=0
     for env_name in prd pre test dev; do
-        local pf="$APP_DIR/app-${env_name}.pid"
+        local pf="${LOG_DIR}/${APP_NAME}-${env_name}.pid"
         if [ -f "$pf" ] && ps -p "$(cat "$pf")" > /dev/null 2>&1; then
             ENVIRONMENT="$env_name"
             apply_env_ports

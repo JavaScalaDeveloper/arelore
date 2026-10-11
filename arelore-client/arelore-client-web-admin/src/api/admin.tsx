@@ -135,9 +135,22 @@ export const adminApi = {
     request.post('/admin/word/base-info/test-youdao', data, { timeout: 30000 }),
   searchWordBaseInfoPictures: (data: { id: number }): Promise<ApiResponse<any>> =>
     request.post('/admin/word/base-info/search-pictures', data, { timeout: 30000 }),
-  adoptWordBaseInfoPictures: (data: { id: number; pictureUrls: string[] }): Promise<ApiResponse<any>> =>
-    request.post('/admin/word/base-info/adopt-pictures', data),
-  /** 全量同步可能很久：词条多 + 有道限速间隔 */
+  /** 批量搜图：分页扫完全部无图词；source=PIXABAY|YOUDAO；limit 不传则全部 */
+  batchSearchWordBaseInfoPictures: (data?: {
+    languageCode?: string;
+    tag?: string;
+    source?: 'PIXABAY' | 'YOUDAO';
+    /** 最多处理词数；不传/0 = 全部 */
+    limit?: number;
+    picturesPerWord?: number;
+  }): Promise<ApiResponse<any>> =>
+    request.post('/admin/word/base-info/batch-search-pictures', data || {}, { timeout: 60 * 60 * 1000 }),
+  adoptWordBaseInfoPictures: (data: {
+    id: number;
+    pictureUrls: string[];
+    pictureSource?: string;
+  }): Promise<ApiResponse<any>> => request.post('/admin/word/base-info/adopt-pictures', data),
+  /** 从词条同步语种+词形（不查有道） */
   syncWordBaseInfo: (data?: any): Promise<ApiResponse<any>> =>
     request.post('/admin/word/base-info/sync', data || {}, { timeout: 30 * 60 * 1000 }),
 };
