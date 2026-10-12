@@ -18,6 +18,8 @@ import com.arelore.server.core.biz.word.admin.dto.AdminWordLanguageRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordLanguageResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordCurrentBookRequest;
 import com.arelore.server.core.biz.word.user.dto.UserWordCurrentBookResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordPreferenceRequest;
+import com.arelore.server.core.biz.word.user.dto.UserWordPreferenceResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudyAnswerRequest;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudyAnswerResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudyPlanRequest;
@@ -27,6 +29,7 @@ import com.arelore.server.core.biz.word.user.dto.UserWordStudySessionResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudyStatsResponse;
 import com.arelore.server.core.biz.word.user.UserWordCurrentBookService;
 import com.arelore.server.core.biz.word.user.UserWordLearnRecordService;
+import com.arelore.server.core.biz.word.user.UserWordPreferenceService;
 import com.arelore.server.core.biz.word.user.UserWordStudyPlanService;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,6 +50,7 @@ public class WordQueryController {
     private final UserWordCurrentBookService currentBookService;
     private final UserWordStudyPlanService studyPlanService;
     private final UserWordLearnRecordService learnRecordService;
+    private final UserWordPreferenceService preferenceService;
     private final AuthService authService;
     private final UserRegistrationResultMapper registrationResultMapper;
 
@@ -57,6 +61,7 @@ public class WordQueryController {
         UserWordCurrentBookService currentBookService,
         UserWordStudyPlanService studyPlanService,
         UserWordLearnRecordService learnRecordService,
+        UserWordPreferenceService preferenceService,
         AuthService authService,
         UserRegistrationResultMapper registrationResultMapper
     ) {
@@ -66,6 +71,7 @@ public class WordQueryController {
         this.currentBookService = currentBookService;
         this.studyPlanService = studyPlanService;
         this.learnRecordService = learnRecordService;
+        this.preferenceService = preferenceService;
         this.authService = authService;
         this.registrationResultMapper = registrationResultMapper;
     }
@@ -241,6 +247,42 @@ public class WordQueryController {
     ) {
         try {
             return Result.success(learnRecordService.studyStats(requireUserId(token)));
+        } catch (IllegalArgumentException e) {
+            if (e.getMessage() != null && e.getMessage().contains("未登录")) {
+                return Result.error(401, e.getMessage());
+            }
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /** 个人中心设置：获取背词偏好 */
+    @PostMapping("/preference/get")
+    public Result<UserWordPreferenceResponse> preferenceGet(
+        @RequestHeader(value = "Authorization", required = false) String token,
+        @RequestBody(required = false) UserWordPreferenceRequest request
+    ) {
+        try {
+            return Result.success(preferenceService.getOrDefault(requireUserId(token)));
+        } catch (IllegalArgumentException e) {
+            if (e.getMessage() != null && e.getMessage().contains("未登录")) {
+                return Result.error(401, e.getMessage());
+            }
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /** 个人中心设置：保存背词偏好 */
+    @PostMapping("/preference/update")
+    public Result<UserWordPreferenceResponse> preferenceUpdate(
+        @RequestHeader(value = "Authorization", required = false) String token,
+        @RequestBody UserWordPreferenceRequest request
+    ) {
+        try {
+            if (request == null) {
+                return Result.error("请求不能为空");
+            }
+            request.setUserId(requireUserId(token));
+            return Result.success(preferenceService.savePreference(request));
         } catch (IllegalArgumentException e) {
             if (e.getMessage() != null && e.getMessage().contains("未登录")) {
                 return Result.error(401, e.getMessage());

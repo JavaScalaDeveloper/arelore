@@ -3,6 +3,7 @@ USE arelore_education;
 # 背单词用户侧业务表（与考证 user_detection_* 一样落 education 库）。
 # 前缀用 user_word_：按 user_id 读写，与 admin_word_* 主数据分离。
 
+# drop table if exists `user_word_preference`;
 # drop table if exists `user_word_learn_record`;
 # drop table if exists `user_word_study_plan`;
 # drop table if exists `user_word_current_book`;
@@ -65,3 +66,18 @@ CREATE TABLE `user_word_learn_record`
     unique key `uk_user_id_book_code_word_code` (`user_id`, `book_code`, `word_code`)
 ) engine = InnoDB
   default charset = utf8mb4 comment ='用户背单词记录';
+
+# 用户背单词偏好/设置：一人一条；具体偏好放 ext_info(JSON)，如 studyMode
+CREATE TABLE `user_word_preference`
+(
+    `id`          bigint auto_increment comment '主键ID',
+    `create_time` datetime             default current_timestamp not null comment '创建时间',
+    `modify_time` datetime             default current_timestamp not null on update current_timestamp comment '修改时间',
+    `user_id`     decimal(20, 0) not null comment '用户业务ID',
+    `ext_info`    text                   default null comment '偏好配置(JSON)：studyMode/spellSpeed(0-10)/wordRepeatCount(1-3)',
+    primary key (`id`),
+    key `idx_create_time` (`create_time`),
+    key `idx_modify_time` (`modify_time`),
+    unique key `uk_user_id` (`user_id`)
+) engine = InnoDB
+  default charset = utf8mb4 comment ='用户背单词偏好设置';
