@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { Text, View } from '@tarojs/components';
-import { post, postWithAuth } from '../../utils/request';
+import { post, postWithAuth, shortErrorMessage } from '../../utils/request';
 import './index.scss';
 
 const stripImageMarkers = (text) => {
@@ -63,7 +63,7 @@ const FavoriteDetailPage = () => {
       setQuestion(null);
       setErrMsg(resp?.message || '题目不存在或已下架');
     } catch (e) {
-      setErrMsg(e?.errMsg || '加载失败');
+      setErrMsg(shortErrorMessage(e, '网络不通，加载失败'));
     } finally {
       setLoading(false);
     }

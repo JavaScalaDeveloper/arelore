@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Taro from '@tarojs/taro';
 import { Text, View } from '@tarojs/components';
-import { postWithAuth } from '../../utils/request';
+import { postWithAuth, shortErrorMessage } from '../../utils/request';
 import './index.scss';
 
 function parseHistoryExtra(raw) {
@@ -58,7 +58,7 @@ const ExamHistoryPage = () => {
         }
         setErrMsg(resp?.message || '查询考试记录失败');
       } catch (e) {
-        setErrMsg(e?.errMsg || '查询考试记录失败');
+        setErrMsg(shortErrorMessage(e, '网络不通，查询考试记录失败'));
       } finally {
         setLoading(false);
       }

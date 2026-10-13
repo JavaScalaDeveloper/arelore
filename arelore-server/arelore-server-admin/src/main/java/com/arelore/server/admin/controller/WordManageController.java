@@ -198,7 +198,7 @@ public class WordManageController {
         return Result.success(baseInfoService.pageQuery(request == null ? new AdminWordBaseInfoRequest() : request));
     }
 
-    /** 分页扫描词条全部词形，仅同步语种+词形到 admin_word_base_info（不查有道） */
+    /** 分页扫描词条词形入基础表，并对无释义词查有道补释义（带空格词跳过） */
     @PostMapping("/base-info/sync")
     public Result<AdminWordBaseInfoSyncResponse> baseInfoSync(
         @RequestBody(required = false) AdminWordBaseInfoRequest request

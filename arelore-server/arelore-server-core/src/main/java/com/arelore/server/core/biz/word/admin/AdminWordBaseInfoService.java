@@ -12,7 +12,8 @@ import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoYoudaoTestRes
 
 public interface AdminWordBaseInfoService extends BaseService<AdminWordBaseInfoRequest, AdminWordBaseInfoResponse> {
     /**
-     * 分页扫描 admin_word_entry 全部词形，仅同步语种+词形到 admin_word_base_info（不查有道、不配图）。
+     * 分页扫描 admin_word_entry 全部词形写入 admin_word_base_info，
+     * 再对无释义词查有道补释义/音标（带空格词跳过；不改已有配图）。
      */
     AdminWordBaseInfoSyncResponse syncFromEntries();
 

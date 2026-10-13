@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import Taro, { useDidShow, useLoad } from '@tarojs/taro';
 import { Text, View } from '@tarojs/components';
-import { post } from '../../utils/request';
+import { post, shortErrorMessage } from '../../utils/request';
 import { mergeWeappRouteParams } from '../../utils/weappRouteParams';
 import { softExamSubjectByPaperIndex } from '../../constants/softExamPaperNav';
 import { ncreSubjectByPaperIndex } from '../../constants/ncreExamPaperNav';
@@ -92,7 +92,7 @@ const QuizPaperListPage = () => {
         setError(resp?.message || '查询试卷列表失败');
       } catch (e) {
         setPapers([]);
-        setError(e?.errMsg || '查询试卷列表失败');
+        setError(shortErrorMessage(e, '网络不通，查询试卷列表失败'));
       } finally {
         setLoading(false);
       }

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { Image, Text, View } from '@tarojs/components';
-import { post } from '../../utils/request';
+import { post, shortErrorMessage } from '../../utils/request';
 import {
   RESULT_STATUS_CLASS,
   classifyAnswerItem,
@@ -135,7 +135,7 @@ const QuizResultPage = () => {
         setError(resp?.message || '加载试卷题目失败');
       } catch (e) {
         setQuestions([]);
-        setError(e?.errMsg || '加载试卷题目失败');
+        setError(shortErrorMessage(e, '网络不通，加载试卷题目失败'));
       } finally {
         setLoading(false);
       }

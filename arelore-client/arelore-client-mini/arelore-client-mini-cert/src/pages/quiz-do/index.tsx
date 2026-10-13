@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { Image, ScrollView, Text, View } from '@tarojs/components';
-import { post } from '../../utils/request';
+import { post, shortErrorMessage } from '../../utils/request';
 import { isSubjectiveQuestion, parseQuestionExtraInfo } from '../../utils/quizExamResult';
 import './index.scss';
 
@@ -50,7 +50,7 @@ const QuizDoPage = () => {
         setError(resp?.message || '查询题目失败');
       } catch (e) {
         setQuestions([]);
-        setError(e?.errMsg || '查询题目失败');
+        setError(shortErrorMessage(e, '网络不通，查询题目失败'));
       } finally {
         setLoading(false);
       }

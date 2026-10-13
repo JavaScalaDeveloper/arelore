@@ -222,7 +222,168 @@ public class AdminWordBaseInfoServiceImpl
                 break;
             }
         }
+        // 第二阶段：对无释义词查有道补释义/音标（带空格跳过；不改已有配图）
+        fillMissingMeaningsFromYoudao(result);
+        if (!StringUtils.hasText(result.getNote())) {
+            result.setNote(String.format(
+                "词形同步完成；补释义：扫描 %d，写入 %d，失败 %d，跳过 %d",
+                result.getMeaningScanned(),
+                result.getMeaningFilled(),
+                result.getMeaningFailed(),
+                result.getMeaningSkipped()
+            ));
+        }
         return result;
+    }
+
+    /**
+     * 分页扫描无释义词，调有道写入 meanings/音标；带空格词跳过；保留已有 pictures。
+     */
+    private void fillMissingMeaningsFromYoudao(AdminWordBaseInfoSyncResponse result) {
+        long lastId = 0L;
+        int pageRounds = 0;
+        while (pageRounds < 100_000) {
+            pageRounds++;
+            LambdaQueryWrapper<AdminWordBaseInfo> wrapper = new LambdaQueryWrapper<>();
+            applyNoMeaningFilter(wrapper);
+            wrapper.gt(AdminWordBaseInfo::getId, lastId)
+                .orderByAsc(AdminWordBaseInfo::getId)
+                .last("LIMIT " + ENTRY_PAGE_SIZE);
+            List<AdminWordBaseInfo> rows = mapper.selectList(wrapper);
+            if (rows == null || rows.isEmpty()) {
+                break;
+            }
+            for (AdminWordBaseInfo row : rows) {
+                if (row == null || row.getId() == null) {
+                    continue;
+                }
+                lastId = row.getId();
+                result.setMeaningScanned(result.getMeaningScanned() + 1);
+                String word = row.getWord() == null ? "" : row.getWord().trim();
+                if (!StringUtils.hasText(word) || wordContainsSpace(word)) {
+                    result.setMeaningSkipped(result.getMeaningSkipped() + 1);
+                    continue;
+                }
+                JSONObject ext = parseExt(row.getExtInfo());
+                if (hasMeanings(ext)) {
+                    // 标签滞后 / 已有释义：刷新标签后跳过，避免重复打有道
+                    refreshMetaTags(ext);
+                    row.setExtInfo(ext.toJSONString());
+                    mapper.updateById(row);
+                    result.setMeaningSkipped(result.getMeaningSkipped() + 1);
+                    continue;
+                }
+                try {
+                    boolean filled = fillMeaningFromYoudao(row, ext);
+                    if (filled) {
+                        result.setMeaningFilled(result.getMeaningFilled() + 1);
+                    } else {
+                        result.setMeaningFailed(result.getMeaningFailed() + 1);
+                    }
+                    Thread.sleep(YOUDAO_GAP_MS);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    result.setNote("补释义被中断；已扫描 " + result.getMeaningScanned() + " 个无释义词");
+                    return;
+                } catch (Exception e) {
+                    result.setMeaningFailed(result.getMeaningFailed() + 1);
+                    markMeaningSyncError(row, ext, e.getMessage());
+                    log.warn("fill meaning failed id={} word={}: {}",
+                        row.getId(), word, shortError(e.getMessage()));
+                    try {
+                        Thread.sleep(YOUDAO_GAP_MS);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        result.setNote("补释义被中断；已扫描 " + result.getMeaningScanned() + " 个无释义词");
+                        return;
+                    }
+                }
+            }
+            if (rows.size() < ENTRY_PAGE_SIZE) {
+                break;
+            }
+        }
+    }
+
+    /** 无释义过滤：兼容历史无 tags / meanings 为空 */
+    private static void applyNoMeaningFilter(LambdaQueryWrapper<AdminWordBaseInfo> wrapper) {
+        wrapper.and(w -> w
+            .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"no_meaning\"")
+            .or()
+            .isNull(AdminWordBaseInfo::getExtInfo)
+            .or()
+            .apply("JSON_EXTRACT(ext_info, '$.meanings') IS NULL")
+            .or()
+            .apply("JSON_LENGTH(COALESCE(JSON_EXTRACT(ext_info, '$.meanings'), JSON_ARRAY())) = 0")
+        );
+    }
+
+    private static boolean wordContainsSpace(String word) {
+        if (!StringUtils.hasText(word)) {
+            return false;
+        }
+        for (int i = 0; i < word.length(); i++) {
+            if (Character.isWhitespace(word.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasMeanings(JSONObject ext) {
+        if (ext == null) {
+            return false;
+        }
+        JSONArray meanings = ext.getJSONArray("meanings");
+        return meanings != null && !meanings.isEmpty();
+    }
+
+    /**
+     * 有道补释义/音标；不覆盖已有配图与确认状态。
+     *
+     * @return true 已写入至少一条释义
+     */
+    private boolean fillMeaningFromYoudao(AdminWordBaseInfo row, JSONObject ext) throws Exception {
+        JSONObject slim = YoudaoDictClient.fetchSlimExt(row.getWord());
+        JSONArray meanings = slim.getJSONArray("meanings");
+        boolean hasMeaning = meanings != null && !meanings.isEmpty();
+        boolean hasPhone = StringUtils.hasText(slim.getString("ukphone"))
+            || StringUtils.hasText(slim.getString("usphone"));
+        if (!hasMeaning && !hasPhone) {
+            markMeaningSyncError(row, ext, "有道无释义");
+            return false;
+        }
+        if (hasMeaning) {
+            ext.put("meanings", meanings);
+        }
+        if (StringUtils.hasText(slim.getString("ukphone"))) {
+            ext.put("ukphone", slim.getString("ukphone"));
+        }
+        if (StringUtils.hasText(slim.getString("usphone"))) {
+            ext.put("usphone", slim.getString("usphone"));
+        }
+        // 仅在尚未有来源时标记；不改 pictures / pictureConfirmed
+        if (!StringUtils.hasText(ext.getString("source")) || "ENTRY".equalsIgnoreCase(ext.getString("source"))) {
+            ext.put("source", "YOUDAO");
+        }
+        ext.remove("syncError");
+        ext.put("lastMeaningSyncTime", LocalDateTime.now().format(SYNC_TIME_FMT));
+        refreshMetaTags(ext);
+        row.setExtInfo(ext.toJSONString());
+        mapper.updateById(row);
+        return hasMeaning;
+    }
+
+    private void markMeaningSyncError(AdminWordBaseInfo row, JSONObject ext, String errorMsg) {
+        if (row == null) {
+            return;
+        }
+        JSONObject target = ext == null ? parseExt(row.getExtInfo()) : ext;
+        target.put("syncError", shortError(errorMsg));
+        target.put("lastFailTime", LocalDateTime.now().format(SYNC_TIME_FMT));
+        refreshMetaTags(target);
+        row.setExtInfo(target.toJSONString());
+        mapper.updateById(row);
     }
 
     @Override

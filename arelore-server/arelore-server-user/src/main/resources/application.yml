@@ -19,15 +19,16 @@ spring:
     # test -> application-test.yml
     # pre  -> application-pre.yml
     # prd  -> application-prd.yml
-    active: ${SPRING_PROFILES_ACTIVE:test}
+    active: ${SPRING_PROFILES_ACTIVE:}
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
   datasource:
     education:
-      url: jdbc:mysql://book-n5095:3306/arelore_education?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-      username: root
-      password: 123456
+      url: jdbc:mysql://aliyun-2c2g:3307/arelore_education?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      # 账号密码从环境变量注入，勿在仓库中写明文（启动前在服务器或容器里配置）
+      username: ${ARELORE_TEST_MYSQL_USERNAME:root}
+      password: ${ARELORE_TEST_MYSQL_PASSWORD:16722927b3a81566aa7f02eabe7fa367}
       driver-class-name: com.mysql.cj.jdbc.Driver
       hikari:
         # 须小于 MySQL wait_timeout / 云数据库或 NAT 的实际空闲断连时间，避免池中残留已被服务端关闭的连接
@@ -37,9 +38,9 @@ spring:
         # 周期性探测，减少长时间无流量被防火墙掐断（不低于 30s）
         keepalive-time: 60000
     user:
-      url: jdbc:mysql://book-n5095:3306/arelore_user?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-      username: root
-      password: 123456
+      url: jdbc:mysql://aliyun-2c2g:3307/arelore_user?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      username: ${ARELORE_TEST_MYSQL_USERNAME:root}
+      password: ${ARELORE_TEST_MYSQL_PASSWORD:16722927b3a81566aa7f02eabe7fa367}
       driver-class-name: com.mysql.cj.jdbc.Driver
       hikari:
         max-lifetime: 580000

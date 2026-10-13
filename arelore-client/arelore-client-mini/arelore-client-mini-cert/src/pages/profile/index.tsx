@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { Button, Text, View } from '@tarojs/components';
-import { postWithAuth } from '../../utils/request';
+import { postWithAuth, shortErrorMessage } from '../../utils/request';
 import { emitTabBarIndex } from '../../utils/tabBarSync';
 import './index.scss';
 
@@ -32,7 +32,7 @@ const ProfilePage = () => {
         }
         setErrMsg(resp?.message || '登录态校验失败');
       } catch (e) {
-        const msg = e && e.errMsg ? e.errMsg : '登录态校验失败';
+        const msg = shortErrorMessage(e, '网络不通，登录态校验失败');
         setErrMsg(msg);
       }
     })();

@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro';
 import { Text, View } from '@tarojs/components';
-import { postWithAuth } from '../../utils/request';
+import { postWithAuth, shortErrorMessage } from '../../utils/request';
 import './index.scss';
 
 const PAGE_SIZE = 20;
@@ -71,7 +71,7 @@ const FavoritesPage = () => {
         setTotal(0);
       }
     } catch (e) {
-      setErrMsg(e?.errMsg || '查询收藏夹失败');
+      setErrMsg(shortErrorMessage(e, '网络不通，查询收藏夹失败'));
       if (!append) {
         setList([]);
         setTotal(0);

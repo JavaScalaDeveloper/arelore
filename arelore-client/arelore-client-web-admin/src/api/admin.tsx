@@ -152,5 +152,6 @@ export const adminApi = {
   }): Promise<ApiResponse<any>> => request.post('/admin/word/base-info/adopt-pictures', data),
   /** 从词条同步语种+词形（不查有道） */
   syncWordBaseInfo: (data?: any): Promise<ApiResponse<any>> =>
-    request.post('/admin/word/base-info/sync', data || {}, { timeout: 30 * 60 * 1000 }),
+    // 含有道补释义，词量大时可能超过半小时
+    request.post('/admin/word/base-info/sync', data || {}, { timeout: 2 * 60 * 60 * 1000 }),
 };

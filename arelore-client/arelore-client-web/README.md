@@ -93,7 +93,31 @@ node scripts/copy-pdf-worker.js
 npm start
 ```
 
-访问 http://localhost:3000 查看应用
+访问 http://localhost:3000 查看应用。
+
+### 按环境脚本启动（推荐）
+
+与 mini-cert 的 API 约定对齐，前端端口按环境隔离：
+
+| 环境 | user-web | user-api |
+|------|----------|----------|
+| prd  | 3000     | `http://www.arelore.com:8081/api` |
+| pre  | 3100     | `http://localhost:8081/api` |
+| test | 3200     | `http://www.arelore.com:8281/api` |
+| dev  | 3300     | `http://localhost:8081/api` |
+
+```bash
+chmod +x start.sh
+./start.sh dev
+./start.sh stop dev
+./start.sh status
+```
+
+Windows PowerShell：
+
+```powershell
+& "C:\DeveloperTools\Git\bin\bash.exe" start.sh dev
+```
 
 ### 构建生产版本
 

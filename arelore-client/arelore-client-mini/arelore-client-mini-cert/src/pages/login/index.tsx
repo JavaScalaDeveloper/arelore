@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { Button, Text, View } from '@tarojs/components';
-import { post } from '../../utils/request';
+import { post, shortErrorMessage } from '../../utils/request';
 import './index.scss';
 
 const LoginPage = () => {
@@ -87,10 +87,11 @@ const LoginPage = () => {
       // 微信开发者工具里方便直接定位错误
       // eslint-disable-next-line no-console
       console.error('[MiniLogin] wechat quick login error:', e);
-      const errMsg = e && e.errMsg ? e.errMsg : '登录失败，请稍后重试';
-      Taro.showToast({ title: errMsg, icon: 'none' });
+      const isNet = !!(e && e.isNetworkError);
+      const errMsg = shortErrorMessage(e, '登录失败，请稍后重试');
+      Taro.showToast({ title: String(errMsg).slice(0, 20), icon: 'none' });
       Taro.showModal({
-        title: '登录失败',
+        title: isNet ? '网络不通' : '登录失败',
         content: errMsg,
         showCancel: false
       });

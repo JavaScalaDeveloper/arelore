@@ -259,7 +259,7 @@ const WordBaseInfoManagement: React.FC = () => {
     Modal.confirm({
       title: '从词条同步单词',
       content:
-        '将分页扫描全部词条词形，仅把语种+词形写入基础表（不查有道、不配图）。已存在的单词会跳过。配图请用「批量搜图」。',
+        '将分页扫描全部词条词形写入基础表；再对无释义词查有道补释义/音标（带空格词跳过，不改已有配图）。词量大时可能较久。配图请用「批量搜图」。',
       okText: '开始同步',
       cancelText: '取消',
       onOk: async () => {
@@ -268,7 +268,7 @@ const WordBaseInfoManagement: React.FC = () => {
           const res = await adminApi.syncWordBaseInfo({});
           const d = res.data || {};
           message.success(
-            `同步完成：扫描 ${d.scanned ?? 0}，去重 ${d.distinct ?? 0}，新增 ${d.inserted ?? 0}，跳过 ${d.skipped ?? 0}`
+            `同步完成：词形 扫描 ${d.scanned ?? 0}/去重 ${d.distinct ?? 0}/新增 ${d.inserted ?? 0}；释义 扫描 ${d.meaningScanned ?? 0}/写入 ${d.meaningFilled ?? 0}/失败 ${d.meaningFailed ?? 0}/跳过 ${d.meaningSkipped ?? 0}`
           );
           loadData({ pageNum: 1 });
         } catch (e: any) {

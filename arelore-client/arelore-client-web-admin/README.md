@@ -46,14 +46,20 @@ chmod +x start.sh
 ./start.sh status
 ```
 
-同机无网络隔离时靠端口区分：
+Windows PowerShell 请用 Git Bash：
 
-| 环境 | admin-web | admin-api | user-web | user-api |
-|------|-----------|-----------|----------|----------|
-| prd  | 3001      | 8082      | 3000     | 8081     |
-| pre  | 3101      | 8182      | 3100     | 8181     |
-| test | 3201      | 8282      | 3200     | 8281     |
-| dev  | 3301      | 8382      | 3300     | 8381     |
+```powershell
+& "C:\DeveloperTools\Git\bin\bash.exe" start.sh dev
+```
+
+前端端口按环境隔离；后端 API 与 mini-cert 域名约定对齐：
+
+| 环境 | admin-web | admin-api |
+|------|-----------|-----------|
+| prd  | 3001      | `http://www.arelore.com:8082/api` |
+| pre  | 3101      | `http://localhost:8082/api` |
+| test | 3201      | `http://www.arelore.com:8282/api` |
+| dev  | 3301      | `http://localhost:8082/api` |
 
 ### 构建生产版本
 
@@ -90,7 +96,7 @@ arelore-client-web-admin/
 
 所有 API 请求都通过 Axios 发送到后端服务：
 
-- **基础 URL**: `http://localhost:8082/api`（本地 `.env`）；脚本启动时按环境连对应 admin-api 端口
+- **基础 URL**: 本地 `.env` 默认 `http://localhost:8082/api`；`./start.sh [env]` 按上表注入 `REACT_APP_API_BASE_URL`
 - **认证方式**: JWT Token
 - **数据格式**: JSON
 

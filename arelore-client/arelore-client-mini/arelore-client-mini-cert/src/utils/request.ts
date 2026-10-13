@@ -43,12 +43,31 @@ export async function post(path, data) {
       costMs: Date.now() - startAt,
       dataKeys: res.data ? Object.keys(res.data) : []
     });
+    if (res.statusCode >= 400) {
+      throw {
+        code: -1001,
+        isNetworkError: true,
+        message: '网络不通，请检查后端是否启动、手机/模拟器网络，以及接口域名是否正确',
+        errMsg: `网络不通 HTTP ${res.statusCode}\n${requestUrl}`,
+        requestUrl,
+        statusCode: res.statusCode,
+        raw: res.data || null
+      };
+    }
     return res.data || { code: -1, message: '请求失败', data: null };
   } catch (e) {
+    if (e && e.isNetworkError) {
+      throw e;
+    }
     // eslint-disable-next-line no-console
     console.error('[MiniRequest] request failed:', { requestUrl, error: e });
     throw {
-      errMsg: `接口连接失败：${requestUrl}（请检查后端是否启动、端口是否可达）`
+      code: -1001,
+      isNetworkError: true,
+      message: '网络不通，请检查后端是否启动、手机/模拟器网络，以及接口域名是否正确',
+      errMsg: `网络不通\n${requestUrl}`,
+      requestUrl,
+      raw: e || null
     };
   }
 }
@@ -59,5 +78,19 @@ export async function postWithAuth(path, data) {
     return { code: 401, message: '未登录或登录已过期', data: null };
   }
   return await post(path, data);
+}
+
+/** 页面展示用短文案 */
+export function shortErrorMessage(err, fallback = '请求失败') {
+  if (err && err.isNetworkError && err.message) {
+    return err.message;
+  }
+  if (err && err.message) {
+    return String(err.message);
+  }
+  if (err && err.errMsg) {
+    return String(err.errMsg).split('\n')[0] || fallback;
+  }
+  return fallback;
 }
 

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # 请用 bash 执行：./start.sh test 或 bash start.sh test
 # （用 sh 调用时，部分系统上的 sh 不支持 set -o pipefail，可能直接报错退出）
+# Windows PowerShell 请用 Git 自带的 bash（勿用系统 sh/bash，常指向 WSL 空壳）：
+#   & "C:\DeveloperTools\Git\bin\bash.exe" start.sh dev
+#   & "C:\Program Files\Git\bin\bash.exe" start.sh test
 set -euo pipefail
 
 ENV_NAME="${1:-dev}"

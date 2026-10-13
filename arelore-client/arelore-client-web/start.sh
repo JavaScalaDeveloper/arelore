@@ -3,13 +3,12 @@
 # ==============================================================================
 # Arelore 用户端 Web 启动脚本
 # ==============================================================================
-# 同机多环境端口约定（无网络隔离时靠端口隔离）：
-#
-#   环境   user-web  user-api  admin-web  admin-api
-#   prd    3000      8081      3001       8082
-#   pre    3100      8181      3101       8182
-#   test   3200      8281      3201       8282
-#   dev    3300      8381      3301       8382
+# 前端端口仍按环境隔离；后端 API 与 mini-cert 对齐：
+#   环境   user-web  user-api
+#   prd    3000      http://www.arelore.com:8081/api
+#   pre    3100      http://localhost:8081/api
+#   test   3200      http://www.arelore.com:8281/api
+#   dev    3300      http://localhost:8081/api
 #
 # 使用方法：
 #   ./start.sh [环境]              # 启动，环境：dev/test/pre/prd（默认 test）
@@ -19,6 +18,10 @@
 #   ./start.sh status [环境]
 #   ./start.sh logs [环境]
 #   ./start.sh help
+#
+# Windows PowerShell 请用 Git Bash（勿用系统 sh/bash）：
+#   & "C:\DeveloperTools\Git\bin\bash.exe" start.sh dev
+#   & "C:\Program Files\Git\bin\bash.exe" start.sh test
 # ==============================================================================
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -48,23 +51,23 @@ apply_env_ports() {
     case "$ENVIRONMENT" in
         prd)
             PORT=3000
-            API_BASE_URL="http://127.0.0.1:8081/api"
+            API_BASE_URL="http://www.arelore.com:8081/api"
             ;;
         pre)
             PORT=3100
-            API_BASE_URL="http://127.0.0.1:8181/api"
+            API_BASE_URL="http://localhost:8081/api"
             ;;
         test)
             PORT=3200
-            API_BASE_URL="http://127.0.0.1:8281/api"
+            API_BASE_URL="http://www.arelore.com:8281/api"
             ;;
         dev)
             PORT=3300
-            API_BASE_URL="http://127.0.0.1:8381/api"
+            API_BASE_URL="http://localhost:8081/api"
             ;;
         *)
             PORT=3200
-            API_BASE_URL="http://127.0.0.1:8281/api"
+            API_BASE_URL="http://www.arelore.com:8281/api"
             ;;
     esac
     LOG_FILE="${LOG_DIR}/${APP_NAME}-${ENVIRONMENT}.log"
@@ -242,11 +245,11 @@ show_help() {
 命令: start | stop | restart | status | logs | help
 环境: prd | pre | test | dev（默认 test）
 
-端口约定（同机多环境）:
-  prd  user-web=3000  user-api=8081
-  pre  user-web=3100  user-api=8181
-  test user-web=3200  user-api=8281
-  dev  user-web=3300  user-api=8381
+端口/API 约定（与 mini-cert 对齐）:
+  prd  user-web=3000  api=http://www.arelore.com:8081/api
+  pre  user-web=3100  api=http://localhost:8081/api
+  test user-web=3200  api=http://www.arelore.com:8281/api
+  dev  user-web=3300  api=http://localhost:8081/api
 
 示例:
   $0 test

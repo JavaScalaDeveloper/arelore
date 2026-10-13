@@ -6,190 +6,82 @@
 
 ```
 arelore-client/
-├── arelore-client-web/              # Web 端应用 (React + Ant Design)
-├── arelore-client-mini-program/     # 小程序端应用 (微信/支付宝)
-├── arelore-client-android/          # Android 原生应用
-├── arelore-client-ios/              # iOS 原生应用
-└── README.md                        # 本说明文档
+├── arelore-client-web/                 # 用户端 Web (React + Ant Design)
+├── arelore-client-web-admin/           # 管理端 Web
+├── arelore-client-mini/
+│   ├── arelore-client-mini-word/       # 背单词小程序（微信原生）
+│   └── arelore-client-mini-cert/       # 考证宝小程序（Taro + React）
+├── arelore-client-android/             # Android 原生应用
+├── arelore-client-ios/                 # iOS 原生应用
+└── README.md
+```
+
+## API 环境约定
+
+与各模块 `start.sh` 对齐：
+
+| 环境 | user-api | admin-api |
+|------|----------|-----------|
+| dev / pre | `http://localhost:8081/api` | `http://localhost:8082/api` |
+| test | `http://www.arelore.com:8281/api` | `http://www.arelore.com:8282/api` |
+| prd | `http://www.arelore.com:8081/api` | `http://www.arelore.com:8082/api` |
+
+- **认证方式**: JWT Token
+- **数据格式**: JSON
+
+Windows PowerShell 执行各模块 `start.sh` 时请用 **Git Bash**（系统 `sh`/`bash` 常指向 WSL 空壳）：
+
+```powershell
+& "C:\DeveloperTools\Git\bin\bash.exe" start.sh dev
+# 或：& "C:\Program Files\Git\bin\bash.exe" start.sh test
 ```
 
 ## 各平台说明
 
-### 1. Web 端 (arelore-client-web)
-- **技术栈**: React 18 + Ant Design 5 + TypeScript
-- **开发环境**: Node.js v24+
-- **构建工具**: Vite / Create React App
-- **路由管理**: React Router 6
-- **状态管理**: Redux / Zustand (可选)
-- **功能特性**:
-  - 响应式设计，支持桌面和移动端
-  - 用户认证系统
-  - 实时消息通知
-  - 数据可视化展示
+### 1. 用户端 Web (`arelore-client-web`)
 
-**快速开始**:
 ```bash
 cd arelore-client-web
-npm install
-npm start
+bash start.sh dev    # 端口 3300，API → localhost:8081
+# 或 npm start（默认读 .env）
 ```
 
-### 2. 小程序 (arelore-client-mini-program)
-- **平台支持**: 微信小程序、支付宝小程序
-- **开发框架**: Taro / uni-app (推荐)
-- **语言**: JavaScript / TypeScript
-- **功能特性**:
-  - 跨平台开发，一套代码多端运行
-  - 原生体验
-  - 即用即走
+详见 [arelore-client-web/README.md](./arelore-client-web/README.md)。
 
-**快速开始**:
+### 2. 管理端 Web (`arelore-client-web-admin`)
+
 ```bash
-cd arelore-client-mini-program
-npm install
-npm run dev:weapp  # 微信小程序
-npm run dev:alipay # 支付宝小程序
+cd arelore-client-web-admin
+bash start.sh dev    # 端口 3301，API → localhost:8082
 ```
 
-### 3. Android (arelore-client-android)
-- **开发语言**: Kotlin / Java
-- **最低版本**: Android 5.0 (API 21)
-- **开发工具**: Android Studio
-- **架构模式**: MVVM
-- **功能特性**:
-  - Material Design 设计
-  - 离线缓存
-  - 推送通知
-  - 相机、相册等原生功能调用
+详见 [arelore-client-web-admin/README.md](./arelore-client-web-admin/README.md)。
 
-**快速开始**:
-```bash
-cd arelore-client-android
-# 使用 Android Studio 打开项目
-# 配置 Gradle 依赖
-# 运行到模拟器或真机
-```
+### 3. 小程序 (`arelore-client-mini`)
 
-### 4. iOS (arelore-client-ios)
-- **开发语言**: Swift / Objective-C
-- **最低版本**: iOS 13.0+
-- **开发工具**: Xcode
-- **架构模式**: MVVM / VIPER
-- **功能特性**:
-  - 遵循 iOS 设计规范
-  - 离线缓存
-  - 推送通知
-  - 相机、相册等原生功能调用
+两个独立小程序，**启动方式不同**：
 
-**快速开始**:
-```bash
-cd arelore-client-ios
-# 使用 Xcode 打开项目
-# 配置 CocoaPods 依赖
-# 运行到模拟器或真机
-```
+| 模块 | 技术栈 | 本地启动 |
+|------|--------|----------|
+| [mini-word](./arelore-client-mini/arelore-client-mini-word) | 微信原生 | `bash start.sh dev` 写 `env.local.js` → 开发者工具导入本目录并编译 |
+| [mini-cert](./arelore-client-mini/arelore-client-mini-cert) | Taro + React | `bash start.sh dev` 构建并 watcher → 开发者工具导入本目录（`dist/`） |
 
-## 技术栈总览
+总览见 [arelore-client-mini/README.md](./arelore-client-mini/README.md)。
 
-| 平台 | 主要技术 | UI 框架 | 状态管理 |
-|------|---------|--------|----------|
-| Web | React + TypeScript | Ant Design | Redux/Zustand |
-| 小程序 | Taro/uni-app | Vant Weapp | Vuex/Pinia |
-| Android | Kotlin | Material Components | ViewModel |
-| iOS | Swift | SwiftUI/UIKit | Combine |
+### 4. Android / iOS
 
-## API 接口
-
-所有客户端都通过 RESTful API 与后端服务通信：
-- **基础 URL**: `http://localhost:8080/api` (开发环境)
-- **认证方式**: JWT Token
-- **数据格式**: JSON
+见各自目录 README。当前以 Web 与小程序为主。
 
 ## 开发规范
 
-1. **代码风格**: 
-   - Web 端遵循 ESLint + Prettier 规范
-   - 移动端遵循各自平台的代码规范
-   
-2. **Git 提交**: 使用 Conventional Commits 规范
-   ```
-   feat: 新功能
-   fix: 修复 bug
-   docs: 文档更新
-   style: 代码格式调整
-   refactor: 重构代码
-   test: 测试相关
-   chore: 构建/工具链相关
-   ```
-
-3. **分支管理**:
-   - `main`: 主分支，生产环境代码
-   - `develop`: 开发分支
-   - `feature/*`: 功能分支
-   - `bugfix/*`: 修复分支
-
-## 构建部署
-
-### Web 端
-```bash
-npm run build
-# 生成文件在 dist/ 目录
-```
-
-### 小程序
-```bash
-npm run build:weapp
-# 生成文件在 dist/weapp/ 目录
-```
-
-### Android
-```bash
-./gradlew assembleRelease
-# 生成 APK 在 app/build/outputs/apk/release/
-```
-
-### iOS
-```bash
-# 在 Xcode 中选择 Product -> Archive
-# 导出 IPA 文件
-```
-
-## 常用命令
-
-### Web 端
-```bash
-npm start          # 启动开发服务器
-npm run build      # 构建生产包
-npm run lint       # 代码检查
-npm test           # 运行测试
-```
-
-### 小程序
-```bash
-npm run dev:weapp  # 开发微信小程序
-npm run build:weapp # 构建微信小程序
-```
-
-## 下一步计划
-
-- [ ] 完善 Web 端功能
-- [ ] 启动小程序开发
-- [ ] 启动 Android 原生开发
-- [ ] 启动 iOS 原生开发
-- [ ] 统一多端设计规范
-- [ ] 实现跨端状态同步
+1. **代码风格**: Web 端遵循 ESLint + Prettier；移动端遵循各平台约定
+2. **Git 提交**: Conventional Commits（`feat` / `fix` / `docs` 等）
+3. **分支**: `main` / `develop` / `feature/*` / `bugfix/*`
 
 ## 常见问题
 
-**Q: 为什么选择多端开发？**
-A: 不同用户有不同的使用场景，多端覆盖可以提供最佳的用户体验。
+**Q: PowerShell 里 `sh start.sh` / `bash start.sh` 没效果？**  
+A: 用 Git 安装目录下的 `bash.exe` 调用（见上文），不要用系统自带的 WSL 空壳。
 
-**Q: 如何保证多端体验一致？**
-A: 通过统一的设计规范和组件库，确保视觉和交互的一致性。
-
-**Q: API 版本如何管理？**
-A: 在 URL 中包含版本号，如 `/api/v1/products`，便于后续迭代。
-
-## 联系方式
-
-如有问题，请联系开发团队或提交 Issue。
+**Q: 小程序仍请求旧 API 地址？**  
+A: 在微信开发者工具 Storage 中删除 `miniApiBaseUrl`（及 word 的 `miniApiEnv`），再重新编译 / 重新跑 `start.sh`。
