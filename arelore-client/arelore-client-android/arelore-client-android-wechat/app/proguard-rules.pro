@@ -1,0 +1,1 @@
+# WeChat simulator placeholder
