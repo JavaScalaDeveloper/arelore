@@ -192,6 +192,15 @@
   line-height: 1.5;
 }
 
+.state-meta {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: #9ca3af;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
 .primary-btn {
   margin-top: 36rpx;
   background: #3b82f6;
@@ -201,8 +210,45 @@
   font-weight: 600;
 }
 
+.mode-chip {
+  margin-top: 28rpx;
+  padding: 24rpx 28rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+  box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.06);
+  display: flex;
+  align-items: center;
+}
+
+.mode-chip.listen {
+  background: #ecfdf5;
+}
+
+.mode-chip-label {
+  font-size: 24rpx;
+  color: #6b7280;
+}
+
+.mode-chip-value {
+  margin-left: 16rpx;
+  flex: 1;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.mode-chip.listen .mode-chip-value {
+  color: #0f766e;
+}
+
+.mode-chip-arrow {
+  font-size: 36rpx;
+  color: #9ca3af;
+  line-height: 1;
+}
+
 .start-btn {
-  margin-top: 40rpx;
+  margin-top: 24rpx;
   background: #3b82f6;
   color: #ffffff;
   border-radius: 16rpx;

@@ -1,5 +1,13 @@
 <view class="page">
   <view class="page-main">
+    <view class="network-banner" wx:if="{{networkError}}">
+      <text class="network-title">网络不通</text>
+      <text class="network-desc">{{networkErrorMessage}}</text>
+      <text class="network-meta" wx:if="{{apiEnv}}">当前环境：{{apiEnv}}</text>
+      <text class="network-meta" wx:if="{{apiBaseUrl}}">接口：{{apiBaseUrl}}</text>
+      <button class="network-retry" size="mini" bindtap="onRetryNetwork">重试</button>
+    </view>
+
     <view class="user-card" wx:if="{{user}}">
       <image class="avatar" wx:if="{{user.avatarUrl}}" src="{{user.avatarUrl}}" mode="aspectFill" />
       <view class="avatar placeholder" wx:else>词</view>
@@ -30,6 +38,14 @@
         <text class="stat-value">{{consecutiveStudyDays}}</text>
         <text class="stat-label">连续学习</text>
       </view>
+    </view>
+
+    <view class="menu-card" bindtap="onSettings">
+      <view class="menu-main">
+        <text class="menu-label">设置</text>
+        <text class="menu-sub">背词模式：{{studyModeLabel}}</text>
+      </view>
+      <text class="menu-arrow">›</text>
     </view>
   </view>
 

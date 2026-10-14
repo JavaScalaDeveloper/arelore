@@ -4,7 +4,8 @@
     "pages/profile/index",
     "pages/books/index",
     "pages/login/index",
-    "pages/study/index"
+    "pages/study/index",
+    "pages/settings/index"
   ],
   "window": {
     "navigationBarTitleText": "背单词",

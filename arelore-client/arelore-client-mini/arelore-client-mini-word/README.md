@@ -2,7 +2,7 @@
 
 模块路径：`arelore-client/arelore-client-mini/arelore-client-mini-word`
 
-用 **微信原生小程序**（WXML / WXSS / JS）实现的背单词壳，**不使用 Taro**。当前版本把底部导航、单词本切换、新学/复习进度卡片、**微信一键登录**跑通，词本列表走用户服务接口。新学/复习刷词流程尚未接入。
+用 **微信原生小程序**（WXML / WXSS / JS）实现，**不使用 Taro**。已接入词书切换、学习计划、新学/复习刷词、听词摸鱼、偏好设置与微信一键登录。
 
 | 项 | 值 |
 |------|------|
@@ -16,11 +16,11 @@
 ## 已实现功能
 
 1. **底部两个菜单**：`单词`、`我的`（原生 `tabBar`）。
-2. **单词页顶部**展示当前单词本；点击进入单词本列表，可切换。
-3. **单词页中间两张卡片**：`新学`、`复习`，各自展示 **待完成 / 已完成** 数量（随单词本切换）。
-4. **我的页**：顶部展示当前微信用户头像、昵称；已登录时有 **退出登录**。
-
-新学 / 复习卡片目前只提示「流程稍后接入」，不进入刷词页。
+2. **单词页**：当前词书、整书进度、新学/复习入口；网络不通时显示错误态与接口地址。
+3. **选词本**：语种 → 分类 → 词书 → 学习计划（每日新学、复习比例、发音）。
+4. **学习页**：新学/复习队列；看词选义 / 听词摸鱼（字母拼读 + 中文 TTS）。
+5. **我的 / 设置**：头像昵称、学习天数、背词模式与拼读速度；退出登录。
+6. **微信一键登录**。
 
 ---
 
@@ -30,17 +30,21 @@
 arelore-client-mini-word/
 ├── app.js / app.json / app.wxss
 ├── project.config.json
-├── sitemap.json
+├── start.sh                # 写入 utils/env.local.js（切环境）
 ├── assets/                 # tabBar 图标
 ├── utils/
-│   ├── mock.js             # 示例单词本与进度
-│   ├── storage.js          # 词书、token、用户
-│   ├── config.js           # 接口根地址
-│   └── request.js          # 登录接口请求
+│   ├── config.js           # 接口根地址（Storage / env.local / 默认）
+│   ├── env.local.js.example
+│   ├── request.js
+│   ├── storage.js
+│   ├── preference.js
+│   └── tts.js
 └── pages/
     ├── words/              # 单词（tab）
     ├── profile/            # 我的（tab）
-    ├── books/              # 切换单词本
+    ├── books/              # 选词本 + 计划
+    ├── study/              # 刷词
+    ├── settings/           # 背词设置
     └── login/              # 微信一键登录
 ```
 
@@ -63,23 +67,92 @@ arelore-client-mini-word/
 
 ---
 
+## 切换接口环境（本地 / 测试 / 生产）
+
+小程序**不会**像考证宝那样由 `start.sh` 起 watcher；脚本只**写入** `utils/env.local.js`，再在微信开发者工具里**重新编译**后生效。
+
+### 环境表
+
+| 环境 | API |
+|------|-----|
+| `dev` / `pre` | `http://localhost:8081/api` |
+| `test`（未配置时的默认） | `http://www.arelore.com:8281/api` |
+| `prd` | `http://www.arelore.com:8081/api` |
+
+### 推荐：用 start.sh 切到本地
+
+```bash
+cd arelore-client/arelore-client-mini/arelore-client-mini-word
+bash start.sh dev
+```
+
+Windows PowerShell 请用 **Git 自带的 bash**（系统 `sh` / `bash` 常指向 WSL 空壳，会失败或行为异常）：
+
+```powershell
+cd arelore-client\arelore-client-mini\arelore-client-mini-word
+& "C:\DeveloperTools\Git\bin\bash.exe" start.sh dev
+# 若 Git 装在默认路径：
+# & "C:\Program Files\Git\bin\bash.exe" start.sh dev
+```
+
+成功时应看到 **`已写入 utils/env.local.js`**，内容类似：
+
+```js
+module.exports = {
+  env: 'dev',
+  apiBaseUrl: 'http://localhost:8081/api'
+};
+```
+
+然后：
+
+1. 打开微信开发者工具，导入本目录（含 `project.config.json`）
+2. **删掉** Storage 里的 `miniApiBaseUrl`、`miniApiEnv`（有的话会覆盖 `env.local.js`）
+3. 点击「编译」
+4. 确认本机 user 服务已在 `8081` 启动；`project.config.json` 保持 `urlCheck: false`
+
+也可不跑脚本，直接复制示例文件再改：
+
+```powershell
+copy utils\env.local.js.example utils\env.local.js
+```
+
+### 解析优先级（高 → 低）
+
+1. Storage `miniApiBaseUrl`（完整地址，临时覆盖）
+2. Storage `miniApiEnv`（`dev` / `test` / `pre` / `prd`）
+3. `utils/env.local.js`（由 `bash start.sh [env]` 生成，已 gitignore）
+4. 默认 `test`
+
+临时在开发者工具 Storage 写入 `miniApiEnv = dev` 也可切本地；若曾设过 `miniApiBaseUrl`，改环境前请先删掉该项。
+
+### 网络不通时
+
+单词页、选词本、学习、登录、我的页会提示「网络不通」，并尽量展示当前环境与接口地址，可点「重试」。
+
+---
+
 ## 页面说明
 
 ### 单词
 
 - 顶栏：当前单词本名称 +「切换」
-- 点击顶栏 → `pages/books/index`
-- 蓝色卡片 **新学**：待完成、已完成
-- 紫色卡片 **复习**：待完成、已完成
+- 整书进度、新学 / 复习卡片（可进入刷词）
+- 听词摸鱼模式下展示模式提示
 
 ### 单词本
 
-内置示例：四级、六级、考研、雅思。点选后写回本地存储，返回单词页即更新名称和数量。
+语种 → 分类 → 词书 → 配置每日新学与复习比例，确认后写入云端。
 
 ### 我的
 
-- 未登录：展示占位信息 +「去登录」
-- 已登录：头像、昵称、「退出登录」（清本地用户，不改单词本选择）
+- 未登录：占位 +「微信一键登录」
+- 已登录：头像、昵称、累计/连续学习天数、设置入口、退出登录
+- 网络不通时顶部橙色横幅提示
+
+### 设置
+
+背词模式（看词选义 / 听词摸鱼）、拼读速度、单词重复次数；已登录时同步到服务端。
 
 ### 登录
 
@@ -91,26 +164,20 @@ arelore-client-mini-word/
 4. `POST /api/user/auth/wechat/quick`，body 含 `code` 与 `userInfo`
 5. 本地写入 `token`、`word_current_user`
 
-默认接口根地址：`http://localhost:8281/api`（对应本地 user 服务默认 `spring.profiles.active=test`）。
-
-| 环境 | user-api | Storage `miniApiEnv` |
-|------|----------|----------------------|
-| prd  | 8081     | `prd`                |
-| pre  | 8181     | `pre`                |
-| test | 8281     | `test`（默认）       |
-| dev  | 8381     | `dev`                |
-
-开发者工具 Storage 可写 `miniApiBaseUrl`（完整地址）或 `miniApiEnv` 覆盖。请先启动用户服务，并保持 `project.config.json` 里 `urlCheck: false`。
-
 未接微信开放平台时，openid 使用本机模拟值 `miniOpenid`（与考证宝一致），避免每次登录新建账号。
 
-### 单词本接口（用户服务，本地默认 8281）
+---
+
+## 单词本接口（用户服务）
 
 | 路径 | 说明 |
 |------|------|
 | `POST /user/word/book/list` | 启用中的单词本列表（可不登录） |
 | `POST /user/word/book/current` | 当前词书 + 新学/复习进度（需登录） |
 | `POST /user/word/book/switch` | 切换词书并写入 `user_word_current_book`（需登录） |
+| `POST /user/word/study/session` | 本轮学习队列 |
+| `POST /user/word/preference/get` | 用户偏好 |
+| `POST /user/word/preference/update` | 更新偏好 |
 
 用户进度表 DDL：`arelore-server-admin/src/main/resources/sql/arelore_education/word/user_word.sql`，需在 `arelore_education` 库执行后，切换才能落库。
 
@@ -124,8 +191,10 @@ arelore-client-mini-word/
 | `word_current_user` | 后端用户信息（`nickname` / `avatar` 等） |
 | `token` | 登录凭证 |
 | `miniOpenid` | 本地模拟 openid |
+| `word_preference` | 本机背词偏好 |
+| `miniApiEnv` / `miniApiBaseUrl` | 可选，覆盖接口环境 |
 
-进度数字优先来自 `book/current`；未登录时用词本 `wordCount` 作为新学待完成。退出登录不清当前词书 code。
+进度数字优先来自 `book/current`。退出登录不清当前词书 code。
 
 ---
 
@@ -135,12 +204,7 @@ arelore-client-mini-word/
 |--|------------------|--------|
 | 目录 | `arelore-client-mini-word` | `arelore-client-mini-cert` |
 | 实现 | **微信原生** | Taro + React |
-| 打开方式 | 开发者工具导入本目录 | 先 `npm run dev:weapp` 再导入（`miniprogramRoot` 为 `dist/`） |
+| 打开方式 | 开发者工具导入本目录 | `bash start.sh [env]` 构建后导入（`miniprogramRoot` 为 `dist/`） |
+| 切环境 | 写 `env.local.js` + 重新编译 | `TARO_APP_API_BASE_URL` 注入构建 |
 
 不要把 Taro 工程的构建方式套到本模块。
-
----
-
-## 后续可接
-
-- 每日新学 / 复习刷词队列（`user_word_learn_record`）

@@ -6,3 +6,6 @@ miniprogram_npm/
 
 # 微信开发者工具本机私有配置（含本机 appid 覆盖等）
 project.private.config.json
+
+# start.sh 生成的本地环境（勿提交）
+utils/env.local.js

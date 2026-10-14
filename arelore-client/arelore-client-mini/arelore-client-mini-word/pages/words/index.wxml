@@ -13,6 +13,17 @@
   </view>
 </view>
 
+<view class="page" wx:elif="{{status === 'networkError'}}">
+  <view class="state-card">
+    <text class="state-title">网络不通</text>
+    <text class="state-desc">{{networkErrorMessage}}</text>
+    <text class="state-meta" wx:if="{{apiEnv}}">当前环境：{{apiEnv}}</text>
+    <text class="state-meta" wx:if="{{apiBaseUrl}}">接口：{{apiBaseUrl}}</text>
+    <text class="state-meta">本机联调请执行 bash start.sh dev 后重新编译；并确认 user 服务已启动。</text>
+    <button class="primary-btn" bindtap="onRetryHome">重试</button>
+  </view>
+</view>
+
 <view class="page" wx:elif="{{status === 'noBook'}}">
   <view class="state-card">
     <text class="state-title">还没有单词本</text>
@@ -79,5 +90,13 @@
     </view>
   </view>
 
-  <button class="start-btn" bindtap="onStartStudy">开始学习</button>
+  <view class="mode-chip {{isListenMode ? 'listen' : ''}}" bindtap="onOpenSettings">
+    <text class="mode-chip-label">背词模式</text>
+    <text class="mode-chip-value">{{studyModeLabel}}</text>
+    <text class="mode-chip-arrow">›</text>
+  </view>
+
+  <button class="start-btn" bindtap="onStartStudy">
+    {{isListenMode ? '开始听词' : '开始学习'}}
+  </button>
 </view>

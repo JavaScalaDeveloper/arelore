@@ -1,5 +1,6 @@
 const storage = require('../../utils/storage');
-const { post } = require('../../utils/request');
+const preference = require('../../utils/preference');
+const { post, shortErrorMessage } = require('../../utils/request');
 
 Page({
   data: {
@@ -72,6 +73,8 @@ Page({
             this.setData({ loading: false });
             return;
           }
+          // 登录后把本机偏好推到服务端，避免未登录时改的设置被覆盖
+          preference.pushLocalPreference().catch(() => {});
           wx.showToast({ title: '登录成功', icon: 'success' });
           this.setData({ loading: false });
           setTimeout(() => {
@@ -82,16 +85,18 @@ Page({
         this.failLogin(resp.message || '登录失败');
       })
       .catch((e) => {
-        this.failLogin((e && e.errMsg) || '登录失败，请稍后重试');
+        this.failLogin(shortErrorMessage(e, '登录失败，请稍后重试'), e);
       });
   },
 
-  failLogin(errMsg) {
+  failLogin(errMsg, err) {
     this.setData({ loading: false });
-    wx.showToast({ title: errMsg, icon: 'none' });
+    const title = err && err.isNetworkError ? '网络不通' : '登录失败';
+    const content = errMsg || '请稍后重试';
+    wx.showToast({ title: content.slice(0, 20), icon: 'none' });
     wx.showModal({
-      title: '登录失败',
-      content: errMsg,
+      title,
+      content,
       showCancel: false
     });
   }

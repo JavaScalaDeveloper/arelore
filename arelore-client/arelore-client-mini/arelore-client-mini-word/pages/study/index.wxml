@@ -7,7 +7,7 @@
 
 <view class="page" wx:elif="{{status === 'error'}}">
   <view class="state-card">
-    <text class="state-title">无法开始</text>
+    <text class="state-title">{{errorTitle || '无法开始'}}</text>
     <text class="state-desc">{{errorMessage}}</text>
     <button class="primary-btn" bindtap="onBack">返回</button>
   </view>
@@ -37,8 +37,11 @@
     </view>
   </view>
 
-  <view class="mode-tag {{card.mode === 'review' ? 'review' : 'learn'}}">
-    {{card.mode === 'review' ? '复习' : '新学'}}
+  <view class="tag-row">
+    <view class="mode-tag {{card.mode === 'review' ? 'review' : 'learn'}}">
+      {{card.mode === 'review' ? '复习' : '新学'}}
+    </view>
+    <view class="mode-tag listen" wx:if="{{isListenMode}}">听词摸鱼</view>
   </view>
 
   <view class="word-card">
@@ -61,13 +64,32 @@
       >英音</button>
     </view>
 
-    <view class="hint-box" wx:if="{{hintShown && !revealed}}">
+    <!-- 听词模式：直接展示释义，跟着音频摸鱼 -->
+    <view class="reveal" wx:if="{{isListenMode}}">
+      <view class="picture-wrap" wx:if="{{card.picture && !pictureError}}" bindtap="onPreviewPictures">
+        <image
+          class="word-picture"
+          src="{{card.picture}}"
+          mode="aspectFit"
+          lazy-load
+          binderror="onPictureError"
+        />
+        <text class="picture-tip" wx:if="{{card.pictures && card.pictures.length > 1}}">
+          点击查看全部 {{card.pictures.length}} 张
+        </text>
+      </view>
+      <text class="meaning" wx:if="{{card.meaning}}">{{card.meaning}}</text>
+      <text class="meaning muted" wx:else>暂无释义</text>
+      <text class="mnemonic" wx:if="{{card.mnemonic}}">记忆：{{card.mnemonic}}</text>
+    </view>
+
+    <view class="hint-box" wx:elif="{{hintShown && !revealed}}">
       <text class="hint-label">例句提示</text>
       <text class="hint-en" wx:if="{{card.exampleEn}}">{{card.exampleEn}}</text>
       <text class="hint-en muted" wx:else>暂无英文例句</text>
     </view>
 
-    <view class="reveal" wx:if="{{revealed}}">
+    <view class="reveal" wx:elif="{{revealed}}">
       <view class="picture-wrap" wx:if="{{card.picture && !pictureError}}" bindtap="onPreviewPictures">
         <image
           class="word-picture"
@@ -95,13 +117,52 @@
     </view>
   </view>
 
-  <view class="actions" wx:if="{{!revealed}}">
-    <button class="action-btn hint" bindtap="onHint" disabled="{{submitting}}">提示</button>
-    <button class="action-btn unknown" bindtap="onUnknown" disabled="{{submitting}}">不认识</button>
-    <button class="action-btn known" bindtap="onKnown" disabled="{{submitting}}">认识</button>
+  <!-- 听词：播完自动下一词；可暂停 / 重听 / 跳过 / 稍后复习 -->
+  <view class="listen-panel" wx:if="{{isListenMode}}">
+    <text class="listen-status-text paused" wx:if="{{listenPaused}}">已暂停：不会自动下一词</text>
+    <text class="listen-status-text" wx:elif="{{playing}}">播放中：单词 → 拼读 → 中文</text>
+    <text class="listen-status-text" wx:elif="{{submitting}}">正在记录并切换…</text>
+    <text class="listen-status-text" wx:else>结束后将自动下一词</text>
+    <view class="listen-actions">
+      <button
+        class="action-btn listen-pause"
+        wx:if="{{!listenPaused}}"
+        bindtap="onListenPause"
+        disabled="{{submitting}}"
+      >暂停</button>
+      <button
+        class="action-btn listen-resume"
+        wx:else
+        bindtap="onListenResume"
+        disabled="{{submitting}}"
+      >继续</button>
+      <button
+        class="action-btn listen-replay"
+        bindtap="onListenReplay"
+        disabled="{{submitting || revealed}}"
+      >重听</button>
+      <button
+        class="action-btn listen-unknown"
+        bindtap="onListenUnknown"
+        disabled="{{submitting || revealed}}"
+      >稍后复习</button>
+      <button
+        class="action-btn listen-skip"
+        bindtap="onListenSkip"
+        disabled="{{submitting}}"
+      >下一词</button>
+    </view>
   </view>
-  <view class="actions" wx:else>
-    <button class="action-btn next" bindtap="onNextAfterReveal">下一个</button>
-  </view>
-  <text class="auto-tip" wx:if="{{revealed && pendingRemember === true}}">未点击将在 1 秒后自动跳转</text>
+
+  <block wx:else>
+    <view class="actions" wx:if="{{!revealed}}">
+      <button class="action-btn hint" bindtap="onHint" disabled="{{submitting}}">提示</button>
+      <button class="action-btn unknown" bindtap="onUnknown" disabled="{{submitting}}">不认识</button>
+      <button class="action-btn known" bindtap="onKnown" disabled="{{submitting}}">认识</button>
+    </view>
+    <view class="actions" wx:else>
+      <button class="action-btn next" bindtap="onNextAfterReveal">下一个</button>
+    </view>
+    <text class="auto-tip" wx:if="{{revealed && pendingRemember === true}}">未点击将在 1 秒后自动跳转</text>
+  </block>
 </view>

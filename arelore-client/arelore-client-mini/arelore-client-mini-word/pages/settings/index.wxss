@@ -1,0 +1,167 @@
+.page {
+  min-height: 100vh;
+  padding: 32rpx;
+  box-sizing: border-box;
+  background: #f3f4f6;
+}
+
+.section {
+  padding: 32rpx;
+  background: #ffffff;
+  border-radius: 24rpx;
+}
+
+.section-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.section-desc {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #6b7280;
+}
+
+.option-list {
+  margin-top: 28rpx;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  padding: 28rpx 24rpx;
+  margin-bottom: 16rpx;
+  border-radius: 16rpx;
+  background: #f9fafb;
+  border: 2rpx solid transparent;
+}
+
+.option-item:last-child {
+  margin-bottom: 0;
+}
+
+.option-item.active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.option-item.disabled {
+  opacity: 0.45;
+}
+
+.option-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.option-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.option-tip {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #6b7280;
+}
+
+.radio {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  border: 3rpx solid #d1d5db;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+.radio.checked {
+  border-color: #3b82f6;
+  background: radial-gradient(circle, #3b82f6 45%, transparent 50%);
+}
+
+.radio.disabled {
+  border-color: #e5e7eb;
+}
+
+.listen-section {
+  margin-top: 24rpx;
+}
+
+.field {
+  margin-top: 28rpx;
+}
+
+.field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.field-label {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.field-value {
+  font-size: 28rpx;
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.field-tip {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #9ca3af;
+}
+
+.preview-tip {
+  color: #3b82f6;
+}
+
+.field-slider {
+  margin: 12rpx 0 0;
+}
+
+.chip-row {
+  display: flex;
+  margin-top: 16rpx;
+}
+
+.chip {
+  flex: 1;
+  height: 72rpx;
+  line-height: 72rpx;
+  text-align: center;
+  border-radius: 14rpx;
+  background: #f3f4f6;
+  color: #374151;
+  font-size: 30rpx;
+  font-weight: 600;
+  margin-right: 16rpx;
+}
+
+.chip:last-child {
+  margin-right: 0;
+}
+
+.chip.active {
+  background: #eff6ff;
+  color: #2563eb;
+  box-shadow: inset 0 0 0 2rpx #3b82f6;
+}
+
+.saving {
+  margin-top: 24rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: #9ca3af;
+}

@@ -25,6 +25,14 @@
 
   <view wx:if="{{loading}}" class="empty">加载中…</view>
 
+  <view wx:elif="{{networkError}}" class="network-box">
+    <text class="network-title">网络不通</text>
+    <text class="network-desc">{{networkErrorMessage}}</text>
+    <text class="network-meta" wx:if="{{apiEnv}}">当前环境：{{apiEnv}}</text>
+    <text class="network-meta" wx:if="{{apiBaseUrl}}">接口：{{apiBaseUrl}}</text>
+    <button class="retry-btn" bindtap="onRetryLoad">重试</button>
+  </view>
+
   <block wx:elif="{{step === 'language'}}">
     <view
       class="book-item"

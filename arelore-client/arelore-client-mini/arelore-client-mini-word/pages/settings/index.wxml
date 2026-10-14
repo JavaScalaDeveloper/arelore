@@ -1,0 +1,93 @@
+<view class="page">
+  <view class="section">
+    <text class="section-title">背词模式</text>
+    <text class="section-desc">选择学习时的默认交互方式</text>
+
+    <view class="option-list">
+      <view
+        class="option-item {{studyMode === 'listen_spell' ? 'active' : ''}}"
+        data-mode="listen_spell"
+        bindtap="onSelectMode"
+      >
+        <view class="option-main">
+          <text class="option-name">听词（摸鱼）</text>
+          <text class="option-tip">单词 → 拼读 → 中文，结束后自动下一词</text>
+        </view>
+        <view class="radio {{studyMode === 'listen_spell' ? 'checked' : ''}}"></view>
+      </view>
+
+      <view
+        class="option-item {{studyMode === 'see_meaning' ? 'active' : ''}}"
+        data-mode="see_meaning"
+        bindtap="onSelectMode"
+      >
+        <view class="option-main">
+          <text class="option-name">看词识意</text>
+          <text class="option-tip">看单词，判断是否认识含义</text>
+        </view>
+        <view class="radio {{studyMode === 'see_meaning' ? 'checked' : ''}}"></view>
+      </view>
+
+      <view class="option-item disabled" data-mode="see_pick_image" bindtap="onSelectMode">
+        <view class="option-main">
+          <text class="option-name">看词选图</text>
+          <text class="option-tip">暂未开放</text>
+        </view>
+        <view class="radio disabled"></view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section listen-section" wx:if="{{studyMode === 'listen_spell'}}">
+    <text class="section-title">听词选项</text>
+    <text class="section-desc">仅在「听词（摸鱼）」模式下生效</text>
+
+    <view class="field">
+      <view class="field-head">
+        <text class="field-label">拼读语速</text>
+        <text class="field-value">{{spellSpeed}}</text>
+      </view>
+      <text class="field-tip">0 最慢，10 最快（只调字母间隔；松手后用 hello 试听）</text>
+      <text class="field-tip preview-tip" wx:if="{{previewing}}">试听中：hello → 拼读…</text>
+      <slider
+        class="field-slider"
+        min="0"
+        max="10"
+        step="1"
+        value="{{spellSpeed}}"
+        activeColor="#3B82F6"
+        backgroundColor="#E5E7EB"
+        block-size="20"
+        bindchanging="onSpellSpeedChanging"
+        bindchange="onSpellSpeedChange"
+      />
+    </view>
+
+    <view class="field">
+      <view class="field-head">
+        <text class="field-label">连读次数</text>
+        <text class="field-value">{{wordRepeatCount}} 次</text>
+      </view>
+      <text class="field-tip">仅重复朗读单词，不重复拼读字母</text>
+      <view class="chip-row">
+        <view
+          class="chip {{wordRepeatCount === 1 ? 'active' : ''}}"
+          data-count="1"
+          bindtap="onSelectRepeat"
+        >1</view>
+        <view
+          class="chip {{wordRepeatCount === 2 ? 'active' : ''}}"
+          data-count="2"
+          bindtap="onSelectRepeat"
+        >2</view>
+        <view
+          class="chip {{wordRepeatCount === 3 ? 'active' : ''}}"
+          data-count="3"
+          bindtap="onSelectRepeat"
+        >3</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="saving" wx:if="{{saving}}">保存中…</view>
+</view>

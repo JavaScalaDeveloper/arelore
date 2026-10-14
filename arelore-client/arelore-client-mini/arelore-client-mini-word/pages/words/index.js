@@ -1,5 +1,7 @@
-const { postWithAuth } = require('../../utils/request');
+const { postWithAuth, shortErrorMessage } = require('../../utils/request');
+const { getApiBaseUrl, getActiveEnv } = require('../../utils/config');
 const storage = require('../../utils/storage');
+const preference = require('../../utils/preference');
 
 function mapCurrent(current) {
   if (!current || !current.bookCode) {
@@ -26,28 +28,63 @@ function mapCurrent(current) {
 
 Page({
   data: {
-    // loading | needLogin | noBook | ready
+    // loading | needLogin | noBook | networkError | ready
     status: 'loading',
-    book: null
+    book: null,
+    studyModeLabel: preference.modeLabel(storage.STUDY_MODE_SEE_MEANING),
+    isListenMode: false,
+    networkErrorMessage: '',
+    apiBaseUrl: '',
+    apiEnv: ''
   },
 
   onShow() {
+    this.refreshPreferenceChip();
     this.refreshHome();
+  },
+
+  refreshPreferenceChip() {
+    const local = storage.getPreference();
+    this.setData({
+      studyModeLabel: preference.modeLabel(local.studyMode),
+      isListenMode: local.studyMode === storage.STUDY_MODE_LISTEN_SPELL
+    });
+    preference.syncPreference().then((pref) => {
+      this.setData({
+        studyModeLabel: preference.modeLabel(pref.studyMode),
+        isListenMode: pref.studyMode === storage.STUDY_MODE_LISTEN_SPELL
+      });
+    }).catch(() => {});
   },
 
   refreshHome() {
     const token = storage.getToken();
     if (!token) {
-      this.setData({ status: 'needLogin', book: null });
+      this.setData({ status: 'needLogin', book: null, networkErrorMessage: '' });
       return;
     }
 
-    this.setData({ status: 'loading' });
+    this.setData({
+      status: 'loading',
+      networkErrorMessage: '',
+      apiBaseUrl: getApiBaseUrl(),
+      apiEnv: getActiveEnv()
+    });
     postWithAuth('/user/word/book/current', {})
       .then((res) => {
         if (res.code === 401) {
           storage.clearSession();
           this.setData({ status: 'needLogin', book: null });
+          return;
+        }
+        if (res.code === -1001 || (res.isNetworkError)) {
+          this.setData({
+            status: 'networkError',
+            book: null,
+            networkErrorMessage: res.message || '网络不通',
+            apiBaseUrl: getApiBaseUrl(),
+            apiEnv: getActiveEnv()
+          });
           return;
         }
         if (res.code !== 200) {
@@ -64,9 +101,18 @@ Page({
         this.setData({ status: 'ready', book });
       })
       .catch((err) => {
-        wx.showToast({ title: (err && err.errMsg) || '加载失败', icon: 'none' });
-        this.setData({ status: 'noBook', book: null });
+        this.setData({
+          status: 'networkError',
+          book: null,
+          networkErrorMessage: shortErrorMessage(err, '网络不通，请稍后重试'),
+          apiBaseUrl: getApiBaseUrl(),
+          apiEnv: getActiveEnv()
+        });
       });
+  },
+
+  onRetryHome() {
+    this.refreshHome();
   },
 
   onLogin() {
@@ -86,6 +132,10 @@ Page({
       return;
     }
     wx.navigateTo({ url: '/pages/study/index' });
+  },
+
+  onOpenSettings() {
+    wx.navigateTo({ url: '/pages/settings/index' });
   },
 
   ensureReady() {

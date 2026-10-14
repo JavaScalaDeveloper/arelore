@@ -1,4 +1,5 @@
-const { post, postWithAuth } = require('../../utils/request');
+const { post, postWithAuth, shortErrorMessage } = require('../../utils/request');
+const { getApiBaseUrl, getActiveEnv } = require('../../utils/config');
 const storage = require('../../utils/storage');
 
 const RATIO_OPTIONS = [
@@ -87,7 +88,11 @@ Page({
     showVoiceOption: false,
     dailyNewCount: 10,
     dailyReviewCount: 10,
-    planDays: 0
+    planDays: 0,
+    networkError: false,
+    networkErrorMessage: '',
+    apiBaseUrl: '',
+    apiEnv: ''
   },
 
   onShow() {
@@ -117,10 +122,46 @@ Page({
     });
   },
 
+  clearNetworkError() {
+    this.setData({
+      networkError: false,
+      networkErrorMessage: '',
+      apiBaseUrl: '',
+      apiEnv: ''
+    });
+  },
+
+  showNetworkError(err) {
+    this.setData({
+      loading: false,
+      networkError: true,
+      networkErrorMessage: shortErrorMessage(err, '网络不通，请稍后重试'),
+      apiBaseUrl: getApiBaseUrl(),
+      apiEnv: getActiveEnv(),
+      languages: [],
+      categories: [],
+      books: []
+    });
+  },
+
+  onRetryLoad() {
+    this.clearNetworkError();
+    if (this.data.step === 'category' && this.data.language) {
+      this.loadCategories(this.data.language.code);
+      return;
+    }
+    if (this.data.step === 'book' && this.data.language && this.data.category) {
+      this.loadBooks(this.data.language.code, this.data.category.code);
+      return;
+    }
+    this.loadLanguages();
+  },
+
   loadLanguages(options = {}) {
     const autoEnterSingle = options.autoEnterSingle !== false;
     this.setData({
       loading: true,
+      networkError: false,
       step: 'language',
       language: null,
       category: null,
@@ -135,24 +176,31 @@ Page({
       if (autoEnterSingle && languages.length === 1) {
         this.selectLanguage(languages[0]);
       }
-    }).catch(() => {
-      this.setData({ languages: [], loading: false });
+    }).catch((err) => {
+      this.showNetworkError(err);
     });
   },
 
   loadCategories(languageCode) {
-    this.setData({ loading: true, step: 'category', category: null, selectedBook: null, books: [] });
+    this.setData({
+      loading: true,
+      networkError: false,
+      step: 'category',
+      category: null,
+      selectedBook: null,
+      books: []
+    });
     this.setNavTitle('选择分类');
     post('/user/word/category/list', { languageCode }).then((res) => {
       const categories = res.code === 200 ? (res.data || []) : [];
       this.setData({ categories, loading: false });
-    }).catch(() => {
-      this.setData({ categories: [], loading: false });
+    }).catch((err) => {
+      this.showNetworkError(err);
     });
   },
 
   loadBooks(languageCode, categoryCode) {
-    this.setData({ loading: true, step: 'book', selectedBook: null });
+    this.setData({ loading: true, networkError: false, step: 'book', selectedBook: null });
     this.setNavTitle('选择单词本');
     post('/user/word/book/list', { languageCode, categoryCode }).then((res) => {
       const books = res.code === 200 ? (res.data || []) : [];
@@ -160,8 +208,8 @@ Page({
         books: books.map(mapBookItem),
         loading: false
       });
-    }).catch(() => {
-      this.setData({ books: [], loading: false });
+    }).catch((err) => {
+      this.showNetworkError(err);
     });
   },
 
@@ -325,7 +373,15 @@ Page({
       finishLocal();
     }).catch((err) => {
       this.setData({ saving: false });
-      wx.showToast({ title: (err && err.errMsg) || '保存失败', icon: 'none' });
+      const msg = shortErrorMessage(err, '网络不通，保存失败');
+      wx.showToast({ title: msg.slice(0, 20), icon: 'none' });
+      if (err && err.isNetworkError) {
+        wx.showModal({
+          title: '网络不通',
+          content: msg,
+          showCancel: false
+        });
+      }
     });
   }
 });

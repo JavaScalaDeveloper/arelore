@@ -66,9 +66,17 @@
   color: #111827;
 }
 
+.tag-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 24rpx;
+}
+
 .mode-tag {
   align-self: flex-start;
-  margin-top: 24rpx;
+  margin-right: 12rpx;
+  margin-bottom: 4rpx;
   padding: 8rpx 18rpx;
   border-radius: 999rpx;
   font-size: 22rpx;
@@ -78,6 +86,72 @@
 
 .mode-tag.learn {
   background: #3b82f6;
+}
+
+.mode-tag.listen {
+  background: #0d9488;
+}
+
+.listen-panel {
+  margin-top: 28rpx;
+  padding: 28rpx 24rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+}
+
+.listen-status-text {
+  display: block;
+  text-align: center;
+  font-size: 28rpx;
+  color: #0f766e;
+  font-weight: 500;
+}
+
+.listen-status-text.paused {
+  color: #b45309;
+}
+
+.listen-actions {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 24rpx;
+}
+
+.listen-actions .action-btn {
+  flex: 1;
+  min-width: 140rpx;
+  margin-right: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.listen-actions .action-btn:nth-child(4n),
+.listen-actions .action-btn:last-child {
+  margin-right: 0;
+}
+
+.action-btn.listen-pause {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.action-btn.listen-resume {
+  background: #0d9488;
+  color: #ffffff;
+}
+
+.action-btn.listen-replay {
+  background: #ecfdf5;
+  color: #0f766e;
+}
+
+.action-btn.listen-unknown {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.action-btn.listen-skip {
+  background: #0d9488;
+  color: #ffffff;
 }
 
 .mode-tag.review {

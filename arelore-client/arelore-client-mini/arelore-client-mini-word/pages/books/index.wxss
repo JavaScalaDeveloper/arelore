@@ -134,6 +134,46 @@
   font-size: 26rpx;
 }
 
+.network-box {
+  margin-top: 48rpx;
+  padding: 40rpx 32rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+  text-align: center;
+}
+
+.network-title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.network-desc {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.network-meta {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: #9ca3af;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.retry-btn {
+  margin-top: 32rpx;
+  background: #3b82f6;
+  color: #ffffff;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+}
+
 .plan-card {
   padding: 32rpx;
   margin-bottom: 24rpx;
