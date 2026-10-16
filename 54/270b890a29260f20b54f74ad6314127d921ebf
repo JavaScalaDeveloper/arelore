@@ -1,0 +1,25 @@
+arelore-client/arelore-client-mini/arelore-client-mini-word/scripts/generate-pos-voices.ps1
+  551bca709d578fc4 1-46
+arelore-client/arelore-client-mini/arelore-client-mini-word/scripts/generate-letter-voices.ps1
+  551bca709d578fc4 1-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "54270b890a29260f20b54f74ad6314127d921ebf",
+  "prompts": {
+    "551bca709d578fc4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cursor-bridge-synthetic",
+        "model": "unknown"
+      },
+      "human_author": "huang.huang1 <huang.huang1@jtexpress.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1086,
+      "overriden_lines": 0
+    }
+  }
+}
