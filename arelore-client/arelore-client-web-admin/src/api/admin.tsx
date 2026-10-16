@@ -135,10 +135,14 @@ export const adminApi = {
     request.post('/admin/word/base-info/test-youdao', data, { timeout: 30000 }),
   searchWordBaseInfoPictures: (data: { id: number }): Promise<ApiResponse<any>> =>
     request.post('/admin/word/base-info/search-pictures', data, { timeout: 30000 }),
-  /** 批量搜图：分页扫完全部无图词；source=PIXABAY|YOUDAO；limit 不传则全部 */
+  /** 批量搜图：按当前筛选分页扫描；source=PIXABAY|YOUDAO；limit 不传则全部 */
   batchSearchWordBaseInfoPictures: (data?: {
     languageCode?: string;
+    word?: string;
     tag?: string;
+    tags?: string[];
+    hasPicture?: boolean;
+    pictureConfirmed?: boolean;
     source?: 'PIXABAY' | 'YOUDAO';
     /** 最多处理词数；不传/0 = 全部 */
     limit?: number;
@@ -150,6 +154,8 @@ export const adminApi = {
     pictureUrls: string[];
     pictureSource?: string;
   }): Promise<ApiResponse<any>> => request.post('/admin/word/base-info/adopt-pictures', data),
+  getWordBaseInfoPictureContent: (data: { id: number }): Promise<ApiResponse<any>> =>
+    request.post('/admin/word/base-info/picture-content', data),
   /** 从词条同步语种+词形（不查有道） */
   syncWordBaseInfo: (data?: any): Promise<ApiResponse<any>> =>
     // 含有道补释义，词量大时可能超过半小时

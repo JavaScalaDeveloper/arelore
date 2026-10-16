@@ -17,6 +17,8 @@ public class UserWordStudyCardResponse {
     private String picture;
     /** 全部配图 URL（来自 admin_word_base_info.ext_info.pictures） */
     private List<String> pictures = new ArrayList<>();
+    /** 已落入 common_binary_file 的配图，与 pictures 按写入顺序对应；学习端用它读本地图 */
+    private List<Long> pictureFileIds = new ArrayList<>();
     /** 记忆法（ext_info.remMethod.val） */
     private String mnemonic;
     /** 英文例句（提示用，取首条） */

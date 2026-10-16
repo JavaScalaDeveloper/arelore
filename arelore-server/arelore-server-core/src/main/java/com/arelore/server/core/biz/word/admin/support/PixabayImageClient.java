@@ -99,6 +99,7 @@ public class PixabayImageClient {
                     hit.getString("webformatURL"),
                     hit.getString("previewURL")
                 );
+                String webformat = firstNonBlank(hit.getString("webformatURL"), hit.getString("previewURL"));
                 String thumb = firstNonBlank(
                     hit.getString("previewURL"),
                     hit.getString("webformatURL"),
@@ -109,6 +110,9 @@ public class PixabayImageClient {
                 }
                 Map<String, String> item = new LinkedHashMap<>();
                 item.put("url", url.trim());
+                if (StringUtils.hasText(webformat)) {
+                    item.put("webformatUrl", webformat.trim());
+                }
                 item.put("thumbUrl", StringUtils.hasText(thumb) ? thumb.trim() : url.trim());
                 item.put("source", "PIXABAY");
                 if (StringUtils.hasText(hit.getString("user"))) {

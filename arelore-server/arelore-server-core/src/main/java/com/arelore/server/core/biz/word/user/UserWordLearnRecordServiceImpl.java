@@ -279,7 +279,7 @@ public class UserWordLearnRecordServiceImpl
         List<AdminWordEntry> learnEntries = loadEntriesByCodes(bookCode, sessionLearnCodes);
         List<AdminWordEntry> reviewEntries = loadEntriesByCodes(bookCode, sessionReviewCodes);
         String languageCode = resolveBookLanguageCode(bookCode);
-        Map<String, List<String>> picturesByWord = loadBasePicturesByWord(languageCode, learnEntries, reviewEntries);
+        Map<String, WordPictureBundle> picturesByWord = loadBasePicturesByWord(languageCode, learnEntries, reviewEntries);
         List<UserWordStudyCardResponse> learnCards = toCards(learnEntries, "learn", voiceType, picturesByWord);
         List<UserWordStudyCardResponse> reviewCards = toCards(reviewEntries, "review", voiceType, picturesByWord);
         // 先复习未完成词，再学新词
@@ -677,7 +677,7 @@ public class UserWordLearnRecordServiceImpl
         List<AdminWordEntry> entries,
         String mode,
         int voiceType,
-        Map<String, List<String>> picturesByWord
+        Map<String, WordPictureBundle> picturesByWord
     ) {
         List<UserWordStudyCardResponse> cards = new ArrayList<>();
         if (entries == null) {
@@ -693,7 +693,7 @@ public class UserWordLearnRecordServiceImpl
         AdminWordEntry entry,
         String mode,
         int voiceType,
-        Map<String, List<String>> picturesByWord
+        Map<String, WordPictureBundle> picturesByWord
     ) {
         UserWordStudyCardResponse card = new UserWordStudyCardResponse();
         card.setMode(mode);
@@ -706,10 +706,12 @@ public class UserWordLearnRecordServiceImpl
             card.setPhonetic(firstNonBlank(ext.getString("usphone"), ext.getString("ukphone"), ext.getString("phone")));
         }
         card.setMeaning(buildMeaning(ext));
-        List<String> pictures = picturesByWord == null || entry.getWord() == null
-            ? List.of()
-            : picturesByWord.getOrDefault(entry.getWord(), List.of());
+        WordPictureBundle bundle = picturesByWord == null || entry.getWord() == null
+            ? null
+            : picturesByWord.get(entry.getWord());
+        List<String> pictures = bundle == null ? List.of() : bundle.urls;
         card.setPictures(new ArrayList<>(pictures));
+        card.setPictureFileIds(bundle == null ? new ArrayList<>() : new ArrayList<>(bundle.fileIds));
         if (!pictures.isEmpty()) {
             card.setPicture(pictures.get(0));
         }
@@ -741,11 +743,11 @@ public class UserWordLearnRecordServiceImpl
     }
 
     @SafeVarargs
-    private final Map<String, List<String>> loadBasePicturesByWord(
+    private final Map<String, WordPictureBundle> loadBasePicturesByWord(
         String languageCode,
         List<AdminWordEntry>... entryLists
     ) {
-        Map<String, List<String>> result = new HashMap<>();
+        Map<String, WordPictureBundle> result = new HashMap<>();
         Set<String> words = new LinkedHashSet<>();
         if (entryLists != null) {
             for (List<AdminWordEntry> list : entryLists) {
@@ -779,30 +781,39 @@ public class UserWordLearnRecordServiceImpl
         return result;
     }
 
-    private List<String> extractPictures(String extInfo) {
-        List<String> pictures = new ArrayList<>();
+    private static final class WordPictureBundle {
+        private final List<String> urls = new ArrayList<>();
+        private final List<Long> fileIds = new ArrayList<>();
+    }
+
+    private WordPictureBundle extractPictures(String extInfo) {
+        WordPictureBundle bundle = new WordPictureBundle();
         JSONObject ext = parseExt(extInfo);
         JSONArray arr = ext.getJSONArray("pictures");
         if (arr == null || arr.isEmpty()) {
-            return pictures;
+            return bundle;
         }
         LinkedHashSet<String> unique = new LinkedHashSet<>();
         for (int i = 0; i < arr.size(); i++) {
             Object item = arr.get(i);
             String url = null;
+            Long fileId = null;
             if (item instanceof String) {
                 url = (String) item;
             } else if (item instanceof JSONObject) {
                 JSONObject obj = (JSONObject) item;
                 url = firstNonBlank(obj.getString("url"), obj.getString("image"));
+                fileId = obj.getLong("fileId");
             }
             url = YoudaoDictClient.normalizePictureUrl(url);
-            if (StringUtils.hasText(url)) {
-                unique.add(url);
+            if (StringUtils.hasText(url) && unique.add(url)) {
+                bundle.urls.add(url);
+            }
+            if (fileId != null && !bundle.fileIds.contains(fileId)) {
+                bundle.fileIds.add(fileId);
             }
         }
-        pictures.addAll(unique);
-        return pictures;
+        return bundle;
     }
 
     private String buildMeaning(JSONObject ext) {

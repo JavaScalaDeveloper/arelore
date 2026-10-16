@@ -21,12 +21,69 @@ import { parseExtInfo, toHttpsUrl } from '../utils/wordMedia';
 const DEFAULT_PAGE_SIZE = 20;
 const { Paragraph, Text } = Typography;
 
-function pictureUrls(extInfo?: string): string[] {
+type PictureRef = { key: string; url?: string; fileId?: number };
+
+function pictureRefs(extInfo?: string): PictureRef[] {
   const ext = parseExtInfo(extInfo);
   const pics = Array.isArray(ext.pictures) ? ext.pictures : [];
   return pics
-    .map((p: any) => toHttpsUrl(typeof p === 'string' ? p : p?.url))
-    .filter(Boolean);
+    .map((p: any, index: number) => {
+      if (typeof p === 'string') {
+        const url = toHttpsUrl(p);
+        return url ? { key: url, url } : null;
+      }
+      const url = toHttpsUrl(p?.url);
+      const fileId = p?.fileId != null ? Number(p.fileId) : undefined;
+      if (!url && !fileId) {
+        return null;
+      }
+      return { key: fileId ? `file-${fileId}` : url || String(index), url, fileId };
+    })
+    .filter(Boolean) as PictureRef[];
+}
+
+function pictureUrls(extInfo?: string): string[] {
+  return pictureRefs(extInfo)
+    .map((p) => p.url)
+    .filter((url): url is string => !!url);
+}
+
+function StoredPicture({ item, width, height }: { item: PictureRef; width: number; height: number }) {
+  const [src, setSrc] = useState(item.fileId ? '' : item.url || '');
+
+  useEffect(() => {
+    if (!item.fileId) {
+      setSrc(item.url || '');
+      return undefined;
+    }
+    let cancel = false;
+    adminApi
+      .getWordBaseInfoPictureContent({ id: item.fileId })
+      .then((res) => {
+        const data = res?.data;
+        if (cancel) {
+          return;
+        }
+        if (data?.base64Data) {
+          setSrc(`data:${data.contentType || 'image/jpeg'};base64,${data.base64Data}`);
+          return;
+        }
+        setSrc(item.url || '');
+      })
+      .catch(() => {
+        if (!cancel) {
+          setSrc(item.url || '');
+        }
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [item.fileId, item.url]);
+
+  if (!src) {
+    return null;
+  }
+  return <Image src={src} width={width} height={height} style={{ objectFit: 'cover' }} />;
 }
 
 function meaningLines(extInfo?: string): string[] {
@@ -285,11 +342,15 @@ const WordBaseInfoManagement: React.FC = () => {
   const runBatchSearch = (source: 'YOUDAO' | 'PIXABAY') => {
     const values = queryForm.getFieldsValue();
     const isYoudao = source === 'YOUDAO';
+    const tags = Array.isArray(values.tags) ? values.tags.filter(Boolean) : [];
+    const tagText = tags.length
+      ? tags.map((t: string) => TAG_OPTIONS.find((o) => o.value === t)?.label || t).join('、')
+      : '未选标签';
     Modal.confirm({
       title: isYoudao ? '批量搜图（有道词典）' : '批量搜图（Pixabay）',
       content: isYoudao
-        ? '将分页扫描全部「无图」单词，调用有道词典写入配图、释义、音标等。有道图写入后直接确认可用，无需人工采纳。词量大时可能较久。'
-        : '将分页扫描全部「无图」单词，调用 Pixabay 搜图并写入（每词最多 4 张）。写入后仍为未确认，请人工核对后采纳；词量大时可能较久。',
+        ? `按当前筛选扫描（标签：${tagText}），调用有道词典写入配图、释义、音标等。有道图写入后直接确认可用。词量大时可能较久。`
+        : `按当前筛选扫描（标签：${tagText}），先向 Pixabay 重新搜图，再把新图片写入文件表（每词最多 4 张）。已过期的旧外链不会再下载。写入后未确认；采纳时未勾选的图会物理删除。`,
       okText: '开始搜图',
       cancelText: '取消',
       onOk: async () => {
@@ -297,7 +358,10 @@ const WordBaseInfoManagement: React.FC = () => {
         try {
           const res = await adminApi.batchSearchWordBaseInfoPictures({
             languageCode: values.languageCode || undefined,
-            tag: 'no_picture',
+            word: values.word || undefined,
+            tags: tags.length ? tags : undefined,
+            hasPicture: values.hasPicture,
+            pictureConfirmed: values.pictureConfirmed,
             source,
             picturesPerWord: isYoudao ? undefined : 4,
           });
@@ -318,7 +382,7 @@ const WordBaseInfoManagement: React.FC = () => {
   };
 
   const detailExt = parseExtInfo(detail?.extInfo);
-  const detailPics = pictureUrls(detail?.extInfo);
+  const detailPics = pictureRefs(detail?.extInfo);
   const detailMeanings = meaningLines(detail?.extInfo);
   const detailTags = tagList(detail?.extInfo);
   const pictureConfirmed = !!detailExt.pictureConfirmed;
@@ -451,9 +515,9 @@ const WordBaseInfoManagement: React.FC = () => {
             key: 'pictures',
             width: 200,
             render: (_, row) => {
-              const urls = pictureUrls(row.extInfo);
+              const pics = pictureRefs(row.extInfo);
               const ext = parseExtInfo(row.extInfo);
-              if (!urls.length) {
+              if (!pics.length) {
                 return <Tag color="warning">无图</Tag>;
               }
               return (
@@ -462,8 +526,8 @@ const WordBaseInfoManagement: React.FC = () => {
                   {ext.pictureConfirmed && <Tag color="success">已确认</Tag>}
                   <Image.PreviewGroup>
                     <Space size={4} wrap>
-                      {urls.slice(0, 3).map((url) => (
-                        <Image key={url} src={url} width={40} height={40} style={{ objectFit: 'cover' }} />
+                      {pics.slice(0, 3).map((pic) => (
+                        <StoredPicture key={pic.key} item={pic} width={40} height={40} />
                       ))}
                     </Space>
                   </Image.PreviewGroup>
@@ -506,7 +570,7 @@ const WordBaseInfoManagement: React.FC = () => {
             width: 160,
             fixed: 'right',
             render: (_, row) => {
-              const noPic = pictureUrls(row.extInfo).length === 0;
+              const noPic = pictureRefs(row.extInfo).length === 0;
               return (
                 <Space size={0}>
                   <Button type="link" icon={<EyeOutlined />} onClick={() => openDetail(row)}>
@@ -588,8 +652,8 @@ const WordBaseInfoManagement: React.FC = () => {
                 {detailPics.length ? (
                   <Image.PreviewGroup>
                     <Space wrap>
-                      {detailPics.map((url) => (
-                        <Image key={url} src={url} width={96} height={96} style={{ objectFit: 'cover' }} />
+                      {detailPics.map((pic) => (
+                        <StoredPicture key={pic.key} item={pic} width={96} height={96} />
                       ))}
                     </Space>
                   </Image.PreviewGroup>
@@ -620,7 +684,7 @@ const WordBaseInfoManagement: React.FC = () => {
                 </Button>
               </Space>
               <Paragraph type="secondary" style={{ marginBottom: 8 }}>
-                对照上方释义勾选合适配图。候选仅本次展示、不落库；采纳后写入 pictureConfirmed / source_pixabay 等标签，有道同步不会覆盖。
+                对照上方释义勾选合适配图。批量搜到的 Pixabay 图已写入文件表；采纳后未勾选的图会物理删除。有道同步不会覆盖已确认配图。
               </Paragraph>
               {candidates.length > 0 && (
                 <Space wrap size={12}>

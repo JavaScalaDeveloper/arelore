@@ -1,0 +1,226 @@
+package com.arelore.server.core.biz.word.admin.support;
+
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordPictureContentResponse;
+import com.arelore.server.core.registration.entity.CommonBinaryFile;
+import com.arelore.server.core.registration.mapper.CommonBinaryFileMapper;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.security.MessageDigest;
+import java.time.Duration;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
+/**
+ * 单词配图二进制：按内容哈希去重写入 common_binary_file。
+ * 引用计数放在已有 ext_json.refCount 里，减到 0 则物理删除，不改表结构。
+ */
+@Component
+public class WordPictureBinaryStore {
+    private static final int MAX_BYTES = 5 * 1024 * 1024;
+    private static final HttpClient CLIENT = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(8))
+        .followRedirects(HttpClient.Redirect.NORMAL)
+        .build();
+
+    private final CommonBinaryFileMapper fileMapper;
+
+    public WordPictureBinaryStore(CommonBinaryFileMapper fileMapper) {
+        this.fileMapper = fileMapper;
+    }
+
+    /**
+     * 下载远程图并计入一次引用。返回写入单词 pictures[] 的对象（含 fileId，保留原 url 供采纳匹配）。
+     */
+    public JSONObject saveRemoteImage(String url, String source, String photographer) throws Exception {
+        if (!StringUtils.hasText(url)) {
+            throw new IllegalArgumentException("图片地址为空");
+        }
+        byte[] data = download(url.trim());
+        String contentType = detectContentType(data);
+        byte[] hash = sha256(data);
+        Long fileId = insertOrIncrease(hash, data, contentType, source);
+        JSONObject item = new JSONObject();
+        item.put("fileId", fileId);
+        item.put("fileHash", toHex(hash));
+        item.put("url", url.trim());
+        item.put("source", StringUtils.hasText(source) ? source.trim().toUpperCase() : "PIXABAY");
+        if (StringUtils.hasText(photographer)) {
+            item.put("photographer", photographer.trim());
+        }
+        return item;
+    }
+
+    public AdminWordPictureContentResponse loadContent(Long fileId) {
+        if (fileId == null) {
+            return null;
+        }
+        CommonBinaryFile file = fileMapper.selectById(fileId);
+        if (file == null || file.getFileData() == null || file.getFileData().length == 0) {
+            return null;
+        }
+        if (file.getStatus() != null && file.getStatus() == 0) {
+            return null;
+        }
+        AdminWordPictureContentResponse response = new AdminWordPictureContentResponse();
+        response.setFileId(file.getId());
+        response.setContentType(detectContentType(file.getFileData()));
+        response.setBase64Data(Base64.getEncoder().encodeToString(file.getFileData()));
+        return response;
+    }
+
+    /** 这些 fileId 各减少 1 次引用，计数到 0 则物理删除 */
+    public void release(Collection<Long> fileIds) {
+        if (fileIds == null || fileIds.isEmpty()) {
+            return;
+        }
+        Set<Long> unique = new LinkedHashSet<>();
+        for (Long id : fileIds) {
+            if (id != null) {
+                unique.add(id);
+            }
+        }
+        for (Long id : unique) {
+            fileMapper.update(null, new LambdaUpdateWrapper<CommonBinaryFile>()
+                .eq(CommonBinaryFile::getId, id)
+                .setSql(adjustRefCountSql(-1)));
+            fileMapper.delete(new LambdaQueryWrapper<CommonBinaryFile>()
+                .eq(CommonBinaryFile::getId, id)
+                .apply("CAST(IFNULL(JSON_EXTRACT(ext_json, '$.refCount'), 0) AS SIGNED) <= 0"));
+        }
+    }
+
+    public static Set<Long> fileIdsOf(JSONArray pictures) {
+        Set<Long> ids = new LinkedHashSet<>();
+        if (pictures == null) {
+            return ids;
+        }
+        for (int i = 0; i < pictures.size(); i++) {
+            JSONObject item = pictures.getJSONObject(i);
+            if (item == null) {
+                continue;
+            }
+            Long fileId = item.getLong("fileId");
+            if (fileId != null) {
+                ids.add(fileId);
+            }
+        }
+        return ids;
+    }
+
+    private Long insertOrIncrease(byte[] hash, byte[] data, String contentType, String source) {
+        CommonBinaryFile existing = fileMapper.selectOne(new LambdaQueryWrapper<CommonBinaryFile>()
+            .select(CommonBinaryFile::getId)
+            .eq(CommonBinaryFile::getHashValue, hash)
+            .last("limit 1"));
+        if (existing != null) {
+            fileMapper.update(null, new LambdaUpdateWrapper<CommonBinaryFile>()
+                .eq(CommonBinaryFile::getId, existing.getId())
+                .setSql(adjustRefCountSql(1))
+                .set(CommonBinaryFile::getStatus, 1));
+            return existing.getId();
+        }
+        CommonBinaryFile row = new CommonBinaryFile();
+        row.setHashValue(hash);
+        row.setFileData(data);
+        row.setStatus(1);
+        JSONObject ext = new JSONObject();
+        ext.put("contentType", contentType);
+        ext.put("source", StringUtils.hasText(source) ? source.trim().toUpperCase() : "PIXABAY");
+        ext.put("refCount", 1);
+        row.setExtJson(ext.toJSONString());
+        try {
+            fileMapper.insert(row);
+            return row.getId();
+        } catch (DuplicateKeyException e) {
+            CommonBinaryFile again = fileMapper.selectOne(new LambdaQueryWrapper<CommonBinaryFile>()
+                .select(CommonBinaryFile::getId)
+                .eq(CommonBinaryFile::getHashValue, hash)
+                .last("limit 1"));
+            if (again == null) {
+                throw e;
+            }
+            fileMapper.update(null, new LambdaUpdateWrapper<CommonBinaryFile>()
+                .eq(CommonBinaryFile::getId, again.getId())
+                .setSql(adjustRefCountSql(1))
+                .set(CommonBinaryFile::getStatus, 1));
+            return again.getId();
+        }
+    }
+
+    /** 在已有 ext_json 上增减 refCount，不新增表字段 */
+    private static String adjustRefCountSql(int delta) {
+        String op = delta >= 0 ? "+ " + delta : "- " + Math.abs(delta);
+        return "ext_json = JSON_SET(IFNULL(ext_json, '{}'), '$.refCount', "
+            + "CAST(IFNULL(JSON_EXTRACT(ext_json, '$.refCount'), 1) AS SIGNED) " + op + ")";
+    }
+
+    private static byte[] download(String url) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(url))
+            .timeout(Duration.ofSeconds(20))
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .header("Referer", "https://pixabay.com/")
+            .header("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8")
+            .GET()
+            .build();
+        HttpResponse<byte[]> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException("下载图片 HTTP " + response.statusCode());
+        }
+        byte[] body = response.body();
+        if (body == null || body.length == 0) {
+            throw new IllegalStateException("图片内容为空");
+        }
+        if (body.length > MAX_BYTES) {
+            throw new IllegalStateException("图片超过 5MB");
+        }
+        return body;
+    }
+
+    private static byte[] sha256(byte[] data) throws Exception {
+        return MessageDigest.getInstance("SHA-256").digest(data);
+    }
+
+    private static String toHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
+
+    static String detectContentType(byte[] data) {
+        if (data.length >= 4
+            && (data[0] & 0xFF) == 0x89
+            && data[1] == 0x50
+            && data[2] == 0x4E
+            && data[3] == 0x47) {
+            return "image/png";
+        }
+        if (data.length >= 3 && (data[0] & 0xFF) == 0xFF && (data[1] & 0xFF) == 0xD8) {
+            return "image/jpeg";
+        }
+        if (data.length >= 6) {
+            String head = new String(data, 0, 6);
+            if ("GIF87a".equals(head) || "GIF89a".equals(head)) {
+                return "image/gif";
+            }
+        }
+        if (data.length >= 12 && "RIFF".equals(new String(data, 0, 4)) && "WEBP".equals(new String(data, 8, 4))) {
+            return "image/webp";
+        }
+        return "application/octet-stream";
+    }
+}

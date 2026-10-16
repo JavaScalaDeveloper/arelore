@@ -1,6 +1,7 @@
 package com.arelore.server.user.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.arelore.server.core.common.dto.IdRequest;
 import com.arelore.server.core.common.result.Result;
 import com.arelore.server.core.registration.entity.UserRegistrationResult;
 import com.arelore.server.core.registration.enums.AccountTypeEnum;
@@ -30,6 +31,8 @@ import com.arelore.server.core.biz.word.user.dto.UserWordStudyStatsResponse;
 import com.arelore.server.core.biz.word.user.UserWordCurrentBookService;
 import com.arelore.server.core.biz.word.user.UserWordLearnRecordService;
 import com.arelore.server.core.biz.word.user.UserWordPreferenceService;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordPictureContentResponse;
+import com.arelore.server.core.biz.word.admin.support.WordPictureBinaryStore;
 import com.arelore.server.core.biz.word.user.UserWordStudyPlanService;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -53,6 +56,7 @@ public class WordQueryController {
     private final UserWordPreferenceService preferenceService;
     private final AuthService authService;
     private final UserRegistrationResultMapper registrationResultMapper;
+    private final WordPictureBinaryStore pictureBinaryStore;
 
     public WordQueryController(
         AdminWordLanguageService languageService,
@@ -63,7 +67,8 @@ public class WordQueryController {
         UserWordLearnRecordService learnRecordService,
         UserWordPreferenceService preferenceService,
         AuthService authService,
-        UserRegistrationResultMapper registrationResultMapper
+        UserRegistrationResultMapper registrationResultMapper,
+        WordPictureBinaryStore pictureBinaryStore
     ) {
         this.languageService = languageService;
         this.categoryService = categoryService;
@@ -74,6 +79,7 @@ public class WordQueryController {
         this.preferenceService = preferenceService;
         this.authService = authService;
         this.registrationResultMapper = registrationResultMapper;
+        this.pictureBinaryStore = pictureBinaryStore;
     }
 
     @PostMapping("/language/list")
@@ -212,6 +218,31 @@ public class WordQueryController {
             UserWordStudySessionRequest query = request == null ? new UserWordStudySessionRequest() : request;
             query.setUserId(requireUserId(token));
             return Result.success(learnRecordService.createSession(query));
+        } catch (IllegalArgumentException e) {
+            if (e.getMessage() != null && e.getMessage().contains("未登录")) {
+                return Result.error(401, e.getMessage());
+            }
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /** 学习端按 fileId 读取已落库配图 */
+    @PostMapping("/picture-content")
+    public Result<AdminWordPictureContentResponse> pictureContent(
+        @RequestHeader(value = "Authorization", required = false) String token,
+        @RequestBody IdRequest request
+    ) {
+        try {
+            requireUserId(token);
+            Long id = request == null ? null : request.getId();
+            if (id == null) {
+                return Result.error("ID 不能为空");
+            }
+            AdminWordPictureContentResponse content = pictureBinaryStore.loadContent(id);
+            if (content == null) {
+                return Result.error("图片不存在");
+            }
+            return Result.success(content);
         } catch (IllegalArgumentException e) {
             if (e.getMessage() != null && e.getMessage().contains("未登录")) {
                 return Result.error(401, e.getMessage());

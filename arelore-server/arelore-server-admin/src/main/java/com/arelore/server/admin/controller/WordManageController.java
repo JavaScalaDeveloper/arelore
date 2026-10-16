@@ -11,6 +11,7 @@ import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoSyncResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoYoudaoTestResponse;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordPictureContentResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBookRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBookResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordCategoryRequest;
@@ -250,6 +251,20 @@ public class WordManageController {
         try {
             return Result.success(baseInfoService.batchSearchPictures(request));
         } catch (IllegalArgumentException | IllegalStateException e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /** 读取已落库配图二进制，供管理端展示；不走列表联表 */
+    @PostMapping("/base-info/picture-content")
+    public Result<AdminWordPictureContentResponse> baseInfoPictureContent(@RequestBody IdRequest request) {
+        Long id = request == null ? null : request.getId();
+        if (id == null) {
+            return Result.error("ID 不能为空");
+        }
+        try {
+            return Result.success(baseInfoService.pictureContent(id));
+        } catch (IllegalArgumentException e) {
             return Result.error(e.getMessage());
         }
     }

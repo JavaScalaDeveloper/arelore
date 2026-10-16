@@ -19,7 +19,9 @@ import com.arelore.server.core.biz.word.admin.entity.AdminWordBaseInfo;
 import com.arelore.server.core.biz.word.admin.entity.AdminWordEntry;
 import com.arelore.server.core.biz.word.admin.mapper.AdminWordBaseInfoMapper;
 import com.arelore.server.core.biz.word.admin.mapper.AdminWordEntryMapper;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordPictureContentResponse;
 import com.arelore.server.core.biz.word.admin.support.StockImageClient;
+import com.arelore.server.core.biz.word.admin.support.WordPictureBinaryStore;
 import com.arelore.server.core.biz.word.admin.support.YoudaoDictClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,17 +54,20 @@ public class AdminWordBaseInfoServiceImpl
     private final AdminWordEntryMapper entryMapper;
     private final AdminWordBookService bookService;
     private final StockImageClient stockImageClient;
+    private final WordPictureBinaryStore pictureBinaryStore;
 
     public AdminWordBaseInfoServiceImpl(
         AdminWordBaseInfoMapper mapper,
         AdminWordEntryMapper entryMapper,
         AdminWordBookService bookService,
-        StockImageClient stockImageClient
+        StockImageClient stockImageClient,
+        WordPictureBinaryStore pictureBinaryStore
     ) {
         this.mapper = mapper;
         this.entryMapper = entryMapper;
         this.bookService = bookService;
         this.stockImageClient = stockImageClient;
+        this.pictureBinaryStore = pictureBinaryStore;
     }
 
     @Override
@@ -486,7 +491,6 @@ public class AdminWordBaseInfoServiceImpl
             ? Integer.MAX_VALUE
             : Math.max(1, Math.min(50_000, req.getLimit()));
         int perWord = req.getPicturesPerWord() == null ? 4 : Math.max(1, Math.min(12, req.getPicturesPerWord()));
-        String tag = StringUtils.hasText(req.getTag()) ? req.getTag().trim() : "no_picture";
         String source = StringUtils.hasText(req.getSource()) ? req.getSource().trim().toUpperCase() : "PIXABAY";
         if (!"YOUDAO".equals(source) && !"PIXABAY".equals(source)) {
             throw new IllegalArgumentException("source 仅支持 YOUDAO 或 PIXABAY");
@@ -504,10 +508,11 @@ public class AdminWordBaseInfoServiceImpl
             pageRounds++;
             AdminWordBaseInfoRequest query = new AdminWordBaseInfoRequest();
             query.setLanguageCode(req.getLanguageCode());
-            query.setTag(tag);
-            if ("no_picture".equalsIgnoreCase(tag)) {
-                query.setHasPicture(false);
-            }
+            query.setWord(req.getWord());
+            query.setTags(req.getTags());
+            query.setTag(req.getTag());
+            query.setHasPicture(req.getHasPicture());
+            query.setPictureConfirmed(req.getPictureConfirmed());
             int fetchSize = Math.min(BATCH_SEARCH_PAGE_SIZE, maxWords - result.getScanned());
             LambdaQueryWrapper<AdminWordBaseInfo> wrapper = buildWrapper(query)
                 .gt(AdminWordBaseInfo::getId, lastId)
@@ -531,8 +536,8 @@ public class AdminWordBaseInfoServiceImpl
                     continue;
                 }
                 JSONObject ext = parseExt(row.getExtInfo());
-                if (pictureCount(ext) > 0) {
-                    // 已有图（含已确认）：批量搜图跳过
+                if (pictureCount(ext) > 0 && (youdao || !pixabayPicturesNeedStore(ext))) {
+                    // 已落库或非 Pixabay 外链：不再搜。仅有过期 Pixabay 地址的词走下面的重新搜图。
                     result.setSkipped(result.getSkipped() + 1);
                     continue;
                 }
@@ -562,12 +567,74 @@ public class AdminWordBaseInfoServiceImpl
         } else if (youdao) {
             result.setNote("已分页扫完无图词；有道配图已确认可用，释义/音标等一并落库。");
         } else {
-            result.setNote("已分页扫完无图词并写入配图（仍为未确认），请人工核对后采纳锁定；图源 Pixabay。");
+            result.setNote("已按当前筛选重新搜图，并把 Pixabay 图片写入 common_binary_file。采纳时未勾选的图会物理删除。");
         }
         return result;
     }
 
-    /** Pixabay：写入未确认配图；无候选计 failed */
+    /** 只有过期外链、还没有 fileId 的 Pixabay 图，需要重新搜再保存 */
+    private static boolean pixabayPicturesNeedStore(JSONObject ext) {
+        if (ext == null) {
+            return false;
+        }
+        String pictureSource = ext.getString("pictureSource");
+        JSONArray pictures = ext.getJSONArray("pictures");
+        if (pictures == null || pictures.isEmpty()) {
+            return false;
+        }
+        boolean pixabay = "PIXABAY".equalsIgnoreCase(pictureSource);
+        boolean missing = false;
+        for (int i = 0; i < pictures.size(); i++) {
+            JSONObject item = pictures.getJSONObject(i);
+            if (item == null) {
+                continue;
+            }
+            String source = item.getString("source");
+            if ("PIXABAY".equalsIgnoreCase(source)) {
+                pixabay = true;
+            }
+            if (item.getLong("fileId") == null && StringUtils.hasText(item.getString("url"))) {
+                missing = true;
+            }
+        }
+        return pixabay && missing;
+    }
+
+    /**
+     * 刚搜到的地址按大图、中图、预览依次下载。旧的 pixabay.com/get 外链已过期，不在这里使用。
+     */
+    private JSONObject saveFreshPixabayImage(String word, Map<String, String> candidate) {
+        if (candidate == null) {
+            return null;
+        }
+        String[] urls = new String[] {
+            YoudaoDictClient.normalizePictureUrl(candidate.get("url")),
+            YoudaoDictClient.normalizePictureUrl(candidate.get("webformatUrl")),
+            YoudaoDictClient.normalizePictureUrl(candidate.get("thumbUrl"))
+        };
+        String photographer = candidate.get("photographer");
+        Exception last = null;
+        String tried = "";
+        for (String url : urls) {
+            if (!StringUtils.hasText(url) || url.equals(tried)) {
+                continue;
+            }
+            tried = url;
+            try {
+                return pictureBinaryStore.saveRemoteImage(url, "PIXABAY", photographer);
+            } catch (Exception e) {
+                last = e;
+                log.warn("pixabay image store failed word={} url={}: {}",
+                    word, url, shortError(e.getMessage()));
+            }
+        }
+        if (last == null) {
+            log.warn("pixabay image store skipped word={}: empty url", word);
+        }
+        return null;
+    }
+
+    /** Pixabay：先搜图，再把新地址下载进文件表；无候选计 failed */
     private boolean fillPicturesFromPixabay(
         AdminWordBaseInfo row,
         JSONObject ext,
@@ -575,36 +642,48 @@ public class AdminWordBaseInfoServiceImpl
         AdminWordBaseInfoBatchSearchResponse result
     ) throws Exception {
         List<Map<String, String>> candidates = stockImageClient.search(row.getWord(), 1);
+        Set<Long> previousIds = WordPictureBinaryStore.fileIdsOf(ext.getJSONArray("pictures"));
         JSONArray pictures = new JSONArray();
+        List<Long> storedIds = new ArrayList<>();
         int take = Math.min(perWord, candidates.size());
-        for (int i = 0; i < take; i++) {
-            Map<String, String> c = candidates.get(i);
-            if (c == null || !StringUtils.hasText(c.get("url"))) {
-                continue;
+        try {
+            for (int i = 0; i < take; i++) {
+                Map<String, String> c = candidates.get(i);
+                if (c == null || !StringUtils.hasText(c.get("url"))) {
+                    continue;
+                }
+                JSONObject item = saveFreshPixabayImage(row.getWord(), c);
+                if (item == null) {
+                    continue;
+                }
+                pictures.add(item);
+                Long fileId = item.getLong("fileId");
+                if (fileId != null) {
+                    storedIds.add(fileId);
+                }
             }
-            JSONObject item = new JSONObject();
-            item.put("url", YoudaoDictClient.normalizePictureUrl(c.get("url")));
-            item.put("source", "PIXABAY");
-            if (StringUtils.hasText(c.get("photographer"))) {
-                item.put("photographer", c.get("photographer"));
+            if (pictures.isEmpty()) {
+                result.setFailed(result.getFailed() + 1);
+                return false;
             }
-            pictures.add(item);
+            ext.put("pictures", pictures);
+            ext.put("pictureSource", "PIXABAY");
+            ext.put("pictureConfirmed", false);
+            ext.remove("pictureConfirmedAt");
+            ext.remove("syncError");
+            ext.put("lastBatchSearchTime", LocalDateTime.now().format(SYNC_TIME_FMT));
+            refreshMetaTags(ext);
+            row.setExtInfo(ext.toJSONString());
+            mapper.updateById(row);
+            Set<Long> dropped = new LinkedHashSet<>(previousIds);
+            dropped.removeAll(storedIds);
+            pictureBinaryStore.release(dropped);
+            result.setFilled(result.getFilled() + 1);
+            return true;
+        } catch (Exception e) {
+            pictureBinaryStore.release(storedIds);
+            throw e;
         }
-        if (pictures.isEmpty()) {
-            result.setFailed(result.getFailed() + 1);
-            return false;
-        }
-        ext.put("pictures", pictures);
-        ext.put("pictureSource", "PIXABAY");
-        ext.put("pictureConfirmed", false);
-        ext.remove("pictureConfirmedAt");
-        ext.remove("syncError");
-        ext.put("lastBatchSearchTime", LocalDateTime.now().format(SYNC_TIME_FMT));
-        refreshMetaTags(ext);
-        row.setExtInfo(ext.toJSONString());
-        mapper.updateById(row);
-        result.setFilled(result.getFilled() + 1);
-        return true;
     }
 
     /** 有道：有图则写入并直接确认；释义/音标等一并落库；无图但有释义仍保存，计 failed */
@@ -673,23 +752,86 @@ public class AdminWordBaseInfoServiceImpl
                 ? stockImageClient.activeSource()
                 : "PIXABAY");
         JSONObject ext = parseExt(row.getExtInfo());
+        JSONArray previous = ext.getJSONArray("pictures");
+        Set<Long> previousIds = WordPictureBinaryStore.fileIdsOf(previous);
         JSONArray pictures = new JSONArray();
-        for (String url : urls) {
-            JSONObject item = new JSONObject();
-            item.put("url", url);
-            item.put("source", pictureSource);
-            pictures.add(item);
+        Set<Long> keptIds = new LinkedHashSet<>();
+        List<Long> newlyStored = new ArrayList<>();
+        try {
+            for (String url : urls) {
+                JSONObject reused = findStoredPicture(previous, url);
+                if (reused != null) {
+                    pictures.add(reused);
+                    Long fileId = reused.getLong("fileId");
+                    if (fileId != null) {
+                        keptIds.add(fileId);
+                    }
+                    continue;
+                }
+                if ("PIXABAY".equals(pictureSource)) {
+                    JSONObject saved = pictureBinaryStore.saveRemoteImage(url, pictureSource, null);
+                    pictures.add(saved);
+                    Long fileId = saved.getLong("fileId");
+                    if (fileId != null) {
+                        keptIds.add(fileId);
+                        newlyStored.add(fileId);
+                    }
+                    continue;
+                }
+                JSONObject item = new JSONObject();
+                item.put("url", url);
+                item.put("source", pictureSource);
+                pictures.add(item);
+            }
+            ext.put("pictures", pictures);
+            ext.put("pictureSource", pictureSource);
+            ext.put("pictureConfirmed", true);
+            ext.put("pictureConfirmedAt", LocalDateTime.now().format(SYNC_TIME_FMT));
+            ext.remove("pictureCandidates");
+            ext.remove("syncError");
+            refreshMetaTags(ext);
+            row.setExtInfo(ext.toJSONString());
+            mapper.updateById(row);
+        } catch (RuntimeException e) {
+            pictureBinaryStore.release(newlyStored);
+            throw e;
+        } catch (Exception e) {
+            pictureBinaryStore.release(newlyStored);
+            throw new IllegalStateException("保存采纳图片失败: " + shortError(e.getMessage()));
         }
-        ext.put("pictures", pictures);
-        ext.put("pictureSource", pictureSource);
-        ext.put("pictureConfirmed", true);
-        ext.put("pictureConfirmedAt", LocalDateTime.now().format(SYNC_TIME_FMT));
-        ext.remove("pictureCandidates");
-        ext.remove("syncError");
-        refreshMetaTags(ext);
-        row.setExtInfo(ext.toJSONString());
-        mapper.updateById(row);
+        Set<Long> dropped = new LinkedHashSet<>(previousIds);
+        dropped.removeAll(keptIds);
+        pictureBinaryStore.release(dropped);
         return getById(row.getId());
+    }
+
+    @Override
+    public AdminWordPictureContentResponse pictureContent(Long fileId) {
+        if (fileId == null) {
+            throw new IllegalArgumentException("fileId 不能为空");
+        }
+        AdminWordPictureContentResponse content = pictureBinaryStore.loadContent(fileId);
+        if (content == null) {
+            throw new IllegalArgumentException("图片不存在");
+        }
+        return content;
+    }
+
+    private static JSONObject findStoredPicture(JSONArray pictures, String url) {
+        if (pictures == null || !StringUtils.hasText(url)) {
+            return null;
+        }
+        for (int i = 0; i < pictures.size(); i++) {
+            JSONObject item = pictures.getJSONObject(i);
+            if (item == null || item.getLong("fileId") == null) {
+                continue;
+            }
+            String stored = YoudaoDictClient.normalizePictureUrl(item.getString("url"));
+            if (url.equals(stored)) {
+                return item;
+            }
+        }
+        return null;
     }
 
     /** 仅落库语种+词形；已存在则跳过，不调有道、不改配图 */

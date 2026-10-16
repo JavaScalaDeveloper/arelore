@@ -9,6 +9,7 @@ import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoSyncResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoYoudaoTestResponse;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordPictureContentResponse;
 
 public interface AdminWordBaseInfoService extends BaseService<AdminWordBaseInfoRequest, AdminWordBaseInfoResponse> {
     /**
@@ -33,4 +34,7 @@ public interface AdminWordBaseInfoService extends BaseService<AdminWordBaseInfoR
 
     /** 人工采纳配图并锁定，之后自动同步不会覆盖 pictures */
     AdminWordBaseInfoResponse adoptPictures(AdminWordBaseInfoAdoptPicturesRequest request);
+
+    /** 按 fileId 读取已落库配图，列表接口不带二进制 */
+    AdminWordPictureContentResponse pictureContent(Long fileId);
 }
