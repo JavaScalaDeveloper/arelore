@@ -47,7 +47,7 @@
         <text class="field-label">拼读语速</text>
         <text class="field-value">{{spellSpeed}}</text>
       </view>
-      <text class="field-tip">0 最慢，10 最快（只调字母间隔；松手后用 hello 试听）</text>
+      <text class="field-tip">0 最慢，10 最快（缩短字母间隔，并略加快每个字母；松手后用 hello 试听）</text>
       <text class="field-tip preview-tip" wx:if="{{previewing}}">试听中：hello → 拼读…</text>
       <slider
         class="field-slider"
@@ -61,6 +61,28 @@
         bindchanging="onSpellSpeedChanging"
         bindchange="onSpellSpeedChange"
       />
+    </view>
+
+    <view class="field">
+      <view class="field-head">
+        <text class="field-label">拼读音色</text>
+        <text class="field-value">{{letterVoiceLabel}}</text>
+      </view>
+      <text class="field-tip">本地字母音频；随机则每词换人，选定则固定一人</text>
+      <view class="chip-row voice-chip-row">
+        <view
+          class="chip {{letterVoice === 'random' ? 'active' : ''}}"
+          data-voice="random"
+          bindtap="onSelectLetterVoice"
+        >随机</view>
+        <view
+          class="chip {{letterVoice === item.id ? 'active' : ''}}"
+          wx:for="{{letterVoiceOptions}}"
+          wx:key="id"
+          data-voice="{{item.id}}"
+          bindtap="onSelectLetterVoice"
+        >{{item.label}}</view>
+      </view>
     </view>
 
     <view class="field">

@@ -36,6 +36,7 @@ Page({
     isListenMode: false,
     spellSpeed: storage.DEFAULT_SPELL_SPEED,
     wordRepeatCount: storage.DEFAULT_WORD_REPEAT_COUNT,
+    letterVoice: storage.DEFAULT_LETTER_VOICE,
     playingType: 0,
     playingExampleKey: '',
     elapsedText: '00:00',
@@ -78,7 +79,8 @@ Page({
       studyMode: p.studyMode,
       isListenMode,
       spellSpeed: p.spellSpeed,
-      wordRepeatCount: p.wordRepeatCount
+      wordRepeatCount: p.wordRepeatCount,
+      letterVoice: p.letterVoice
     });
   },
 
@@ -278,6 +280,7 @@ Page({
       });
       this.startTimer();
       this.autoPlayCurrent();
+      this.bindStoredPictures(cards[0]);
     }).catch((err) => {
       const isNet = !!(err && err.isNetworkError);
       this.setData({
@@ -342,6 +345,7 @@ Page({
         },
         wordRepeatCount: this.data.wordRepeatCount,
         spellSpeed: this.data.spellSpeed,
+        letterVoice: this.data.letterVoice,
         meaning
       });
       return;
@@ -390,7 +394,54 @@ Page({
   },
 
   onPictureError() {
+    const card = this.data.card;
+    const ids = card && Array.isArray(card.pictureFileIds) ? card.pictureFileIds.filter(Boolean) : [];
+    if (ids.length && card.picture && String(card.picture).indexOf('word-pic-') < 0) {
+      this.bindStoredPictures(card);
+      return;
+    }
     this.setData({ pictureError: true });
+  },
+
+  bindStoredPictures(card) {
+    const ids = card && Array.isArray(card.pictureFileIds) ? card.pictureFileIds.filter(Boolean) : [];
+    if (!ids.length || !card) {
+      return;
+    }
+    const wordCode = card.wordCode;
+    Promise.all(ids.map((id) => this.loadStoredPicture(id))).then((paths) => {
+      const urls = paths.filter(Boolean);
+      const current = this.data.card;
+      if (!urls.length || !current || current.wordCode !== wordCode) {
+        return;
+      }
+      this.setData({
+        'card.picture': urls[0],
+        'card.pictures': urls,
+        pictureError: false
+      });
+    });
+  },
+
+  loadStoredPicture(fileId) {
+    return postWithAuth('/user/word/picture-content', { id: fileId }).then((res) => {
+      const data = res && res.code === 200 ? res.data : null;
+      if (!data || !data.base64Data) {
+        return '';
+      }
+      const type = String(data.contentType || '');
+      const ext = type.indexOf('png') >= 0 ? 'png' : (type.indexOf('webp') >= 0 ? 'webp' : 'jpg');
+      const filePath = `${wx.env.USER_DATA_PATH}/word-pic-${fileId}.${ext}`;
+      return new Promise((resolve) => {
+        wx.getFileSystemManager().writeFile({
+          filePath,
+          data: data.base64Data,
+          encoding: 'base64',
+          success: () => resolve(filePath),
+          fail: () => resolve('')
+        });
+      });
+    }).catch(() => '');
   },
 
   onPreviewPictures() {
@@ -655,6 +706,7 @@ Page({
       playing: false
     });
     this.autoPlayCurrent();
+    this.bindStoredPictures(cards[index]);
   },
 
   onBack() {

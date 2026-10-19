@@ -1,5 +1,6 @@
 const storage = require('../../utils/storage');
 const preference = require('../../utils/preference');
+const letterVoices = require('../../utils/letterVoices');
 const tts = require('../../utils/tts');
 const { postWithAuth, shortErrorMessage } = require('../../utils/request');
 
@@ -10,6 +11,9 @@ Page({
     studyMode: storage.STUDY_MODE_SEE_MEANING,
     spellSpeed: storage.DEFAULT_SPELL_SPEED,
     wordRepeatCount: storage.DEFAULT_WORD_REPEAT_COUNT,
+    letterVoice: storage.DEFAULT_LETTER_VOICE,
+    letterVoiceLabel: letterVoices.letterVoiceLabel(storage.DEFAULT_LETTER_VOICE),
+    letterVoiceOptions: letterVoices.LETTER_VOICES,
     saving: false,
     previewing: false
   },
@@ -66,8 +70,8 @@ Page({
     }
   },
 
-  /** 松手后试听：hello → 按当前语速拼读字母 */
-  previewSpellSpeed(spellSpeed) {
+  /** 松手后试听：hello → 按当前语速/音色拼读字母 */
+  previewSpellSpeed(spellSpeed, letterVoice) {
     this.initAudio();
     this.stopPreview();
     if (!this.audio) {
@@ -76,7 +80,8 @@ Page({
     this.setData({ previewing: true });
     this.ttsSession = tts.playWordThenSpell(this.audio, SPELL_SPEED_PREVIEW_WORD, 2, {
       wordRepeatCount: 1,
-      spellSpeed,
+      spellSpeed: spellSpeed != null ? spellSpeed : this.data.spellSpeed,
+      letterVoice: letterVoice != null ? letterVoice : this.data.letterVoice,
       meaning: '',
       onEnd: () => {
         this.ttsSession = null;
@@ -90,7 +95,9 @@ Page({
     this.setData({
       studyMode: p.studyMode,
       spellSpeed: p.spellSpeed,
-      wordRepeatCount: p.wordRepeatCount
+      wordRepeatCount: p.wordRepeatCount,
+      letterVoice: p.letterVoice,
+      letterVoiceLabel: letterVoices.letterVoiceLabel(p.letterVoice)
     });
   },
 
@@ -139,7 +146,8 @@ Page({
       const saved = storage.setPreference({
         studyMode: res.data && res.data.studyMode,
         spellSpeed: res.data && res.data.spellSpeed,
-        wordRepeatCount: res.data && res.data.wordRepeatCount
+        wordRepeatCount: res.data && res.data.wordRepeatCount,
+        letterVoice: next.letterVoice
       });
       this.applyLocal(saved);
       if (!opts.silent) {
@@ -189,6 +197,20 @@ Page({
     this.setData({ spellSpeed });
     this.persist({ spellSpeed }, { silent: true });
     this.previewSpellSpeed(spellSpeed);
+  },
+
+  onSelectLetterVoice(e) {
+    if (this.data.saving) {
+      return;
+    }
+    const letterVoice = letterVoices.normalizeLetterVoice(e.currentTarget.dataset.voice);
+    if (letterVoice === this.data.letterVoice) {
+      this.previewSpellSpeed(this.data.spellSpeed, letterVoice);
+      return;
+    }
+    // 仅本机保存，不打云端
+    this.persist({ letterVoice }, { silent: true, skipRemote: true });
+    this.previewSpellSpeed(this.data.spellSpeed, letterVoice);
   },
 
   onSelectRepeat(e) {

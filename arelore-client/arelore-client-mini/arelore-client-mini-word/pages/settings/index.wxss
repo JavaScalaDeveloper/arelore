@@ -136,6 +136,19 @@
   margin-top: 16rpx;
 }
 
+.voice-chip-row {
+  flex-wrap: wrap;
+}
+
+.voice-chip-row .chip {
+  flex: 0 0 auto;
+  min-width: 160rpx;
+  padding: 0 20rpx;
+  margin-right: 12rpx;
+  margin-bottom: 12rpx;
+  font-size: 24rpx;
+}
+
 .chip {
   flex: 1;
   height: 72rpx;

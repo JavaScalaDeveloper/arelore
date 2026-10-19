@@ -29,10 +29,12 @@ function syncPreference() {
     if (res.code !== 200 || !res.data) {
       return local;
     }
+    // letterVoice 仅本机，同步云端偏好时保留本地值
     return storage.setPreference({
       studyMode: res.data.studyMode,
       spellSpeed: res.data.spellSpeed,
-      wordRepeatCount: res.data.wordRepeatCount
+      wordRepeatCount: res.data.wordRepeatCount,
+      letterVoice: local.letterVoice
     });
   }).catch(() => local);
 }
@@ -62,7 +64,8 @@ function pushLocalPreference() {
     return storage.setPreference({
       studyMode: res.data.studyMode,
       spellSpeed: res.data.spellSpeed,
-      wordRepeatCount: res.data.wordRepeatCount
+      wordRepeatCount: res.data.wordRepeatCount,
+      letterVoice: local.letterVoice
     });
   }).catch(() => local);
 }

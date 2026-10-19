@@ -1,3 +1,5 @@
+const letterVoices = require('./letterVoices');
+
 const KEY_BOOK = 'word_current_book_id';
 const KEY_USER = 'word_current_user';
 const KEY_TOKEN = 'token';
@@ -15,6 +17,7 @@ const STUDY_MODE_SEE_PICK_IMAGE = 'see_pick_image';
 
 const DEFAULT_SPELL_SPEED = 5;
 const DEFAULT_WORD_REPEAT_COUNT = 1;
+const DEFAULT_LETTER_VOICE = letterVoices.LETTER_VOICE_RANDOM;
 
 function clampInt(n, min, max, fallback) {
   const v = Number(n);
@@ -33,7 +36,11 @@ function normalizePreference(raw) {
   return {
     studyMode,
     spellSpeed: clampInt(src.spellSpeed, 0, 10, DEFAULT_SPELL_SPEED),
-    wordRepeatCount: clampInt(src.wordRepeatCount, 1, 3, DEFAULT_WORD_REPEAT_COUNT)
+    wordRepeatCount: clampInt(src.wordRepeatCount, 1, 3, DEFAULT_WORD_REPEAT_COUNT),
+    /** 拼读音色：random | jenny | guy | sonia | ryan（仅本机，不同步服务端） */
+    letterVoice: letterVoices.normalizeLetterVoice(
+      src.letterVoice != null ? src.letterVoice : DEFAULT_LETTER_VOICE
+    )
   };
 }
 
@@ -116,6 +123,7 @@ module.exports = {
   STUDY_MODE_SEE_PICK_IMAGE,
   DEFAULT_SPELL_SPEED,
   DEFAULT_WORD_REPEAT_COUNT,
+  DEFAULT_LETTER_VOICE,
   getBookId,
   setBookId,
   getToken,
