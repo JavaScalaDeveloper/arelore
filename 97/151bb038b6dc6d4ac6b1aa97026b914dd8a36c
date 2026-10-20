@@ -1,0 +1,129 @@
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/user/dto/EmailResetPasswordConfirmRequest.java
+  551bca709d578fc4 1-19
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/AdminWordBaseInfoServiceImpl.java
+  551bca709d578fc4 10-11,25-26,35-36,40,58,66,73-74,81,107,118-124,126-127,188-206,846-982,990,1043-1044,1069-1070,1077
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/support/WordPictureBinaryStore.java
+  551bca709d578fc4 65-86,98-101,104,109-120,243-245,265-271
+arelore-server/arelore-server-user/src/main/java/com/arelore/server/user/controller/AuthController.java
+  551bca709d578fc4 8-12,17-19,93-247
+arelore-server/arelore-server-user/src/main/java/com/arelore/server/user/controller/WordQueryController.java
+  551bca709d578fc4 229,243
+arelore-client/arelore-client-web/src/pages/word/utils/storage.ts
+  551bca709d578fc4 1-116
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/registration/enums/AccountTypeEnum.java
+  551bca709d578fc4 17-33
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/dto/AdminWordBaseInfoBatchMeaningAudioResponse.java
+  551bca709d578fc4 1-16
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/user/dto/EmailCodeApplyRequest.java
+  551bca709d578fc4 1-15
+arelore-server/logs/arelore-server-user-error.log
+  551bca709d578fc4 1-53
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/dto/AdminWordBaseInfoBatchMeaningAudioRequest.java
+  551bca709d578fc4 1-31
+arelore-client/arelore-client-web-admin/src/pages/WordBaseInfoManagement.tsx
+  551bca709d578fc4 17,101-110,113-122,135-136,143-144,150-253,272,512-548,553,561-568,654,715,726-731,829-849
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/support/Qwen3TtsClient.java
+  551bca709d578fc4 1-147
+arelore-client/arelore-client-web/src/pages/word/api/word.ts
+  551bca709d578fc4 1-62
+arelore-client/arelore-client-web/src/pages/word/components/AppShell.tsx
+  551bca709d578fc4 1-43
+arelore-server/logs/arelore-server-user-info.log
+  551bca709d578fc4 1-16
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/user/dto/EmailPasswordLoginRequest.java
+  551bca709d578fc4 1-20
+arelore-client/arelore-client-web/src/pages/word/pages/HomePage.tsx
+  551bca709d578fc4 1-189
+arelore-client/arelore-client-web/src/pages/word/pages/SettingsPage.tsx
+  551bca709d578fc4 1-213
+arelore-client/arelore-client-web/src/pages/word/utils/preference.ts
+  551bca709d578fc4 1-69
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/AdminWordBaseInfoService.java
+  551bca709d578fc4 5-6,37-42,46
+arelore-client/arelore-client-web/src/App.tsx
+  551bca709d578fc4 5,10-11,149,157,216-219
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/support/MeaningSpeechTextBuilder.java
+  551bca709d578fc4 1-141
+arelore-client/arelore-client-web/src/pages/word/api/auth.ts
+  551bca709d578fc4 1-62
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/registration/mail/NoopEmailSender.java
+  551bca709d578fc4 1-22
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/user/dto/EmailRegisterConfirmRequest.java
+  551bca709d578fc4 1-19
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/user/AuthService.java
+  551bca709d578fc4 7-11,51-85
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/registration/mail/EmailSender.java
+  551bca709d578fc4 1-16
+arelore-client/arelore-client-web/src/pages/word/utils/tts.ts
+  551bca709d578fc4 1-451
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/user/AuthServiceImpl.java
+  551bca709d578fc4 9-11,15,21-25,36,39,54-68,75,80-81,86,378-496,650-881
+arelore-client/arelore-client-web/src/pages/word/WordApp.tsx
+  551bca709d578fc4 1-51
+arelore-server/arelore-server-user/src/main/resources/application-local.yml.example
+  551bca709d578fc4 1-10
+arelore-client/arelore-client-web/src/pages/word/pages/BooksPage.tsx
+  551bca709d578fc4 1-312
+arelore-client/arelore-client-web/src/pages/word/word.css
+  551bca709d578fc4 1-289
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/user/dto/EmailCodeLoginRequest.java
+  551bca709d578fc4 1-20
+arelore-client/arelore-client-web/src/pages/word/utils/request.ts
+  551bca709d578fc4 1-65
+arelore-server/arelore-server-admin/src/main/java/com/arelore/server/admin/controller/WordManageController.java
+  551bca709d578fc4 7-8,260-272
+arelore-client/arelore-client-web-admin/src/api/admin.tsx
+  551bca709d578fc4 152-163
+arelore-client/arelore-client-web/src/pages/word/pages/ProfilePage.tsx
+  551bca709d578fc4 1-126
+arelore-client/arelore-client-web/src/pages/word/pages/StudyPage.tsx
+  551bca709d578fc4 1-627
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/registration/mail/SmtpEmailSender.java
+  551bca709d578fc4 1-68
+arelore-client/arelore-client-web/src/pages/word/utils/letterVoices.ts
+  551bca709d578fc4 1-43
+.gitignore
+  551bca709d578fc4 5-7
+arelore-client/arelore-client-web/src/utils/passwordStrength.ts
+  551bca709d578fc4 1-62
+arelore-client/arelore-client-web/src/pages/word/pages/LoginPage.tsx
+  551bca709d578fc4 1-392
+arelore-client/arelore-client-web/src/pages/word/components/AuthGuard.tsx
+  551bca709d578fc4 1-11
+arelore-server/arelore-server-core/pom.xml
+  551bca709d578fc4 88-93
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/registration/mail/EmailSenderConfiguration.java
+  551bca709d578fc4 1-34
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/user/UserWordLearnRecordServiceImpl.java
+  551bca709d578fc4 715-717,790,796-802
+arelore-server/logs/arelore-server-user-debug.log
+  551bca709d578fc4 1
+arelore-server/arelore-server-admin/src/main/resources/application.yml
+  551bca709d578fc4 54,61-70
+arelore-server/arelore-server-user/src/main/resources/application.yml
+  551bca709d578fc4 22-23,51-67,112-120
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/common/constant/CommonConstants.java
+  551bca709d578fc4 175
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/user/dto/UserWordStudyCardResponse.java
+  551bca709d578fc4 22-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "97151bb038b6dc6d4ac6b1aa97026b914dd8a36c",
+  "prompts": {
+    "551bca709d578fc4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cursor-bridge-synthetic",
+        "model": "unknown"
+      },
+      "human_author": "huang.huang1 <huang.huang1@jtexpress.com>",
+      "messages": [],
+      "total_additions": 8845,
+      "total_deletions": 915,
+      "accepted_lines": 13151,
+      "overriden_lines": 0
+    }
+  }
+}
