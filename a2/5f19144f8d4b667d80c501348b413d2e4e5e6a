@@ -1,0 +1,23 @@
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/support/WordPictureBinaryStore.java
+  551bca709d578fc4 26-27,57,68,83,163,169,172,183,199,212-224
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "a25f19144f8d4b667d80c501348b413d2e4e5e6a",
+  "prompts": {
+    "551bca709d578fc4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cursor-bridge-synthetic",
+        "model": "unknown"
+      },
+      "human_author": "huang.huang1 <huang.huang1@jtexpress.com>",
+      "messages": [],
+      "total_additions": 23,
+      "total_deletions": 5,
+      "accepted_lines": 464,
+      "overriden_lines": 0
+    }
+  }
+}
