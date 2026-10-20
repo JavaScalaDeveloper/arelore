@@ -712,6 +712,9 @@ public class UserWordLearnRecordServiceImpl
         List<String> pictures = bundle == null ? List.of() : bundle.urls;
         card.setPictures(new ArrayList<>(pictures));
         card.setPictureFileIds(bundle == null ? new ArrayList<>() : new ArrayList<>(bundle.fileIds));
+        if (bundle != null && bundle.meaningAudioFileId != null) {
+            card.setMeaningAudioFileId(bundle.meaningAudioFileId);
+        }
         if (!pictures.isEmpty()) {
             card.setPicture(pictures.get(0));
         }
@@ -784,11 +787,19 @@ public class UserWordLearnRecordServiceImpl
     private static final class WordPictureBundle {
         private final List<String> urls = new ArrayList<>();
         private final List<Long> fileIds = new ArrayList<>();
+        private Long meaningAudioFileId;
     }
 
     private WordPictureBundle extractPictures(String extInfo) {
         WordPictureBundle bundle = new WordPictureBundle();
         JSONObject ext = parseExt(extInfo);
+        JSONObject meaningAudio = ext.getJSONObject("meaningAudio");
+        if (meaningAudio != null) {
+            Long audioFileId = meaningAudio.getLong("fileId");
+            if (audioFileId != null) {
+                bundle.meaningAudioFileId = audioFileId;
+            }
+        }
         JSONArray arr = ext.getJSONArray("pictures");
         if (arr == null || arr.isEmpty()) {
             return bundle;

@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Button, Space, message } from 'antd';
 import { 
   HomeOutlined,
+  BookOutlined,
   SolutionOutlined,
   CustomerServiceOutlined,
   PhoneOutlined
 } from '@ant-design/icons';
-import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom';
+import WordApp from './pages/word/WordApp';
 import WechatLoginModal from './pages/LoginPage';
 import TextMaskingPage from './pages/TextMaskingPage';
 import FileDetectionPage from './pages/FileDetectionPage';
@@ -144,6 +146,7 @@ const navigationItems: any[] = [
       }
     ]
   },
+  { key: 'word', icon: <BookOutlined />, label: '背单词', path: '/word' },
   { key: 'contact', icon: <PhoneOutlined />, label: '联系我们', path: '/home/contact' },
 ];
 
@@ -151,6 +154,7 @@ function App() {
   const [current, setCurrent] = useState<string>('home');
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // 初始化时检查登录状态
   useEffect(() => {
@@ -208,6 +212,10 @@ function App() {
   const handleLoginSuccess = (user: UserInfo) => {
     message.success(`欢迎回来，${user.nickname || user.username}！`);
   };
+
+  if (location.pathname === '/word' || location.pathname.startsWith('/word/')) {
+    return <WordApp />;
+  }
 
   return (
     <Layout className="app-layout">

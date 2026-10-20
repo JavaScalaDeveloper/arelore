@@ -85,6 +85,12 @@
             <artifactId>commons-lang3</artifactId>
         </dependency>
 
+        <!-- 邮件发送（163 SMTP 等） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- Validation API -->
         <dependency>
             <groupId>jakarta.validation</groupId>

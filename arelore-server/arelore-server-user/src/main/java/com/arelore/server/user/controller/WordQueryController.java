@@ -226,7 +226,7 @@ public class WordQueryController {
         }
     }
 
-    /** 学习端按 fileId 读取已落库配图 */
+    /** 学习端按 fileId 读取已落库配图/释义语音 */
     @PostMapping("/picture-content")
     public Result<AdminWordPictureContentResponse> pictureContent(
         @RequestHeader(value = "Authorization", required = false) String token,
@@ -240,7 +240,7 @@ public class WordQueryController {
             }
             AdminWordPictureContentResponse content = pictureBinaryStore.loadContent(id);
             if (content == null) {
-                return Result.error("图片不存在");
+                return Result.error("文件不存在");
             }
             return Result.success(content);
         } catch (IllegalArgumentException e) {

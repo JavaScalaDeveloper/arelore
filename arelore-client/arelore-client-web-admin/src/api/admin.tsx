@@ -149,6 +149,18 @@ export const adminApi = {
     picturesPerWord?: number;
   }): Promise<ApiResponse<any>> =>
     request.post('/admin/word/base-info/batch-search-pictures', data || {}, { timeout: 60 * 60 * 1000 }),
+  /** 批量用本地 Qwen3-TTS 生成释义语音；force=true 强制重生成 */
+  batchGenerateWordBaseInfoMeaningAudio: (data?: {
+    languageCode?: string;
+    word?: string;
+    tag?: string;
+    tags?: string[];
+    hasPicture?: boolean;
+    pictureConfirmed?: boolean;
+    limit?: number;
+    force?: boolean;
+  }): Promise<ApiResponse<any>> =>
+    request.post('/admin/word/base-info/batch-generate-meaning-audio', data || {}, { timeout: 6 * 60 * 60 * 1000 }),
   adoptWordBaseInfoPictures: (data: {
     id: number;
     pictureUrls: string[];

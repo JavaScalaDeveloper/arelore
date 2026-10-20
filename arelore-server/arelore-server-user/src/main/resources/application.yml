@@ -19,7 +19,8 @@ spring:
     # test -> application-test.yml
     # pre  -> application-pre.yml
     # prd  -> application-prd.yml
-    active: ${SPRING_PROFILES_ACTIVE:}
+    # 本地默认加载 application-local.yml（SMTP 授权码等）；线上请设 SPRING_PROFILES_ACTIVE=prd/test/pre
+    active: ${SPRING_PROFILES_ACTIVE:local}
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
@@ -47,6 +48,23 @@ spring:
         idle-timeout: 520000
         connection-timeout: 30000
         keepalive-time: 60000
+  # 邮箱验证码 SMTP（授权码用 MAIL_163_AUTH_CODE 或 application-local.yml 注入）
+  mail:
+    host: smtp.163.com
+    port: 465
+    username: arelore@163.com
+    password: ${MAIL_163_AUTH_CODE:}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true
+            trust: smtp.163.com
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
 
 mybatis-plus:
   configuration:
@@ -90,6 +108,15 @@ mobile:
 auth:
   session:
     expire-days: 30
+
+# =====================================================
+# 邮箱登录验证码（个人 163 SMTP 等）
+# 授权码请用环境变量 MAIL_163_AUTH_CODE 或 application-local.yml 注入，勿提交仓库
+# =====================================================
+arelore:
+  mail:
+    enabled: ${ARELORE_MAIL_ENABLED:true}
+    from: Arelore <arelore@163.com>
 
 # =====================================================
 # 阿里云短信验证码（Dypnsapi）

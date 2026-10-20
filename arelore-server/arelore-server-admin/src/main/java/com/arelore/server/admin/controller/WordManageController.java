@@ -4,6 +4,8 @@ import com.arelore.server.core.common.dto.IdRequest;
 import com.arelore.server.core.common.dto.PageResult;
 import com.arelore.server.core.common.result.Result;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoAdoptPicturesRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchMeaningAudioRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchMeaningAudioResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoPictureSearchResponse;
@@ -255,7 +257,19 @@ public class WordManageController {
         }
     }
 
-    /** 读取已落库配图二进制，供管理端展示；不走列表联表 */
+    /** 批量用本地 Qwen3-TTS 生成释义语音并写入 common_binary_file */
+    @PostMapping("/base-info/batch-generate-meaning-audio")
+    public Result<AdminWordBaseInfoBatchMeaningAudioResponse> baseInfoBatchGenerateMeaningAudio(
+        @RequestBody(required = false) AdminWordBaseInfoBatchMeaningAudioRequest request
+    ) {
+        try {
+            return Result.success(baseInfoService.batchGenerateMeaningAudio(request));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /** 读取已落库配图/语音二进制，供管理端展示；不走列表联表 */
     @PostMapping("/base-info/picture-content")
     public Result<AdminWordPictureContentResponse> baseInfoPictureContent(@RequestBody IdRequest request) {
         Long id = request == null ? null : request.getId();

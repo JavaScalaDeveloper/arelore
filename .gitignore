@@ -2,6 +2,9 @@
 .DS_Store
 **/.DS_Store
 /logs/
+# 本地 SMTP/密钥，勿提交
+**/application-local.yml
+**/application-secret.yml
 # 客户端各模块 start.sh 统一输出目录
 /arelore-client/logs/
 # 历史遗留：模块根目录下的 app.log / app.pid

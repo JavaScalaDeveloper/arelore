@@ -19,6 +19,8 @@ public class UserWordStudyCardResponse {
     private List<String> pictures = new ArrayList<>();
     /** 已落入 common_binary_file 的配图，与 pictures 按写入顺序对应；学习端用它读本地图 */
     private List<Long> pictureFileIds = new ArrayList<>();
+    /** 已落入 common_binary_file 的释义整段语音（base_info.ext_info.meaningAudio.fileId） */
+    private Long meaningAudioFileId;
     /** 记忆法（ext_info.remMethod.val） */
     private String mnemonic;
     /** 英文例句（提示用，取首条） */

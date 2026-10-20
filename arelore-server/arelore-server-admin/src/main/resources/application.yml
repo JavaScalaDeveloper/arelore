@@ -51,12 +51,23 @@ mybatis-plus:
 
 # 单词配图图库（仅 Pixabay）
 # 文档：https://pixabay.com/api/docs/
+# 本地释义 TTS：OpenAI 兼容 /v1/audio/speech（默认本机 Qwen3-TTS）
 arelore:
   word:
     image:
       pixabay-api-key: ${ARELORE_PIXABAY_API_KEY:57972734-fe8fdef2090500bc180d4cfb9}
       min-count: 4
       search-count: 12
+  tts:
+    qwen:
+      enabled: ${ARELORE_TTS_QWEN_ENABLED:true}
+      # 用 127.0.0.1，避免 localhost→IPv6 与 uvicorn 不一致
+      base-url: ${ARELORE_TTS_QWEN_BASE_URL:http://127.0.0.1:8880}
+      model: ${ARELORE_TTS_QWEN_MODEL:qwen3-tts}
+      # 与 curl/README 一致；alloy 会映射到 Vivian
+      voice: ${ARELORE_TTS_QWEN_VOICE:alloy}
+      response-format: mp3
+      timeout-seconds: 180
 
 logging:
   level:

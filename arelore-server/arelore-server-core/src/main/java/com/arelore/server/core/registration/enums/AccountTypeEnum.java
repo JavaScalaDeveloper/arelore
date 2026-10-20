@@ -14,7 +14,23 @@ public enum AccountTypeEnum {
     /**
      * 小程序“手册登录”（手机号+密码）登录流水。
      */
-    MOBILE_MINI_MANUAL_LOGIN("MOBILE_MINI_MANUAL_LOGIN");
+    MOBILE_MINI_MANUAL_LOGIN("MOBILE_MINI_MANUAL_LOGIN"),
+    /**
+     * 邮箱账号（正式账号落在 user_registration_result）。
+     */
+    EMAIL("EMAIL"),
+    /**
+     * 邮箱验证码登录申请流水（仅 application 表）。
+     */
+    EMAIL_OTP_LOGIN("EMAIL_OTP_LOGIN"),
+    /**
+     * 邮箱注册申请流水（仅 application 表）。
+     */
+    EMAIL_REGISTER("EMAIL_REGISTER"),
+    /**
+     * 邮箱找回/设置密码申请流水（仅 application 表）。
+     */
+    EMAIL_PASSWORD_RESET("EMAIL_PASSWORD_RESET");
 
     private final String code;
 

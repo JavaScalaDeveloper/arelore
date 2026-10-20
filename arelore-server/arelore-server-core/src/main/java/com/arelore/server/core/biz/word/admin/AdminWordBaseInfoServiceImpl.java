@@ -7,6 +7,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.arelore.server.core.service.BaseServiceImpl;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoAdoptPicturesRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchMeaningAudioRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchMeaningAudioResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoPictureSearchResponse;
@@ -20,6 +22,8 @@ import com.arelore.server.core.biz.word.admin.entity.AdminWordEntry;
 import com.arelore.server.core.biz.word.admin.mapper.AdminWordBaseInfoMapper;
 import com.arelore.server.core.biz.word.admin.mapper.AdminWordEntryMapper;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordPictureContentResponse;
+import com.arelore.server.core.biz.word.admin.support.MeaningSpeechTextBuilder;
+import com.arelore.server.core.biz.word.admin.support.Qwen3TtsClient;
 import com.arelore.server.core.biz.word.admin.support.StockImageClient;
 import com.arelore.server.core.biz.word.admin.support.WordPictureBinaryStore;
 import com.arelore.server.core.biz.word.admin.support.YoudaoDictClient;
@@ -28,9 +32,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -48,6 +55,7 @@ public class AdminWordBaseInfoServiceImpl
     private static final int BATCH_SEARCH_PAGE_SIZE = 50;
     private static final long YOUDAO_GAP_MS = 200L;
     private static final long PIXABAY_GAP_MS = 250L;
+    private static final long TTS_GAP_MS = 50L;
     private static final DateTimeFormatter SYNC_TIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final AdminWordBaseInfoMapper mapper;
@@ -55,19 +63,22 @@ public class AdminWordBaseInfoServiceImpl
     private final AdminWordBookService bookService;
     private final StockImageClient stockImageClient;
     private final WordPictureBinaryStore pictureBinaryStore;
+    private final Qwen3TtsClient qwen3TtsClient;
 
     public AdminWordBaseInfoServiceImpl(
         AdminWordBaseInfoMapper mapper,
         AdminWordEntryMapper entryMapper,
         AdminWordBookService bookService,
         StockImageClient stockImageClient,
-        WordPictureBinaryStore pictureBinaryStore
+        WordPictureBinaryStore pictureBinaryStore,
+        Qwen3TtsClient qwen3TtsClient
     ) {
         this.mapper = mapper;
         this.entryMapper = entryMapper;
         this.bookService = bookService;
         this.stockImageClient = stockImageClient;
         this.pictureBinaryStore = pictureBinaryStore;
+        this.qwen3TtsClient = qwen3TtsClient;
     }
 
     @Override
@@ -93,7 +104,7 @@ public class AdminWordBaseInfoServiceImpl
         if (StringUtils.hasText(request.getWord())) {
             wrapper.likeRight(AdminWordBaseInfo::getWord, request.getWord().trim());
         }
-        // 多标签 AND：JSON_CONTAINS；无图额外兼容历史无 tags 数据
+        // 多标签 AND：JSON_CONTAINS；无图/无释义语音额外兼容历史无 tags 数据
         List<String> selectedTags = resolveSelectedTags(request);
         boolean filterNoPicture = Boolean.FALSE.equals(request.getHasPicture())
             || selectedTags.contains("no_picture");
@@ -104,8 +115,16 @@ public class AdminWordBaseInfoServiceImpl
         } else if (filterHasPicture) {
             applyHasPictureFilter(wrapper);
         }
+        boolean filterNoMeaningAudio = selectedTags.contains("no_meaning_audio");
+        boolean filterHasMeaningAudio = selectedTags.contains("has_meaning_audio");
+        if (filterNoMeaningAudio) {
+            applyNoMeaningAudioFilter(wrapper);
+        } else if (filterHasMeaningAudio) {
+            applyHasMeaningAudioFilter(wrapper);
+        }
         for (String t : selectedTags) {
-            if ("no_picture".equals(t) || "has_picture".equals(t)) {
+            if ("no_picture".equals(t) || "has_picture".equals(t)
+                || "no_meaning_audio".equals(t) || "has_meaning_audio".equals(t)) {
                 continue;
             }
             applyTagContains(wrapper, t);
@@ -163,6 +182,25 @@ public class AdminWordBaseInfoServiceImpl
             .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"has_picture\"")
             .or()
             .apply("JSON_LENGTH(COALESCE(JSON_EXTRACT(ext_info, '$.pictures'), JSON_ARRAY())) > 0")
+        );
+    }
+
+    /** 无释义语音：兼容历史无 tags / meaningAudio 为空 */
+    private static void applyNoMeaningAudioFilter(LambdaQueryWrapper<AdminWordBaseInfo> wrapper) {
+        wrapper.and(w -> w
+            .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"no_meaning_audio\"")
+            .or()
+            .isNull(AdminWordBaseInfo::getExtInfo)
+            .or()
+            .apply("JSON_EXTRACT(ext_info, '$.meaningAudio.fileId') IS NULL")
+        );
+    }
+
+    private static void applyHasMeaningAudioFilter(LambdaQueryWrapper<AdminWordBaseInfo> wrapper) {
+        wrapper.and(w -> w
+            .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"has_meaning_audio\"")
+            .or()
+            .apply("JSON_EXTRACT(ext_info, '$.meaningAudio.fileId') IS NOT NULL")
         );
     }
 
@@ -806,13 +844,150 @@ public class AdminWordBaseInfoServiceImpl
     }
 
     @Override
+    public AdminWordBaseInfoBatchMeaningAudioResponse batchGenerateMeaningAudio(
+        AdminWordBaseInfoBatchMeaningAudioRequest request
+    ) {
+        if (!qwen3TtsClient.isEnabled()) {
+            throw new IllegalStateException("本地 Qwen3-TTS 未启用，请配置 arelore.tts.qwen.base-url 并启动服务");
+        }
+        AdminWordBaseInfoBatchMeaningAudioRequest req =
+            request == null ? new AdminWordBaseInfoBatchMeaningAudioRequest() : request;
+        int maxWords = req.getLimit() == null || req.getLimit() <= 0
+            ? Integer.MAX_VALUE
+            : Math.max(1, Math.min(50_000, req.getLimit()));
+        boolean force = Boolean.TRUE.equals(req.getForce());
+
+        AdminWordBaseInfoBatchMeaningAudioResponse result = new AdminWordBaseInfoBatchMeaningAudioResponse();
+        result.setSource("QWEN3_TTS");
+        result.setVoice(qwen3TtsClient.getVoice());
+
+        long lastId = 0L;
+        int pageRounds = 0;
+        while (result.getScanned() < maxWords && pageRounds < 100_000) {
+            pageRounds++;
+            AdminWordBaseInfoRequest query = new AdminWordBaseInfoRequest();
+            query.setLanguageCode(req.getLanguageCode());
+            query.setWord(req.getWord());
+            query.setTags(req.getTags());
+            query.setTag(req.getTag());
+            query.setHasPicture(req.getHasPicture());
+            query.setPictureConfirmed(req.getPictureConfirmed());
+            int fetchSize = Math.min(BATCH_SEARCH_PAGE_SIZE, maxWords - result.getScanned());
+            LambdaQueryWrapper<AdminWordBaseInfo> wrapper = buildWrapper(query)
+                .gt(AdminWordBaseInfo::getId, lastId)
+                .orderByAsc(AdminWordBaseInfo::getId)
+                .last("LIMIT " + fetchSize);
+            List<AdminWordBaseInfo> rows = mapper.selectList(wrapper);
+            if (rows == null || rows.isEmpty()) {
+                break;
+            }
+            for (AdminWordBaseInfo row : rows) {
+                if (row == null || row.getId() == null) {
+                    continue;
+                }
+                lastId = row.getId();
+                if (result.getScanned() >= maxWords) {
+                    break;
+                }
+                result.setScanned(result.getScanned() + 1);
+                if (!StringUtils.hasText(row.getWord())) {
+                    result.setSkipped(result.getSkipped() + 1);
+                    continue;
+                }
+                try {
+                    boolean filled = generateMeaningAudioForRow(row, force);
+                    if (filled) {
+                        result.setFilled(result.getFilled() + 1);
+                        Thread.sleep(TTS_GAP_MS);
+                    } else {
+                        result.setSkipped(result.getSkipped() + 1);
+                    }
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    result.setNote("批量生成释义语音被中断；已处理 " + result.getScanned() + " 个词");
+                    return result;
+                } catch (Exception e) {
+                    result.setFailed(result.getFailed() + 1);
+                    log.warn("batch meaning audio failed id={} word={}: {}",
+                        row.getId(), row.getWord(), shortError(e.getMessage()));
+                }
+            }
+            if (rows.size() < fetchSize) {
+                break;
+            }
+        }
+        if (result.getScanned() == 0) {
+            result.setNote("没有需要生成释义语音的单词");
+        } else {
+            result.setNote("已按当前筛选生成释义语音并写入 common_binary_file；释义未变则跳过（force=true 可强制重生成）。");
+        }
+        return result;
+    }
+
+    /**
+     * @return true=新写入或覆盖了语音；false=无释义或已存在且 hash 一致（跳过）
+     */
+    private boolean generateMeaningAudioForRow(AdminWordBaseInfo row, boolean force) throws Exception {
+        JSONObject ext = parseExt(row.getExtInfo());
+        String speechText = MeaningSpeechTextBuilder.fromExt(ext);
+        if (!StringUtils.hasText(speechText)) {
+            return false;
+        }
+        String speechHash = sha256Hex(speechText);
+        JSONObject existing = ext.getJSONObject("meaningAudio");
+        Long oldFileId = existing == null ? null : existing.getLong("fileId");
+        if (!force && oldFileId != null && speechHash.equals(existing.getString("speechHash"))) {
+            // 已有语音：补打 has_meaning_audio 标签后跳过
+            String before = row.getExtInfo();
+            refreshMetaTags(ext);
+            String after = ext.toJSONString();
+            if (!after.equals(before == null ? "" : before)) {
+                row.setExtInfo(after);
+                mapper.updateById(row);
+            }
+            return false;
+        }
+
+        byte[] mp3 = qwen3TtsClient.synthesize(speechText);
+        JSONObject saved = pictureBinaryStore.saveBytes(mp3, "audio/mpeg", "QWEN3_TTS");
+        Long newFileId = saved.getLong("fileId");
+
+        JSONObject meaningAudio = new JSONObject();
+        meaningAudio.put("fileId", newFileId);
+        meaningAudio.put("fileHash", saved.getString("fileHash"));
+        meaningAudio.put("speechHash", speechHash);
+        meaningAudio.put("source", "QWEN3_TTS");
+        meaningAudio.put("voice", qwen3TtsClient.getVoice());
+        meaningAudio.put("contentType", "audio/mpeg");
+        meaningAudio.put("updatedAt", LocalDateTime.now().format(SYNC_TIME_FMT));
+        ext.put("meaningAudio", meaningAudio);
+        refreshMetaTags(ext);
+        row.setExtInfo(ext.toJSONString());
+        mapper.updateById(row);
+
+        if (oldFileId != null && !oldFileId.equals(newFileId)) {
+            pictureBinaryStore.release(Collections.singleton(oldFileId));
+        }
+        return true;
+    }
+
+    private static String sha256Hex(String text) throws Exception {
+        byte[] digest = MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));
+        StringBuilder sb = new StringBuilder(digest.length * 2);
+        for (byte b : digest) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
+
+    @Override
     public AdminWordPictureContentResponse pictureContent(Long fileId) {
         if (fileId == null) {
             throw new IllegalArgumentException("fileId 不能为空");
         }
         AdminWordPictureContentResponse content = pictureBinaryStore.loadContent(fileId);
         if (content == null) {
-            throw new IllegalArgumentException("图片不存在");
+            throw new IllegalArgumentException("文件不存在");
         }
         return content;
     }
@@ -865,8 +1040,8 @@ public class AdminWordBaseInfoServiceImpl
     }
 
     /**
-     * 根据配图/确认/来源/释义刷新检索标签（写入 ext_info，无需额外表字段）。
-     * 标签示例：no_picture、has_picture、confirmed、source_pixabay、has_meaning、sync_error
+     * 根据配图/确认/来源/释义/释义语音刷新检索标签（写入 ext_info，无需额外表字段）。
+     * 标签示例：no_picture、has_picture、has_meaning_audio、confirmed、source_pixabay、has_meaning、sync_error
      */
     static void refreshMetaTags(JSONObject ext) {
         if (ext == null) {
@@ -891,12 +1066,15 @@ public class AdminWordBaseInfoServiceImpl
         JSONArray meanings = ext.getJSONArray("meanings");
         boolean hasMeaning = meanings != null && !meanings.isEmpty();
         boolean syncError = StringUtils.hasText(ext.getString("syncError"));
+        JSONObject meaningAudio = ext.getJSONObject("meaningAudio");
+        boolean hasMeaningAudio = meaningAudio != null && meaningAudio.getLong("fileId") != null;
 
         LinkedHashSet<String> tags = new LinkedHashSet<>();
         tags.add(hasPicture ? "has_picture" : "no_picture");
         tags.add(confirmed ? "confirmed" : "unconfirmed");
         tags.add("source_" + pictureSource.toLowerCase());
         tags.add(hasMeaning ? "has_meaning" : "no_meaning");
+        tags.add(hasMeaningAudio ? "has_meaning_audio" : "no_meaning_audio");
         if (syncError) {
             tags.add("sync_error");
         }

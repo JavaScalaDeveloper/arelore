@@ -1,0 +1,10 @@
+# 复制为 application-local.yml 后填写授权码，并启动时加 SPRING_PROFILES_ACTIVE=local
+arelore:
+  mail:
+    enabled: true
+    from: Arelore <arelore@163.com>
+
+spring:
+  mail:
+    username: arelore@163.com
+    password: your-163-smtp-auth-code

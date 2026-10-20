@@ -1,0 +1,289 @@
+.word-app-root {
+  --bg: #f3f4f6;
+  --card: #ffffff;
+  --primary: #3b82f6;
+  --text: #111827;
+  --muted: #6b7280;
+  --header-h: 56px;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #eff6ff 0%, var(--bg) 40%, #f8fafc 100%);
+  color: var(--text);
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.word-app-root,
+.word-app-root * {
+  box-sizing: border-box;
+}
+
+.word-app-root .app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.word-app-root .word-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: var(--header-h);
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid #e5e7eb;
+  backdrop-filter: blur(8px);
+}
+
+.word-app-root .word-header-inner {
+  max-width: 1080px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.word-app-root .word-brand {
+  color: var(--text);
+  text-decoration: none;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.word-app-root .word-brand:hover {
+  color: var(--primary);
+}
+
+.word-app-root .word-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.word-app-root .nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.word-app-root .nav-link:hover {
+  color: var(--text);
+  background: #f3f4f6;
+}
+
+.word-app-root .nav-link.active {
+  color: var(--primary);
+  background: #eff6ff;
+  font-weight: 600;
+}
+
+.word-app-root .app-body {
+  flex: 1;
+  width: 100%;
+}
+
+.word-app-root .page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+}
+
+.word-app-root .page.study-page {
+  max-width: 720px;
+}
+
+.word-app-root .page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.word-app-root .state-card,
+.word-app-root .login-card,
+.word-app-root .book-card,
+.word-app-root .word-card {
+  border-radius: 12px !important;
+}
+
+.word-app-root .home-hero {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 20px;
+  align-items: stretch;
+}
+
+@media (max-width: 800px) {
+  .word-app-root .home-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .word-app-root .word-header-inner {
+    padding: 0 16px;
+  }
+
+  .word-app-root .page {
+    padding: 20px 16px 40px;
+  }
+
+  .word-app-root .nav-link span {
+    display: none;
+  }
+}
+
+.word-app-root .home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.word-app-root .home-actions .ant-btn {
+  min-width: 120px;
+}
+
+.word-app-root .login-page {
+  min-height: calc(100vh - var(--header-h));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.word-app-root .login-card {
+  width: min(460px, 100%);
+  padding: 32px 28px;
+  text-align: center;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.12);
+}
+
+.word-app-root .clickable-item {
+  cursor: pointer;
+  background: #fff;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  padding: 14px 18px !important;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.word-app-root .clickable-item:hover {
+  background: #f8fafc;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+}
+
+.word-app-root .books-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.word-app-root .book-pick-card {
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 16px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.word-app-root .book-pick-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.12);
+}
+
+.word-app-root .option-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #fff;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.word-app-root .option-item:hover {
+  border-color: #93c5fd;
+}
+
+.word-app-root .option-item.active {
+  border-color: var(--primary);
+  background: #eff6ff;
+}
+
+.word-app-root .option-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.word-app-root .field {
+  margin-bottom: 20px;
+}
+
+.word-app-root .field-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.word-app-root .stat-num {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.word-app-root .profile-stats {
+  display: flex;
+  gap: 40px;
+  margin-top: 20px;
+}
+
+.word-app-root .word {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+.word-app-root .phonetic {
+  color: var(--muted);
+  margin-top: 6px;
+  font-size: 16px;
+}
+
+.word-app-root .study-actions {
+  margin-top: 20px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.word-app-root .study-actions .ant-btn {
+  min-width: 100px;
+}
+
+.word-app-root .study-hint {
+  margin-top: 12px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.word-app-root .reveal {
+  margin-top: 12px;
+}
+
+.word-app-root .plan-form .ant-select {
+  max-width: 320px;
+}

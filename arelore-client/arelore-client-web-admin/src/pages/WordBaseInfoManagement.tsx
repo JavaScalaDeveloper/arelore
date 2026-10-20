@@ -14,7 +14,7 @@ import {
   Typography,
   message,
 } from 'antd';
-import { CloudSyncOutlined, EyeOutlined, PictureOutlined, SearchOutlined } from '@ant-design/icons';
+import { CloudSyncOutlined, EyeOutlined, PictureOutlined, SearchOutlined, SoundOutlined } from '@ant-design/icons';
 import { adminApi } from '../api/admin';
 import { parseExtInfo, toHttpsUrl } from '../utils/wordMedia';
 
@@ -98,9 +98,28 @@ function meaningLines(extInfo?: string): string[] {
     .filter(Boolean);
 }
 
+function meaningAudioFileId(extInfo?: string): number | undefined {
+  const ext = parseExtInfo(extInfo);
+  const id = ext?.meaningAudio?.fileId;
+  if (id == null || id === '') {
+    return undefined;
+  }
+  const n = Number(id);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
 function tagList(extInfo?: string): string[] {
   const ext = parseExtInfo(extInfo);
-  return Array.isArray(ext.tags) ? ext.tags.filter(Boolean) : [];
+  const tags = Array.isArray(ext.tags) ? ext.tags.filter(Boolean).map(String) : [];
+  // 已有语音但尚未回写 tags 时，列表仍展示「有释义语音」
+  const hasAudio = meaningAudioFileId(extInfo) != null;
+  if (hasAudio && !tags.includes('has_meaning_audio')) {
+    return [...tags.filter((t) => t !== 'no_meaning_audio'), 'has_meaning_audio'];
+  }
+  if (!hasAudio && tags.includes('has_meaning_audio')) {
+    return [...tags.filter((t) => t !== 'has_meaning_audio'), 'no_meaning_audio'];
+  }
+  return tags;
 }
 
 const TAG_OPTIONS = [
@@ -113,16 +132,124 @@ const TAG_OPTIONS = [
   { value: 'source_none', label: '来源·无' },
   { value: 'has_meaning', label: '有释义' },
   { value: 'no_meaning', label: '无释义' },
+  { value: 'has_meaning_audio', label: '有释义语音' },
+  { value: 'no_meaning_audio', label: '无释义语音' },
   { value: 'sync_error', label: '同步失败' },
 ];
 
 const TAG_COLOR: Record<string, string> = {
   no_picture: 'warning',
   has_picture: 'blue',
+  has_meaning_audio: 'cyan',
+  no_meaning_audio: 'default',
   confirmed: 'success',
   unconfirmed: 'default',
   sync_error: 'error',
 };
+
+/** 按 fileId 拉取并试听已落库释义语音 */
+function MeaningAudioPreview({
+  fileId,
+  compact,
+}: {
+  fileId?: number;
+  compact?: boolean;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const urlRef = React.useRef('');
+
+  useEffect(() => {
+    urlRef.current = '';
+    try {
+      audioRef.current?.pause();
+    } catch {
+      /* ignore */
+    }
+    setPlaying(false);
+  }, [fileId]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        audioRef.current?.pause();
+      } catch {
+        /* ignore */
+      }
+      audioRef.current = null;
+      urlRef.current = '';
+    };
+  }, []);
+
+  if (!fileId) {
+    return compact ? <Tag>无语音</Tag> : <Tag>尚未生成释义语音</Tag>;
+  }
+
+  const stop = () => {
+    try {
+      audioRef.current?.pause();
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+      }
+    } catch {
+      /* ignore */
+    }
+    setPlaying(false);
+  };
+
+  const play = async () => {
+    if (playing) {
+      stop();
+      return;
+    }
+    setLoading(true);
+    try {
+      let src = urlRef.current;
+      if (!src) {
+        const res = await adminApi.getWordBaseInfoPictureContent({ id: fileId });
+        const data = res?.data;
+        if (!data?.base64Data) {
+          message.error('语音文件不存在');
+          return;
+        }
+        src = `data:${data.contentType || 'audio/mpeg'};base64,${data.base64Data}`;
+        urlRef.current = src;
+      }
+      if (!audioRef.current) {
+        audioRef.current = new Audio();
+      }
+      const audio = audioRef.current;
+      audio.onended = () => setPlaying(false);
+      audio.onerror = () => {
+        setPlaying(false);
+        message.error('语音播放失败');
+      };
+      audio.src = src;
+      await audio.play();
+      setPlaying(true);
+    } catch (e: any) {
+      if (!e?.notified) {
+        message.error(e?.message || '加载语音失败');
+      }
+      setPlaying(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      type={compact ? 'link' : 'default'}
+      size={compact ? 'small' : 'middle'}
+      icon={<SoundOutlined />}
+      loading={loading}
+      onClick={() => void play()}
+    >
+      {playing ? '停止' : '试听'}
+    </Button>
+  );
+}
 
 const WordBaseInfoManagement: React.FC = () => {
   const [dataSource, setDataSource] = useState<any[]>([]);
@@ -142,6 +269,7 @@ const WordBaseInfoManagement: React.FC = () => {
 
   const [searchingPics, setSearchingPics] = useState(false);
   const [batchSearching, setBatchSearching] = useState(false);
+  const [batchMeaningAudio, setBatchMeaningAudio] = useState(false);
   const [adoptingPics, setAdoptingPics] = useState(false);
   const [candidates, setCandidates] = useState<any[]>([]);
   const [selectedUrls, setSelectedUrls] = useState<string[]>([]);
@@ -381,10 +509,48 @@ const WordBaseInfoManagement: React.FC = () => {
     });
   };
 
+  const runBatchMeaningAudio = () => {
+    const values = queryForm.getFieldsValue();
+    const tags = Array.isArray(values.tags) ? values.tags.filter(Boolean) : [];
+    const tagText = tags.length
+      ? tags.map((t: string) => TAG_OPTIONS.find((o) => o.value === t)?.label || t).join('、')
+      : '未选标签';
+    Modal.confirm({
+      title: '批量生成释义语音',
+      content: `按当前筛选（标签：${tagText}）调用本机 Qwen3-TTS（localhost:8880）生成整段释义语音，写入 common_binary_file。已有且释义未变则跳过。请先确保本地 TTS 服务已启动。词量大时可能很久。`,
+      okText: '开始生成',
+      cancelText: '取消',
+      onOk: async () => {
+        setBatchMeaningAudio(true);
+        try {
+          const res = await adminApi.batchGenerateWordBaseInfoMeaningAudio({
+            languageCode: values.languageCode || undefined,
+            word: values.word || undefined,
+            tags: tags.length ? tags : undefined,
+            hasPicture: values.hasPicture,
+            pictureConfirmed: values.pictureConfirmed,
+          });
+          const d = res.data || {};
+          message.success(
+            `释义语音完成（${d.voice || 'Qwen3'}）：扫描 ${d.scanned ?? 0}，写入 ${d.filled ?? 0}，失败 ${d.failed ?? 0}，跳过 ${d.skipped ?? 0}`
+          );
+          loadData({ pageNum: 1, filters: values });
+        } catch (e: any) {
+          if (!e?.notified) {
+            message.error(e?.message || '批量生成释义语音失败');
+          }
+        } finally {
+          setBatchMeaningAudio(false);
+        }
+      },
+    });
+  };
+
   const detailExt = parseExtInfo(detail?.extInfo);
   const detailPics = pictureRefs(detail?.extInfo);
   const detailMeanings = meaningLines(detail?.extInfo);
   const detailTags = tagList(detail?.extInfo);
+  const detailMeaningAudioId = meaningAudioFileId(detail?.extInfo);
   const pictureConfirmed = !!detailExt.pictureConfirmed;
 
   return (
@@ -392,6 +558,14 @@ const WordBaseInfoManagement: React.FC = () => {
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0 }}>单词基础信息</h1>
         <Space wrap>
+          <Button
+            type="default"
+            icon={<SoundOutlined />}
+            loading={batchMeaningAudio}
+            onClick={runBatchMeaningAudio}
+          >
+            批量生成释义语音
+          </Button>
           <Button
             type="default"
             icon={<PictureOutlined />}
@@ -477,7 +651,7 @@ const WordBaseInfoManagement: React.FC = () => {
         rowKey="id"
         loading={loading}
         dataSource={dataSource}
-        scroll={{ x: 1500 }}
+        scroll={{ x: 1650 }}
         pagination={{
           current: pageNum,
           pageSize,
@@ -538,7 +712,7 @@ const WordBaseInfoManagement: React.FC = () => {
           {
             title: '释义',
             key: 'meanings',
-            width: 260,
+            width: 240,
             ellipsis: true,
             render: (_, row) => {
               const lines = meaningLines(row.extInfo);
@@ -548,6 +722,12 @@ const WordBaseInfoManagement: React.FC = () => {
                 '-'
               );
             },
+          },
+          {
+            title: '释义语音',
+            key: 'meaningAudio',
+            width: 110,
+            render: (_, row) => <MeaningAudioPreview fileId={meaningAudioFileId(row.extInfo)} compact />,
           },
           {
             title: '音标',
@@ -642,6 +822,27 @@ const WordBaseInfoManagement: React.FC = () => {
                   </ul>
                 ) : (
                   <Tag>无释义</Tag>
+                )}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <Space wrap>
+                <Text strong>释义语音（学习端优先播放）</Text>
+                <MeaningAudioPreview fileId={detailMeaningAudioId} />
+              </Space>
+              <div style={{ marginTop: 8 }}>
+                {detailMeaningAudioId ? (
+                  <Space wrap>
+                    <Tag color="cyan">fileId {detailMeaningAudioId}</Tag>
+                    {detailExt.meaningAudio?.voice && <Tag>{detailExt.meaningAudio.voice}</Tag>}
+                    {detailExt.meaningAudio?.source && <Tag>{detailExt.meaningAudio.source}</Tag>}
+                    {detailExt.meaningAudio?.updatedAt && (
+                      <Text type="secondary">更新于 {detailExt.meaningAudio.updatedAt}</Text>
+                    )}
+                  </Space>
+                ) : (
+                  <Tag>尚未生成，可用顶部「批量生成释义语音」</Tag>
                 )}
               </div>
             </div>

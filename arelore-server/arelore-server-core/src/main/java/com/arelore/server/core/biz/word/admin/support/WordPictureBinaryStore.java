@@ -62,6 +62,28 @@ public class WordPictureBinaryStore {
         return item;
     }
 
+    /**
+     * 写入任意二进制（如图片/mp3）并计入一次引用。
+     * 返回含 fileId、fileHash、contentType、source 的对象。
+     */
+    public JSONObject saveBytes(byte[] data, String contentType, String source) throws Exception {
+        if (data == null || data.length == 0) {
+            throw new IllegalArgumentException("文件内容为空");
+        }
+        if (data.length > MAX_BYTES) {
+            throw new IllegalArgumentException("文件超过 5MB");
+        }
+        String type = StringUtils.hasText(contentType) ? contentType.trim() : detectContentType(data);
+        byte[] hash = sha256(data);
+        Long fileId = insertOrIncrease(hash, data, type, source);
+        JSONObject item = new JSONObject();
+        item.put("fileId", fileId);
+        item.put("fileHash", toHex(hash));
+        item.put("contentType", type);
+        item.put("source", StringUtils.hasText(source) ? source.trim().toUpperCase() : "BINARY");
+        return item;
+    }
+
     public AdminWordPictureContentResponse loadContent(Long fileId) {
         if (fileId == null) {
             return null;
@@ -73,11 +95,27 @@ public class WordPictureBinaryStore {
         if (file.getStatus() != null && file.getStatus() == 0) {
             return null;
         }
+        String contentType = contentTypeFromExt(file.getExtJson());
+        if (!StringUtils.hasText(contentType) || "application/octet-stream".equals(contentType)) {
+            contentType = detectContentType(file.getFileData());
+        }
         AdminWordPictureContentResponse response = new AdminWordPictureContentResponse();
         response.setFileId(file.getId());
-        response.setContentType(detectContentType(file.getFileData()));
+        response.setContentType(contentType);
         response.setBase64Data(Base64.getEncoder().encodeToString(file.getFileData()));
         return response;
+    }
+
+    private static String contentTypeFromExt(String extJson) {
+        if (!StringUtils.hasText(extJson)) {
+            return null;
+        }
+        try {
+            JSONObject ext = JSONObject.parseObject(extJson);
+            return ext == null ? null : ext.getString("contentType");
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** 这些 fileId 各减少 1 次引用，计数到 0 则物理删除 */
@@ -202,6 +240,9 @@ public class WordPictureBinaryStore {
     }
 
     static String detectContentType(byte[] data) {
+        if (data == null || data.length == 0) {
+            return "application/octet-stream";
+        }
         if (data.length >= 4
             && (data[0] & 0xFF) == 0x89
             && data[1] == 0x50
@@ -220,6 +261,13 @@ public class WordPictureBinaryStore {
         }
         if (data.length >= 12 && "RIFF".equals(new String(data, 0, 4)) && "WEBP".equals(new String(data, 8, 4))) {
             return "image/webp";
+        }
+        // MP3：ID3 头或帧同步字
+        if (data.length >= 3 && data[0] == 'I' && data[1] == 'D' && data[2] == '3') {
+            return "audio/mpeg";
+        }
+        if (data.length >= 2 && (data[0] & 0xFF) == 0xFF && (data[1] & 0xE0) == 0xE0) {
+            return "audio/mpeg";
         }
         return "application/octet-stream";
     }

@@ -2,6 +2,8 @@ package com.arelore.server.core.biz.word.admin;
 
 import com.arelore.server.core.service.BaseService;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoAdoptPicturesRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchMeaningAudioRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchMeaningAudioResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoPictureSearchResponse;
@@ -32,9 +34,15 @@ public interface AdminWordBaseInfoService extends BaseService<AdminWordBaseInfoR
      */
     AdminWordBaseInfoBatchSearchResponse batchSearchPictures(AdminWordBaseInfoBatchSearchRequest request);
 
+    /**
+     * 批量用本地 Qwen3-TTS 生成释义整段语音，写入 common_binary_file，
+     * 并回写 base_info.ext_info.meaningAudio。
+     */
+    AdminWordBaseInfoBatchMeaningAudioResponse batchGenerateMeaningAudio(AdminWordBaseInfoBatchMeaningAudioRequest request);
+
     /** 人工采纳配图并锁定，之后自动同步不会覆盖 pictures */
     AdminWordBaseInfoResponse adoptPictures(AdminWordBaseInfoAdoptPicturesRequest request);
 
-    /** 按 fileId 读取已落库配图，列表接口不带二进制 */
+    /** 按 fileId 读取已落库配图/语音，列表接口不带二进制 */
     AdminWordPictureContentResponse pictureContent(Long fileId);
 }
