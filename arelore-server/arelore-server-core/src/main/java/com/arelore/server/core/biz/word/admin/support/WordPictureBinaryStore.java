@@ -23,8 +23,8 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * 单词配图二进制：按内容哈希去重写入 common_binary_file。
- * 引用计数放在已有 ext_json.refCount 里，减到 0 则物理删除，不改表结构。
+ * 单词配图/语音二进制：按内容哈希去重写入 common_binary_file。
+ * ext_json 含 contentType、source、fileSize（字节）、refCount；引用减到 0 则物理删除，不改表结构。
  */
 @Component
 public class WordPictureBinaryStore {
@@ -54,6 +54,7 @@ public class WordPictureBinaryStore {
         JSONObject item = new JSONObject();
         item.put("fileId", fileId);
         item.put("fileHash", toHex(hash));
+        item.put("fileSize", data.length);
         item.put("url", url.trim());
         item.put("source", StringUtils.hasText(source) ? source.trim().toUpperCase() : "PIXABAY");
         if (StringUtils.hasText(photographer)) {
@@ -64,7 +65,7 @@ public class WordPictureBinaryStore {
 
     /**
      * 写入任意二进制（如图片/mp3）并计入一次引用。
-     * 返回含 fileId、fileHash、contentType、source 的对象。
+     * 返回含 fileId、fileHash、fileSize、contentType、source 的对象。
      */
     public JSONObject saveBytes(byte[] data, String contentType, String source) throws Exception {
         if (data == null || data.length == 0) {
@@ -79,6 +80,7 @@ public class WordPictureBinaryStore {
         JSONObject item = new JSONObject();
         item.put("fileId", fileId);
         item.put("fileHash", toHex(hash));
+        item.put("fileSize", data.length);
         item.put("contentType", type);
         item.put("source", StringUtils.hasText(source) ? source.trim().toUpperCase() : "BINARY");
         return item;
@@ -158,14 +160,16 @@ public class WordPictureBinaryStore {
     }
 
     private Long insertOrIncrease(byte[] hash, byte[] data, String contentType, String source) {
+        int fileSize = data == null ? 0 : data.length;
         CommonBinaryFile existing = fileMapper.selectOne(new LambdaQueryWrapper<CommonBinaryFile>()
             .select(CommonBinaryFile::getId)
             .eq(CommonBinaryFile::getHashValue, hash)
             .last("limit 1"));
         if (existing != null) {
+            // 引用 +1，并补写/刷新 fileSize、contentType（兼容历史缺 size 的行）
             fileMapper.update(null, new LambdaUpdateWrapper<CommonBinaryFile>()
                 .eq(CommonBinaryFile::getId, existing.getId())
-                .setSql(adjustRefCountSql(1))
+                .setSql(bumpRefAndMetaSql(fileSize, contentType, source))
                 .set(CommonBinaryFile::getStatus, 1));
             return existing.getId();
         }
@@ -176,6 +180,7 @@ public class WordPictureBinaryStore {
         JSONObject ext = new JSONObject();
         ext.put("contentType", contentType);
         ext.put("source", StringUtils.hasText(source) ? source.trim().toUpperCase() : "PIXABAY");
+        ext.put("fileSize", fileSize);
         ext.put("refCount", 1);
         row.setExtJson(ext.toJSONString());
         try {
@@ -191,7 +196,7 @@ public class WordPictureBinaryStore {
             }
             fileMapper.update(null, new LambdaUpdateWrapper<CommonBinaryFile>()
                 .eq(CommonBinaryFile::getId, again.getId())
-                .setSql(adjustRefCountSql(1))
+                .setSql(bumpRefAndMetaSql(fileSize, contentType, source))
                 .set(CommonBinaryFile::getStatus, 1));
             return again.getId();
         }
@@ -202,6 +207,19 @@ public class WordPictureBinaryStore {
         String op = delta >= 0 ? "+ " + delta : "- " + Math.abs(delta);
         return "ext_json = JSON_SET(IFNULL(ext_json, '{}'), '$.refCount', "
             + "CAST(IFNULL(JSON_EXTRACT(ext_json, '$.refCount'), 1) AS SIGNED) " + op + ")";
+    }
+
+    /**
+     * 引用 +1，并写入 fileSize / contentType / source（字节数便于按大小排查占库）。
+     */
+    private static String bumpRefAndMetaSql(int fileSize, String contentType, String source) {
+        String type = StringUtils.hasText(contentType) ? contentType.trim().replace("'", "''") : "application/octet-stream";
+        String src = StringUtils.hasText(source) ? source.trim().toUpperCase().replace("'", "''") : "BINARY";
+        return "ext_json = JSON_SET(IFNULL(ext_json, '{}'), "
+            + "'$.refCount', CAST(IFNULL(JSON_EXTRACT(ext_json, '$.refCount'), 1) AS SIGNED) + 1, "
+            + "'$.fileSize', " + Math.max(0, fileSize) + ", "
+            + "'$.contentType', '" + type + "', "
+            + "'$.source', '" + src + "')";
     }
 
     private static byte[] download(String url) throws Exception {
