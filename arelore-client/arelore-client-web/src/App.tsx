@@ -7,7 +7,7 @@ import {
   CustomerServiceOutlined,
   PhoneOutlined
 } from '@ant-design/icons';
-import { Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import WordApp from './pages/word/WordApp';
 import WechatLoginModal from './pages/LoginPage';
 import TextMaskingPage from './pages/TextMaskingPage';
@@ -28,6 +28,14 @@ import ColorHistoryPage from './pages/mobile/color/ColorHistoryPage';
 import ColorResultPage from './pages/mobile/color/ColorResultPage';
 import MbtiQuestionBankPage from './pages/MbtiQuestionBankPage';
 import { UserInfo } from './types';
+import {
+  LocaleGate,
+  LocaleNavigate,
+  RegionSwitcher,
+  useLocale,
+  useLocaleNavigate,
+  useStrippedLocation,
+} from './locale';
 import './App.css';
 
 const { Header, Content, Footer } = Layout;
@@ -151,10 +159,21 @@ const navigationItems: any[] = [
 ];
 
 function App() {
+  return (
+    <Routes>
+      <Route path="/en-us/*" element={<LocaleGate locale="en-us"><MainApp /></LocaleGate>} />
+      <Route path="/zh-cn/*" element={<LocaleGate locale="zh-cn"><MainApp /></LocaleGate>} />
+      <Route path="*" element={<LocaleGate locale="zh-cn"><MainApp /></LocaleGate>} />
+    </Routes>
+  );
+}
+
+function MainApp() {
   const [current, setCurrent] = useState<string>('home');
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate = useLocaleNavigate();
+  const strippedLocation = useStrippedLocation();
+  const { pathnameWithoutLocale } = useLocale();
 
   // 初始化时检查登录状态
   useEffect(() => {
@@ -213,7 +232,7 @@ function App() {
     message.success(`欢迎回来，${user.nickname || user.username}！`);
   };
 
-  if (location.pathname === '/word' || location.pathname.startsWith('/word/')) {
+  if (pathnameWithoutLocale === '/word' || pathnameWithoutLocale.startsWith('/word/')) {
     return <WordApp />;
   }
 
@@ -269,39 +288,15 @@ function App() {
 
           {/* 右侧功能区 */}
           <div className="header-right">
-            {/* 通知图标 - 暂时隐藏 */}
-            {/* <Badge count={5} size="small" className="notification-badge">
-              <BellOutlined className="notification-icon" />
-            </Badge> */}
-
-            {/* 登录/用户中心 - 暂时隐藏 */}
-            {/* {isLoggedIn ? (
-              userDropdown
-            ) : (
-              <Space>
-                <Button 
-                  type="primary" 
-                  ghost
-                  onClick={handleOpenLogin}
-                >
-                  登录
-                </Button>
-                <Button 
-                  type="default"
-                  onClick={() => navigate('/register')}
-                >
-                  注册
-                </Button>
-              </Space>
-            )} */}
+            <RegionSwitcher size="middle" />
           </div>
         </div>
       </Header>
 
       <Content className="app-content">
-        <Routes>
-          <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route path="/mobile" element={<Navigate to="/mobile/home" replace />} />
+        <Routes location={strippedLocation}>
+          <Route path="/" element={<LocaleNavigate to="/home" replace />} />
+          <Route path="/mobile" element={<LocaleNavigate to="/mobile/home" replace />} />
           <Route path="/mobile/login" element={<MobileLoginPage />} />
           <Route path="/mobile/register" element={<MobileRegisterPage />} />
           <Route path="/mobile/forgot-password" element={<MobileForgotPasswordPage />} />
@@ -321,7 +316,7 @@ function App() {
             <Route path="color-test/history" element={<ColorHistoryPage />} />
             <Route path="color-test/result" element={<ColorResultPage />} />
             <Route path="profile" element={<MobileProfilePage />} />
-            <Route path="*" element={<Navigate to="/mobile/home" replace />} />
+            <Route path="*" element={<LocaleNavigate to="/mobile/home" replace />} />
           </Route>
           <Route path="/home" element={
             <div className="app-content-wrapper">

@@ -1,4 +1,4 @@
-# =====================================================
+﻿# =====================================================
 # Arelore Server Admin Service Configuration (Test)
 # =====================================================
 # API 设计规范：
@@ -16,7 +16,7 @@ spring:
     name: arelore-server-admin
   datasource:
     education:
-      url: jdbc:mysql://aliyun-2c2g:3307/arelore_education?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      url: jdbc:mysql://aliyun-2c2g:3307/arelore_education?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&forceConnectionTimeZoneToSession=true
       username: ${ARELORE_TEST_MYSQL_USERNAME:root}
       password: ${ARELORE_TEST_MYSQL_PASSWORD:16722927b3a81566aa7f02eabe7fa367}
       driver-class-name: com.mysql.cj.jdbc.Driver
@@ -25,8 +25,9 @@ spring:
         idle-timeout: 520000
         connection-timeout: 30000
         keepalive-time: 60000
+        connection-init-sql: SET time_zone = '+08:00'
     user:
-      url: jdbc:mysql://aliyun-2c2g:3307/arelore_user?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      url: jdbc:mysql://aliyun-2c2g:3307/arelore_user?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&forceConnectionTimeZoneToSession=true
       username: ${ARELORE_TEST_MYSQL_USERNAME:root}
       password: ${ARELORE_TEST_MYSQL_PASSWORD:16722927b3a81566aa7f02eabe7fa367}
       driver-class-name: com.mysql.cj.jdbc.Driver
@@ -35,6 +36,7 @@ spring:
         idle-timeout: 520000
         connection-timeout: 30000
         keepalive-time: 60000
+        connection-init-sql: SET time_zone = '+08:00'
 
 arelore:
   word:

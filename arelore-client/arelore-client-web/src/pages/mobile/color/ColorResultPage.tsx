@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button, Card, Space, Typography } from 'antd';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { useLocaleNavigate } from '../../../locale';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -13,7 +14,7 @@ interface ResultMeaningDetail {
 }
 
 const ColorResultPage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useLocaleNavigate();
   const location = useLocation();
   const result = (location.state as any)?.result || '';
   const meaning = (location.state as any)?.meaning as string | ResultMeaningDetail | undefined;

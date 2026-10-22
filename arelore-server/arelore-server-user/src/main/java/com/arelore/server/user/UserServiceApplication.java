@@ -1,5 +1,6 @@
 package com.arelore.server.user;
 
+import com.arelore.server.core.common.time.ChinaTime;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.SpringApplication;
@@ -16,6 +17,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 public class UserServiceApplication {
 
     public static void main(String[] args) {
+        ChinaTime.installAsDefault();
         ConfigurableApplicationContext context = SpringApplication.run(UserServiceApplication.class, args);
         log.info(
             "User service started successfully. appName={}, webApplicationType={}, activeProfiles={}",

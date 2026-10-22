@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Avatar, Button, Card, Space, Typography, message } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import {  } from 'react-router-dom';
+import { useLocaleNavigate } from '../../../locale';
 import { authApi } from '../api/auth';
 import { wordApi } from '../api/word';
 import { modeLabel, syncPreference } from '../utils/preference';
@@ -19,7 +20,7 @@ function displayUser(raw: any) {
 }
 
 export default function ProfilePage() {
-  const navigate = useNavigate();
+  const navigate = useLocaleNavigate();
   const [user, setUserState] = useState(displayUser(getUser()));
   const [stats, setStats] = useState({ totalStudyDays: 0, consecutiveStudyDays: 0 });
   const [studyModeLabel, setStudyModeLabel] = useState(modeLabel(getPreference().studyMode));

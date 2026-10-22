@@ -25,6 +25,7 @@ public class UserWordPreferenceServiceImpl
 
     public static final String STUDY_MODE_SEE_MEANING = "see_meaning";
     public static final String STUDY_MODE_LISTEN_SPELL = "listen_spell";
+    public static final String STUDY_MODE_DICTATION = "dictation";
     public static final String STUDY_MODE_SEE_PICK_IMAGE = "see_pick_image";
 
     public static final int DEFAULT_SPELL_SPEED = 5;
@@ -33,6 +34,7 @@ public class UserWordPreferenceServiceImpl
     private static final Set<String> ALLOWED_STUDY_MODES = new HashSet<>(Arrays.asList(
         STUDY_MODE_SEE_MEANING,
         STUDY_MODE_LISTEN_SPELL,
+        STUDY_MODE_DICTATION,
         STUDY_MODE_SEE_PICK_IMAGE
     ));
 

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Card, Space, Tag, Typography } from 'antd';
 import { DownOutlined, UpOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import {  } from 'react-router-dom';
+import { useLocaleNavigate } from '../../locale';
 import { userApi } from '../../api/user';
 
 const { Title, Paragraph, Text } = Typography;
@@ -22,7 +23,7 @@ interface ResultMeaningDetail {
 }
 
 const MobileHomePage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useLocaleNavigate();
   const [currentMbti, setCurrentMbti] = useState<string>('');
   const [currentColor, setCurrentColor] = useState<string>('');
   const [meaningByTypeAndResult, setMeaningByTypeAndResult] = useState<Record<string, Record<string, string | ResultMeaningDetail>>>({});

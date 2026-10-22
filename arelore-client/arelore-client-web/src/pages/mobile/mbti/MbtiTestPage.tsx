@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Card, Empty, Progress, Radio, Space, Spin, Typography, message } from 'antd';
 import { userApi } from '../../../api/user';
-import { useNavigate } from 'react-router-dom';
+import {  } from 'react-router-dom';
+import { useLocaleNavigate } from '../../../locale';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -42,7 +43,7 @@ interface ResultMeaningDetail {
 }
 
 const MbtiTestPage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useLocaleNavigate();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [submitLoading, setSubmitLoading] = useState<boolean>(false);

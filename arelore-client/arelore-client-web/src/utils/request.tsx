@@ -1,4 +1,5 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { buildLocalePath, getLocaleFromLocation } from '../locale/path';
 
 // 响应数据接口
 export interface ApiResponse<T = any> {
@@ -15,6 +16,11 @@ const request: AxiosInstance = axios.create({
   timeout: 30000, // 请求超时时间，从10秒增加到30秒
 });
 
+function redirectWithLocale(pathWithoutLocale: string) {
+  const locale = getLocaleFromLocation();
+  window.location.href = buildLocalePath(locale, pathWithoutLocale);
+}
+
 // 请求拦截器
 request.interceptors.request.use(
   (config: any) => {
@@ -23,6 +29,7 @@ request.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    config.headers['X-Locale'] = getLocaleFromLocation();
     return config;
   },
   (error: any) => {
@@ -43,7 +50,7 @@ request.interceptors.response.use(
       // 如果是未授权，跳转到登录页
       if (res.code === 401 || res.code === 2001) {
         localStorage.removeItem('token');
-        window.location.href = '/login';
+        redirectWithLocale('/login');
       }
       
       return Promise.reject(new Error(res.message || '请求失败')) as any;
@@ -60,7 +67,7 @@ request.interceptors.response.use(
       
       if (status === 401) {
         localStorage.removeItem('token');
-        window.location.href = '/login';
+        redirectWithLocale('/login');
       }
       
       return Promise.reject(data || error);

@@ -1,11 +1,18 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { getToken } from '../utils/storage';
+import { useLocation } from 'react-router-dom';
+import { LocaleNavigate, stripLocalePrefix } from '../../../locale';
 
-export default function AuthGuard({ children }: { children: React.ReactNode }) {
+export default function AuthGuard({ children }: { children: React.ReactElement }) {
   const location = useLocation();
-  if (!getToken()) {
-    return <Navigate to="/word/login" replace state={{ from: location.pathname }} />;
+  const token = localStorage.getItem('token');
+  if (!token) {
+    return (
+      <LocaleNavigate
+        to="/word/login"
+        replace
+        state={{ from: stripLocalePrefix(location.pathname) }}
+      />
+    );
   }
-  return <>{children}</>;
+  return children;
 }

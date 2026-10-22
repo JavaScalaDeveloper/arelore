@@ -1,7 +1,7 @@
 import React from 'react';
 import { Form, Input, Button, Card, message } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { RegionSwitcher, useLocaleNavigate } from '../locale';
 
 interface LoginFormValues {
   username: string;
@@ -9,14 +9,14 @@ interface LoginFormValues {
 }
 
 const Login: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useLocaleNavigate();
   const [form] = Form.useForm();
 
   const onFinish = async (values: LoginFormValues) => {
     try {
       // TODO: 实际的登录请求
       console.log('登录信息:', values);
-      
+
       // 模拟登录成功
       localStorage.setItem('adminToken', `mock-token-${values.username}`);
       localStorage.setItem('adminUser', values.username);
@@ -33,9 +33,13 @@ const Login: React.FC = () => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      position: 'relative',
     }}>
-      <Card 
+      <div style={{ position: 'absolute', top: 24, right: 24 }}>
+        <RegionSwitcher />
+      </div>
+      <Card
         style={{ width: 400, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
         bordered={false}
       >
@@ -49,9 +53,9 @@ const Login: React.FC = () => {
             name="username"
             rules={[{ required: true, message: '请输入用户名' }]}
           >
-            <Input 
-              prefix={<UserOutlined />} 
-              placeholder="用户名" 
+            <Input
+              prefix={<UserOutlined />}
+              placeholder="用户名"
               size="large"
             />
           </Form.Item>
@@ -68,9 +72,9 @@ const Login: React.FC = () => {
           </Form.Item>
 
           <Form.Item>
-            <Button 
-              type="primary" 
-              htmlType="submit" 
+            <Button
+              type="primary"
+              htmlType="submit"
               size="large"
               block
             >

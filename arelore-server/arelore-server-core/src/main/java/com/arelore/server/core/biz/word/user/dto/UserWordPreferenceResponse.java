@@ -12,7 +12,7 @@ public class UserWordPreferenceResponse extends UserWordPreference {
 
     /**
      * 背词模式（从 ext_info.studyMode 解析）：
-     * see_meaning=看词识意，listen_spell=听词（摸鱼），see_pick_image=看词选图
+     * see_meaning=看词识意，listen_spell=听词（摸鱼），dictation=听写，see_pick_image=看词选图
      */
     private String studyMode;
 

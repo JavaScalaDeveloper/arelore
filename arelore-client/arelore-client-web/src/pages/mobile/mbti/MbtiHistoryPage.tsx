@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Card, Empty, List, Modal, Space, Spin, Typography } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import {  } from 'react-router-dom';
+import { useLocaleNavigate } from '../../../locale';
 import { userApi } from '../../../api/user';
 
 const { Title, Text } = Typography;
 const MBTI_TYPE_CODE = 'MBTI';
 
 const MbtiHistoryPage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useLocaleNavigate();
   const [loading, setLoading] = useState<boolean>(false);
   const [historyList, setHistoryList] = useState<any[]>([]);
   const [selectedHistory, setSelectedHistory] = useState<any | null>(null);

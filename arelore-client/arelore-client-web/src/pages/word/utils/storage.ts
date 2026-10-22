@@ -7,11 +7,13 @@ const KEY_PREFERENCE = 'word_preference';
 
 export const STUDY_MODE_SEE_MEANING = 'see_meaning';
 export const STUDY_MODE_LISTEN_SPELL = 'listen_spell';
+export const STUDY_MODE_DICTATION = 'dictation';
 export const STUDY_MODE_SEE_PICK_IMAGE = 'see_pick_image';
 
 export type StudyMode =
   | typeof STUDY_MODE_SEE_MEANING
   | typeof STUDY_MODE_LISTEN_SPELL
+  | typeof STUDY_MODE_DICTATION
   | typeof STUDY_MODE_SEE_PICK_IMAGE;
 
 export interface WordPreference {
@@ -35,7 +37,11 @@ function clampInt(n: unknown, min: number, max: number, fallback: number): numbe
 export function normalizePreference(raw: any): WordPreference {
   const src = raw && typeof raw === 'object' ? raw : {};
   let studyMode = src.studyMode as StudyMode;
-  if (studyMode !== STUDY_MODE_LISTEN_SPELL && studyMode !== STUDY_MODE_SEE_PICK_IMAGE) {
+  if (
+    studyMode !== STUDY_MODE_LISTEN_SPELL
+    && studyMode !== STUDY_MODE_DICTATION
+    && studyMode !== STUDY_MODE_SEE_PICK_IMAGE
+  ) {
     studyMode = STUDY_MODE_SEE_MEANING;
   }
   return {

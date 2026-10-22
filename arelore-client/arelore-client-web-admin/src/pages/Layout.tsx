@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Outlet, useNavigate, useLocation, useParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Outlet, useLocation, useParams } from 'react-router-dom';
 import { Layout as AntLayout, Menu } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -12,15 +12,21 @@ import {
   MenuUnfoldOutlined,
   AppstoreOutlined,
   BookOutlined,
+  DatabaseOutlined,
 } from '@ant-design/icons';
+import { RegionSwitcher, stripLocalePrefix, useLocaleNavigate } from '../locale';
 
 type MenuItem = Required<MenuProps>['items'][number];
 
 const { Header, Sider, Content, Footer } = AntLayout;
 
-const PRODUCT_LABEL: Record<string, string> = {
+const PRODUCT_KEYS = ['cert', 'word', 'common'] as const;
+type ProductKey = (typeof PRODUCT_KEYS)[number];
+
+const PRODUCT_LABEL: Record<ProductKey, string> = {
   cert: '考证宝',
   word: '背单词',
+  common: '公共基础',
 };
 
 const CERT_MENUS: MenuItem[] = [
@@ -40,16 +46,34 @@ const WORD_MENUS: MenuItem[] = [
   { key: '/word/users', icon: <UserOutlined />, label: '学习用户' },
 ];
 
+const COMMON_MENUS: MenuItem[] = [
+  { key: '/common/binary-files', icon: <DatabaseOutlined />, label: '二进制文件' },
+];
+
+const MENUS_BY_PRODUCT: Record<ProductKey, MenuItem[]> = {
+  cert: CERT_MENUS,
+  word: WORD_MENUS,
+  common: COMMON_MENUS,
+};
+
+function isProductKey(value: string | undefined): value is ProductKey {
+  return !!value && (PRODUCT_KEYS as readonly string[]).includes(value);
+}
+
 const Layout: React.FC = () => {
   const [collapsed, setCollapsed] = useState<boolean>(false);
-  const navigate = useNavigate();
+  const navigate = useLocaleNavigate();
   const location = useLocation();
   const { product } = useParams<{ product: string }>();
-  const currentProduct = product === 'word' || product === 'cert' ? product : '';
-  const menuItems = currentProduct === 'word' ? WORD_MENUS : CERT_MENUS;
+  const currentProduct = isProductKey(product) ? product : null;
+  const menuItems = currentProduct ? MENUS_BY_PRODUCT[currentProduct] : [];
+  const selectedKey = useMemo(
+    () => stripLocalePrefix(location.pathname),
+    [location.pathname]
+  );
 
   useEffect(() => {
-    if (product !== 'cert' && product !== 'word') {
+    if (!isProductKey(product)) {
       navigate('/', { replace: true });
     }
   }, [product, navigate]);
@@ -71,14 +95,14 @@ const Layout: React.FC = () => {
           }}
           onClick={() => navigate('/')}
         >
-          {collapsed ? 'A' : `Arelore · ${PRODUCT_LABEL[currentProduct] || ''}`}
+          {collapsed ? 'A' : `Arelore · ${currentProduct ? PRODUCT_LABEL[currentProduct] : ''}`}
         </div>
         <Menu
           theme="dark"
           mode="inline"
-          selectedKeys={[location.pathname]}
+          selectedKeys={[selectedKey]}
           items={menuItems}
-          onClick={({ key }) => navigate(key)}
+          onClick={({ key }) => navigate(String(key))}
         />
       </Sider>
       <AntLayout>
@@ -98,6 +122,7 @@ const Layout: React.FC = () => {
             style: { fontSize: 18, cursor: 'pointer' },
           })}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <RegionSwitcher size="middle" />
             <span
               style={{ color: '#1677ff', cursor: 'pointer' }}
               onClick={() => navigate('/')}

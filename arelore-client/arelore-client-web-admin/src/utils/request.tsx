@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { message } from 'antd';
+import { buildLocalePath, getLocaleFromLocation } from '../locale/path';
 
 /** 已在拦截器中提示过的错误，避免 CRA 开发态全屏 Uncaught overlay */
 export class ApiRequestError extends Error {
@@ -53,6 +54,10 @@ const request: AxiosInstance = axios.create({
   timeout: 60000,
 });
 
+function redirectLogin() {
+  window.location.href = buildLocalePath(getLocaleFromLocation(), '/login');
+}
+
 request.interceptors.request.use(
   (config: any) => {
     const token = localStorage.getItem('adminToken');
@@ -63,6 +68,7 @@ request.interceptors.request.use(
     if (adminUser) {
       config.headers['X-Current-User'] = adminUser;
     }
+    config.headers['X-Locale'] = getLocaleFromLocation();
     return config;
   },
   (error: any) => rejectWithToast(error)
@@ -75,7 +81,7 @@ request.interceptors.response.use(
     if (res && typeof res === 'object' && 'code' in res && res.code !== 200) {
       if (res.code === 401 || res.code === 2001 || res.code === 2004 || res.code === 2005) {
         localStorage.removeItem('adminToken');
-        window.location.href = '/login';
+        redirectLogin();
       }
       return rejectWithToast(new Error(res.message || '请求失败'));
     }
@@ -85,7 +91,7 @@ request.interceptors.response.use(
   (error: any) => {
     if (error?.response?.status === 401) {
       localStorage.removeItem('adminToken');
-      window.location.href = '/login';
+      redirectLogin();
     }
     return rejectWithToast(error);
   }

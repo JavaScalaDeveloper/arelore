@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Card, Form, Input, Progress, Space, Typography, message } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import {  } from 'react-router-dom';
+import { useLocaleNavigate } from '../../locale';
 import { userApi } from '../../api/user';
 import { reportClientLog } from '../../utils/clientLogger';
 import { sha256Hex } from '../../utils/hash';
@@ -14,7 +15,7 @@ interface ForgotPasswordForm {
 }
 
 const MobileForgotPasswordPage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useLocaleNavigate();
   const [form] = Form.useForm<ForgotPasswordForm>();
   const [applyLoading, setApplyLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);

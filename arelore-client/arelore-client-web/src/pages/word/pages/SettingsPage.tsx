@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button, Card, Slider, Space, Tag, Typography, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import {  } from 'react-router-dom';
+import { useLocaleNavigate } from '../../../locale';
 import { LETTER_VOICES, normalizeLetterVoice } from '../utils/letterVoices';
 import { modeLabel } from '../utils/preference';
 import request, { shortErrorMessage } from '../utils/request';
@@ -9,6 +10,7 @@ import {
   getPreference,
   getToken,
   setPreference,
+  STUDY_MODE_DICTATION,
   STUDY_MODE_LISTEN_SPELL,
   STUDY_MODE_SEE_MEANING,
   STUDY_MODE_SEE_PICK_IMAGE,
@@ -19,7 +21,7 @@ import { playWordThenSpell, type TtsSession } from '../utils/tts';
 const { Title, Text, Paragraph } = Typography;
 
 export default function SettingsPage() {
-  const navigate = useNavigate();
+  const navigate = useLocaleNavigate();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const sessionRef = useRef<TtsSession | null>(null);
   const [pref, setPref] = useState<WordPreference>(getPreference());
@@ -111,6 +113,7 @@ export default function SettingsPage() {
           {[
             { mode: STUDY_MODE_LISTEN_SPELL, tip: '单词 → 拼读 → 中文，结束后自动下一词' },
             { mode: STUDY_MODE_SEE_MEANING, tip: '看单词，判断是否认识含义' },
+            { mode: STUDY_MODE_DICTATION, tip: '只播语音并显示释义，按字母听写拼出单词' },
             { mode: STUDY_MODE_SEE_PICK_IMAGE, tip: '暂未开放', disabled: true },
           ].map((item) => (
             <div

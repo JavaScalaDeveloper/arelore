@@ -5,6 +5,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordPictureContentResponse;
+import com.arelore.server.core.common.time.ChinaTime;
 import com.arelore.server.core.registration.entity.CommonBinaryFile;
 import com.arelore.server.core.registration.mapper.CommonBinaryFileMapper;
 import org.springframework.dao.DuplicateKeyException;
@@ -177,6 +178,9 @@ public class WordPictureBinaryStore {
         row.setHashValue(hash);
         row.setFileData(data);
         row.setStatus(1);
+        // 显式写东八区时间，避免 MySQL 机器为 UTC 时 CURRENT_TIMESTAMP 差 8 小时
+        row.setCreateTime(ChinaTime.now());
+        row.setModifyTime(ChinaTime.now());
         JSONObject ext = new JSONObject();
         ext.put("contentType", contentType);
         ext.put("source", StringUtils.hasText(source) ? source.trim().toUpperCase() : "PIXABAY");

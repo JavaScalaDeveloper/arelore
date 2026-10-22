@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Card, Progress, Space, Tag, Typography, message } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import {  } from 'react-router-dom';
+import { useLocaleNavigate } from '../../../locale';
 import { wordApi } from '../api/word';
 import { modeLabel, syncPreference } from '../utils/preference';
 import { getPreference, getToken, setBookId, STUDY_MODE_LISTEN_SPELL } from '../utils/storage';
@@ -33,7 +34,7 @@ function mapCurrent(current: any) {
 }
 
 export default function HomePage() {
-  const navigate = useNavigate();
+  const navigate = useLocaleNavigate();
   const [status, setStatus] = useState<'loading' | 'needLogin' | 'noBook' | 'error' | 'ready'>('loading');
   const [book, setBook] = useState<any>(null);
   const [studyModeLabel, setStudyModeLabel] = useState(modeLabel(getPreference().studyMode));

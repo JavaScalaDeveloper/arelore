@@ -2,10 +2,11 @@ import React from 'react';
 import { Avatar, Button, Dropdown, Space } from 'antd';
 import type { MenuProps } from 'antd';
 import { LogoutOutlined, UserOutlined } from '@ant-design/icons';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
+import { RegionSwitcher, useLocaleNavigate } from '../../locale';
 
 const MobileLayout: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useLocaleNavigate();
   const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
 
   const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
@@ -50,11 +51,14 @@ const MobileLayout: React.FC = () => {
         <Button type="link" style={{ padding: 0, fontWeight: 600 }} onClick={() => navigate('/mobile/home')}>
           首页
         </Button>
-        <Dropdown menu={{ items, onClick: handleMenuClick }} trigger={['click']}>
-          <Space style={{ cursor: 'pointer' }}>
-            <Avatar src={user.avatar} icon={!user.avatar && <UserOutlined />} />
-          </Space>
-        </Dropdown>
+        <Space size="middle">
+          <RegionSwitcher size="small" />
+          <Dropdown menu={{ items, onClick: handleMenuClick }} trigger={['click']}>
+            <Space style={{ cursor: 'pointer' }}>
+              <Avatar src={user.avatar} icon={!user.avatar && <UserOutlined />} />
+            </Space>
+          </Dropdown>
+        </Space>
       </div>
       <Outlet />
     </div>

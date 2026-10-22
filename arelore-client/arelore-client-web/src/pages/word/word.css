@@ -99,6 +99,66 @@
   max-width: 720px;
 }
 
+.word-app-root .dictation-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 20px 0 8px;
+}
+
+.word-app-root .dictation-slots.shake {
+  animation: word-dictation-shake 0.35s ease;
+}
+
+@keyframes word-dictation-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-8px);
+  }
+  40% {
+    transform: translateX(8px);
+  }
+  60% {
+    transform: translateX(-6px);
+  }
+  80% {
+    transform: translateX(6px);
+  }
+}
+
+.word-app-root .dictation-slot {
+  min-width: 28px;
+  height: 40px;
+  padding: 0 6px;
+  border-bottom: 2px solid #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 600;
+  color: #0f172a;
+  text-transform: lowercase;
+}
+
+.word-app-root .dictation-slot.fixed {
+  border-bottom-color: transparent;
+  color: #64748b;
+  min-width: 12px;
+}
+
+.word-app-root .dictation-slot.current {
+  border-bottom-color: #3b82f6;
+  box-shadow: inset 0 -2px 0 #3b82f6;
+}
+
+.word-app-root .dictation-slot.filled {
+  border-bottom-color: #22c55e;
+}
+
 .word-app-root .page-head {
   display: flex;
   align-items: center;

@@ -1,13 +1,21 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Card, Image, Space, Tag, Typography, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useLocaleNavigate } from '../../../locale';
 import { StudyCard, wordApi } from '../api/word';
 import { shortErrorMessage } from '../utils/request';
 import {
   getPreference,
+  STUDY_MODE_DICTATION,
   STUDY_MODE_LISTEN_SPELL,
 } from '../utils/storage';
+import {
+  buildDictationSlots,
+  emptyDictationFilled,
+  isDictationComplete,
+  nextLetterSlotIndex,
+  type DictationSlot,
+} from '../utils/dictation';
 import { playWordOnly, playWordThenSpell, type TtsSession } from '../utils/tts';
 
 const { Title, Text, Paragraph } = Typography;
@@ -20,7 +28,7 @@ function formatElapsed(ms: number): string {
 }
 
 export default function StudyPage() {
-  const navigate = useNavigate();
+  const navigate = useLocaleNavigate();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const sessionRef = useRef<TtsSession | null>(null);
   const answeringLock = useRef(false);
@@ -28,6 +36,7 @@ export default function StudyPage() {
   const listenHoldAdvance = useRef(false);
   const listenPausedRef = useRef(false);
   const failsafeTimer = useRef<number | null>(null);
+  const dictationAutoNextTimer = useRef<number | null>(null);
   const startedAt = useRef(Date.now());
   const answerRef = useRef<(
     rememberFlag: boolean,
@@ -38,6 +47,8 @@ export default function StudyPage() {
   ) => Promise<void>>(async () => undefined);
   const cardsRef = useRef<StudyCard[]>([]);
   const indexRef = useRef(0);
+  const dictationSlotsRef = useRef<DictationSlot[]>([]);
+  const dictationFilledRef = useRef<string[]>([]);
 
   const pref = getPreference();
   const [status, setStatus] = useState<'loading' | 'ready' | 'done' | 'error'>('loading');
@@ -60,8 +71,39 @@ export default function StudyPage() {
   const [learnTotal, setLearnTotal] = useState(0);
   const [reviewTotal, setReviewTotal] = useState(0);
   const [pictureError, setPictureError] = useState(false);
+  const [dictationSlots, setDictationSlots] = useState<DictationSlot[]>([]);
+  const [dictationFilled, setDictationFilled] = useState<string[]>([]);
+  const [dictationShake, setDictationShake] = useState(false);
+  const dictationLock = useRef(false);
 
   const isListenMode = pref.studyMode === STUDY_MODE_LISTEN_SPELL;
+  const isDictationMode = pref.studyMode === STUDY_MODE_DICTATION;
+
+  const resetDictation = useCallback((word?: string) => {
+    const slots = buildDictationSlots(word || '');
+    const filled = emptyDictationFilled(slots);
+    dictationSlotsRef.current = slots;
+    dictationFilledRef.current = filled;
+    setDictationSlots(slots);
+    setDictationFilled(filled);
+    setDictationShake(false);
+    dictationLock.current = false;
+  }, []);
+
+  const triggerDictationShake = useCallback(() => {
+    setDictationShake(false);
+    window.requestAnimationFrame(() => {
+      setDictationShake(true);
+      window.setTimeout(() => setDictationShake(false), 360);
+    });
+  }, []);
+
+  const clearDictationAutoNext = useCallback(() => {
+    if (dictationAutoNextTimer.current) {
+      window.clearTimeout(dictationAutoNextTimer.current);
+      dictationAutoNextTimer.current = null;
+    }
+  }, []);
 
   const stopAudio = useCallback(() => {
     sessionRef.current?.stop();
@@ -122,7 +164,6 @@ export default function StudyPage() {
     });
     if (picUrls.length) setPictureError(false);
 
-    // 同步写回队列，听词播放时能拿到 meaningAudioUrl
     const queue = cardsRef.current;
     const idx = queue.findIndex((item) => item.wordCode === wordCode);
     if (idx >= 0) {
@@ -175,9 +216,11 @@ export default function StudyPage() {
       setListenPaused(false);
       listenHoldAdvance.current = false;
       answeringLock.current = false;
+      clearDictationAutoNext();
+      resetDictation(nextCards[nextIndex]?.word);
       bindStoredMedia(nextCards[nextIndex]);
     },
-    [bindStoredMedia, stopAudio]
+    [bindStoredMedia, clearDictationAutoNext, resetDictation, stopAudio]
   );
 
   const answerAndReveal = useCallback(
@@ -221,14 +264,38 @@ export default function StudyPage() {
         setSubmitting(false);
         if (goNextImmediately || isListenMode) {
           goNext(!!rememberFlag);
+          return;
+        }
+        // 听写「不认识」：展示单词，3 秒后自动下一词（也可手动）
+        if (isDictationMode && !rememberFlag) {
+          clearDictationAutoNext();
+          const expectEpoch = cardEpoch.current;
+          const expectWordCode = current.wordCode;
+          dictationAutoNextTimer.current = window.setTimeout(() => {
+            dictationAutoNextTimer.current = null;
+            if (cardEpoch.current !== expectEpoch) return;
+            goNext(false);
+          }, 3000);
         }
       } catch (e: any) {
         answeringLock.current = false;
         setSubmitting(false);
+        dictationLock.current = false;
         message.error(shortErrorMessage(e, '提交失败'));
       }
     },
-    [bookCode, card, goNext, isListenMode, pendingRemember, revealed, stopAudio, submitting]
+    [
+      bookCode,
+      card,
+      clearDictationAutoNext,
+      goNext,
+      isDictationMode,
+      isListenMode,
+      pendingRemember,
+      revealed,
+      stopAudio,
+      submitting,
+    ]
   );
 
   useEffect(() => {
@@ -307,6 +374,36 @@ export default function StudyPage() {
     [ensureMeaningAudioUrl, isListenMode, pref, stopAudio]
   );
 
+  const applyDictationLetter = useCallback(
+    (rawKey: string) => {
+      if (!isDictationMode || revealed || submitting || dictationLock.current) {
+        return;
+      }
+      const key = String(rawKey || '').toLowerCase();
+      if (!/^[a-z]$/.test(key)) {
+        return;
+      }
+      const slots = dictationSlotsRef.current;
+      const filled = dictationFilledRef.current.slice();
+      const idx = nextLetterSlotIndex(slots, filled);
+      if (idx < 0) {
+        return;
+      }
+      if (key !== slots[idx].expected) {
+        triggerDictationShake();
+        return;
+      }
+      filled[idx] = key;
+      dictationFilledRef.current = filled;
+      setDictationFilled(filled);
+      if (isDictationComplete(slots, filled)) {
+        dictationLock.current = true;
+        void answerRef.current(true, true);
+      }
+    },
+    [isDictationMode, revealed, submitting, triggerDictationShake]
+  );
+
   const loadSession = useCallback(() => {
     setStatus('loading');
     wordApi
@@ -337,6 +434,7 @@ export default function StudyPage() {
         setSubmitting(false);
         setPictureError(false);
         setListenPaused(false);
+        resetDictation(list[0]?.word);
         setStatus('ready');
         bindStoredMedia(list[0]);
       })
@@ -344,7 +442,7 @@ export default function StudyPage() {
         setStatus('error');
         setErrorMessage(shortErrorMessage(e, '加载学习队列失败'));
       });
-  }, [bindStoredMedia]);
+  }, [bindStoredMedia, resetDictation]);
 
   useEffect(() => {
     audioRef.current = new Audio();
@@ -354,10 +452,11 @@ export default function StudyPage() {
     }, 1000);
     return () => {
       window.clearInterval(timer);
+      clearDictationAutoNext();
       stopAudio();
       audioRef.current = null;
     };
-  }, [loadSession, stopAudio]);
+  }, [clearDictationAutoNext, loadSession, stopAudio]);
 
   useEffect(() => {
     if (status === 'ready' && card?.word) {
@@ -374,6 +473,42 @@ export default function StudyPage() {
     const onKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) {
+        return;
+      }
+      if (isDictationMode) {
+        if (revealed) {
+          // 已揭晓：仅用非字母快捷键切下一词（不用空格，避免与听写习惯冲突）
+          if (e.key === 'Enter' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            clearDictationAutoNext();
+            goNext(!!pendingRemember);
+          }
+          return;
+        }
+        // 听写输入中：字母与空格一律不当快捷键，保证能输入 r 等字母
+        if (e.key === 'Backspace') {
+          e.preventDefault();
+          const slots = dictationSlotsRef.current;
+          const filled = dictationFilledRef.current.slice();
+          for (let i = filled.length - 1; i >= 0; i--) {
+            if (!slots[i].fixed && filled[i]) {
+              filled[i] = '';
+              dictationFilledRef.current = filled;
+              setDictationFilled(filled);
+              break;
+            }
+          }
+          return;
+        }
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          void answerAndReveal(false, false);
+          return;
+        }
+        if (/^[a-zA-Z]$/.test(e.key)) {
+          e.preventDefault();
+          applyDictationLetter(e.key);
+        }
         return;
       }
       if (isListenMode) {
@@ -430,12 +565,15 @@ export default function StudyPage() {
   }, [
     status,
     card,
+    isDictationMode,
     isListenMode,
     revealed,
     pendingRemember,
     listenPaused,
     voiceType,
     answerAndReveal,
+    applyDictationLetter,
+    clearDictationAutoNext,
     goNext,
     playWord,
     stopAudio,
@@ -479,6 +617,8 @@ export default function StudyPage() {
 
   if (!card) return null;
 
+  const currentDictationIndex = nextLetterSlotIndex(dictationSlots, dictationFilled);
+
   return (
     <div className="page study-page">
       <div className="page-head">
@@ -497,11 +637,33 @@ export default function StudyPage() {
           {card.mode === 'review' ? '复习' : '新学'}
         </Tag>
         {isListenMode && <Tag color="processing">听词摸鱼</Tag>}
+        {isDictationMode && <Tag color="purple">听写</Tag>}
       </Space>
 
       <Card className="word-card">
-        <div className="word">{card.word}</div>
-        {card.phonetic && <div className="phonetic">/{card.phonetic}/</div>}
+        {(!isDictationMode || revealed) && <div className="word">{card.word}</div>}
+        {(!isDictationMode || revealed) && card.phonetic && (
+          <div className="phonetic">/{card.phonetic}/</div>
+        )}
+        {isDictationMode && !revealed && (
+          <div className={`dictation-slots ${dictationShake ? 'shake' : ''}`}>
+            {dictationSlots.map((slot, i) => (
+              <span
+                key={`${i}-${slot.expected}`}
+                className={[
+                  'dictation-slot',
+                  slot.fixed ? 'fixed' : '',
+                  !slot.fixed && dictationFilled[i] ? 'filled' : '',
+                  !slot.fixed && i === currentDictationIndex ? 'current' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {slot.fixed ? slot.expected : dictationFilled[i] || ''}
+              </span>
+            ))}
+          </div>
+        )}
         <Space style={{ marginTop: 12 }}>
           <Button
             size="small"
@@ -521,7 +683,7 @@ export default function StudyPage() {
           </Button>
         </Space>
 
-        {(isListenMode || revealed) && (
+        {(isListenMode || isDictationMode || revealed) && (
           <div className="reveal">
             {card.picture && !pictureError && (
               <Image
@@ -532,25 +694,61 @@ export default function StudyPage() {
               />
             )}
             <Paragraph style={{ marginTop: 12 }}>{card.meaning || '暂无释义'}</Paragraph>
-            {card.mnemonic && <Paragraph type="secondary">记忆：{card.mnemonic}</Paragraph>}
+            {!isDictationMode && card.mnemonic && (
+              <Paragraph type="secondary">记忆：{card.mnemonic}</Paragraph>
+            )}
           </div>
         )}
 
-        {!isListenMode && hintShown && !revealed && (
+        {!isListenMode && !isDictationMode && hintShown && !revealed && (
           <div className="reveal">
             <Text type="secondary">例句提示</Text>
             <Paragraph>{card.exampleEn || '暂无英文例句'}</Paragraph>
           </div>
         )}
 
-        {!isListenMode && !hintShown && !revealed && (
+        {!isListenMode && !isDictationMode && !hintShown && !revealed && (
           <Paragraph type="secondary" style={{ marginTop: 16 }}>
             先回想词义；不确定可点「提示」
           </Paragraph>
         )}
+
+        {isDictationMode && !revealed && (
+          <Paragraph type="secondary" style={{ marginTop: 12, textAlign: 'center' }}>
+            听语音，按字母输入单词；输错会抖动提示
+          </Paragraph>
+        )}
       </Card>
 
-      {isListenMode ? (
+      {isDictationMode ? (
+        <>
+          <Space className="study-actions" wrap size={12}>
+            {!revealed ? (
+              <>
+                <Button onClick={() => playWord(card, voiceType)}>重听</Button>
+                <Button danger onClick={() => void answerAndReveal(false, false)} disabled={submitting}>
+                  不认识 (←)
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="primary"
+                onClick={() => {
+                  clearDictationAutoNext();
+                  goNext(!!pendingRemember);
+                }}
+              >
+                下一个 (Enter)
+              </Button>
+            )}
+          </Space>
+          <div className="study-hint">
+            {!revealed
+              ? '键盘直接输入字母（含 R）· Backspace 退格 · ← 不认识 · 重听请点按钮'
+              : '已展示正确答案，3 秒后自动下一词；也可 Enter / → 立即下一词'}
+          </div>
+        </>
+      ) : isListenMode ? (
         <>
           <Space className="study-actions" wrap size={12}>
             <Button

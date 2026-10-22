@@ -22,10 +22,10 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:test}
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
-    time-zone: GMT+8
+    time-zone: Asia/Shanghai
   datasource:
     education:
-      url: jdbc:mysql://book-n5095:3306/arelore_education?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      url: jdbc:mysql://book-n5095:3306/arelore_education?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&forceConnectionTimeZoneToSession=true
       username: root
       password: 123456
       driver-class-name: com.mysql.cj.jdbc.Driver
@@ -34,8 +34,10 @@ spring:
         idle-timeout: 520000
         connection-timeout: 30000
         keepalive-time: 60000
+        # 固定会话东八区，避免机器 UTC 时 CURRENT_TIMESTAMP 差 8 小时
+        connection-init-sql: SET time_zone = '+08:00'
     user:
-      url: jdbc:mysql://book-n5095:3306/arelore_user?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      url: jdbc:mysql://book-n5095:3306/arelore_user?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&forceConnectionTimeZoneToSession=true
       username: root
       password: 123456
       driver-class-name: com.mysql.cj.jdbc.Driver
@@ -44,6 +46,7 @@ spring:
         idle-timeout: 520000
         connection-timeout: 30000
         keepalive-time: 60000
+        connection-init-sql: SET time_zone = '+08:00'
 
 mybatis-plus:
   configuration:
@@ -67,7 +70,15 @@ arelore:
       # 与 curl/README 一致；alloy 会映射到 Vivian
       voice: ${ARELORE_TTS_QWEN_VOICE:alloy}
       response-format: mp3
-      timeout-seconds: 180
+      # 单次 HTTP 读超时（仅覆盖实际合成，不含客户端排队）；默认 30 分钟
+      timeout-seconds: ${ARELORE_TTS_QWEN_TIMEOUT_SECONDS:1800}
+      # 读超时 / 连接重置等瞬时失败时的总尝试次数（含首次）
+      max-attempts: ${ARELORE_TTS_QWEN_MAX_ATTEMPTS:3}
+      retry-delay-ms: ${ARELORE_TTS_QWEN_RETRY_DELAY_MS:3000}
+      # 同时对 TTS 发 HTTP 的上限，应对齐服务端 TTS_MAX_CONCURRENT（默认 1）
+      in-flight: ${ARELORE_TTS_QWEN_IN_FLIGHT:1}
+      # 批量任务线程数：>1 时可在「写库」与「下一词排队等 TTS」之间重叠
+      parallelism: ${ARELORE_TTS_QWEN_PARALLELISM:2}
 
 logging:
   level:

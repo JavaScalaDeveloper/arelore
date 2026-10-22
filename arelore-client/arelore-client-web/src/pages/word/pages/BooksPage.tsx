@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Card, Radio, Select, Space, Spin, Typography, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import {  } from 'react-router-dom';
+import { useLocaleNavigate } from '../../../locale';
 import { wordApi } from '../api/word';
 import { shortErrorMessage } from '../utils/request';
 import { setBookId } from '../utils/storage';
@@ -45,7 +46,7 @@ function parseBookExt(extInfo: any) {
 }
 
 export default function BooksPage() {
-  const navigate = useNavigate();
+  const navigate = useLocaleNavigate();
   const [step, setStep] = useState<'language' | 'category' | 'book' | 'plan'>('language');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);

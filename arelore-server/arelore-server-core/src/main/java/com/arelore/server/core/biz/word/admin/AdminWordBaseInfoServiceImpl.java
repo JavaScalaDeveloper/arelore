@@ -27,15 +27,15 @@ import com.arelore.server.core.biz.word.admin.support.Qwen3TtsClient;
 import com.arelore.server.core.biz.word.admin.support.StockImageClient;
 import com.arelore.server.core.biz.word.admin.support.WordPictureBinaryStore;
 import com.arelore.server.core.biz.word.admin.support.YoudaoDictClient;
+import com.arelore.server.core.common.time.ChinaTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -44,6 +44,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class AdminWordBaseInfoServiceImpl
@@ -55,15 +60,15 @@ public class AdminWordBaseInfoServiceImpl
     private static final int BATCH_SEARCH_PAGE_SIZE = 50;
     private static final long YOUDAO_GAP_MS = 200L;
     private static final long PIXABAY_GAP_MS = 250L;
-    private static final long TTS_GAP_MS = 50L;
-    private static final DateTimeFormatter SYNC_TIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
+    /** 默认 TTS 客户端并发；服务端通常 TTS_MAX_CONCURRENT=1，多请求会排队 */
+    private static final int DEFAULT_TTS_PARALLELISM = 2;
     private final AdminWordBaseInfoMapper mapper;
     private final AdminWordEntryMapper entryMapper;
     private final AdminWordBookService bookService;
     private final StockImageClient stockImageClient;
     private final WordPictureBinaryStore pictureBinaryStore;
     private final Qwen3TtsClient qwen3TtsClient;
+    private final int ttsParallelism;
 
     public AdminWordBaseInfoServiceImpl(
         AdminWordBaseInfoMapper mapper,
@@ -71,7 +76,8 @@ public class AdminWordBaseInfoServiceImpl
         AdminWordBookService bookService,
         StockImageClient stockImageClient,
         WordPictureBinaryStore pictureBinaryStore,
-        Qwen3TtsClient qwen3TtsClient
+        Qwen3TtsClient qwen3TtsClient,
+        @Value("${arelore.tts.qwen.parallelism:2}") int ttsParallelism
     ) {
         this.mapper = mapper;
         this.entryMapper = entryMapper;
@@ -79,6 +85,7 @@ public class AdminWordBaseInfoServiceImpl
         this.stockImageClient = stockImageClient;
         this.pictureBinaryStore = pictureBinaryStore;
         this.qwen3TtsClient = qwen3TtsClient;
+        this.ttsParallelism = ttsParallelism > 0 ? Math.min(8, ttsParallelism) : DEFAULT_TTS_PARALLELISM;
     }
 
     @Override
@@ -410,7 +417,7 @@ public class AdminWordBaseInfoServiceImpl
             ext.put("source", "YOUDAO");
         }
         ext.remove("syncError");
-        ext.put("lastMeaningSyncTime", LocalDateTime.now().format(SYNC_TIME_FMT));
+        ext.put("lastMeaningSyncTime", ChinaTime.nowDateTime());
         refreshMetaTags(ext);
         row.setExtInfo(ext.toJSONString());
         mapper.updateById(row);
@@ -423,7 +430,7 @@ public class AdminWordBaseInfoServiceImpl
         }
         JSONObject target = ext == null ? parseExt(row.getExtInfo()) : ext;
         target.put("syncError", shortError(errorMsg));
-        target.put("lastFailTime", LocalDateTime.now().format(SYNC_TIME_FMT));
+        target.put("lastFailTime", ChinaTime.nowDateTime());
         refreshMetaTags(target);
         row.setExtInfo(target.toJSONString());
         mapper.updateById(row);
@@ -709,7 +716,7 @@ public class AdminWordBaseInfoServiceImpl
             ext.put("pictureConfirmed", false);
             ext.remove("pictureConfirmedAt");
             ext.remove("syncError");
-            ext.put("lastBatchSearchTime", LocalDateTime.now().format(SYNC_TIME_FMT));
+            ext.put("lastBatchSearchTime", ChinaTime.nowDateTime());
             refreshMetaTags(ext);
             row.setExtInfo(ext.toJSONString());
             mapper.updateById(row);
@@ -744,7 +751,7 @@ public class AdminWordBaseInfoServiceImpl
             ext.put("pictures", slim.getJSONArray("pictures"));
             ext.put("pictureSource", "YOUDAO");
             ext.put("pictureConfirmed", true);
-            ext.put("pictureConfirmedAt", LocalDateTime.now().format(SYNC_TIME_FMT));
+            ext.put("pictureConfirmedAt", ChinaTime.nowDateTime());
         }
         ext.put("source", "YOUDAO");
         if (hasMeaning) {
@@ -758,7 +765,7 @@ public class AdminWordBaseInfoServiceImpl
         }
         ext.remove("syncError");
         ext.remove("pictureCandidates");
-        ext.put("lastBatchSearchTime", LocalDateTime.now().format(SYNC_TIME_FMT));
+        ext.put("lastBatchSearchTime", ChinaTime.nowDateTime());
         refreshMetaTags(ext);
         row.setExtInfo(ext.toJSONString());
         mapper.updateById(row);
@@ -824,7 +831,7 @@ public class AdminWordBaseInfoServiceImpl
             ext.put("pictures", pictures);
             ext.put("pictureSource", pictureSource);
             ext.put("pictureConfirmed", true);
-            ext.put("pictureConfirmedAt", LocalDateTime.now().format(SYNC_TIME_FMT));
+            ext.put("pictureConfirmedAt", ChinaTime.nowDateTime());
             ext.remove("pictureCandidates");
             ext.remove("syncError");
             refreshMetaTags(ext);
@@ -856,72 +863,135 @@ public class AdminWordBaseInfoServiceImpl
             ? Integer.MAX_VALUE
             : Math.max(1, Math.min(50_000, req.getLimit()));
         boolean force = Boolean.TRUE.equals(req.getForce());
+        int parallelism = resolveTtsParallelism(req.getParallelism());
 
         AdminWordBaseInfoBatchMeaningAudioResponse result = new AdminWordBaseInfoBatchMeaningAudioResponse();
         result.setSource("QWEN3_TTS");
         result.setVoice(qwen3TtsClient.getVoice());
+        result.setParallelism(parallelism);
 
-        long lastId = 0L;
-        int pageRounds = 0;
-        while (result.getScanned() < maxWords && pageRounds < 100_000) {
-            pageRounds++;
-            AdminWordBaseInfoRequest query = new AdminWordBaseInfoRequest();
-            query.setLanguageCode(req.getLanguageCode());
-            query.setWord(req.getWord());
-            query.setTags(req.getTags());
-            query.setTag(req.getTag());
-            query.setHasPicture(req.getHasPicture());
-            query.setPictureConfirmed(req.getPictureConfirmed());
-            int fetchSize = Math.min(BATCH_SEARCH_PAGE_SIZE, maxWords - result.getScanned());
-            LambdaQueryWrapper<AdminWordBaseInfo> wrapper = buildWrapper(query)
-                .gt(AdminWordBaseInfo::getId, lastId)
-                .orderByAsc(AdminWordBaseInfo::getId)
-                .last("LIMIT " + fetchSize);
-            List<AdminWordBaseInfo> rows = mapper.selectList(wrapper);
-            if (rows == null || rows.isEmpty()) {
-                break;
-            }
-            for (AdminWordBaseInfo row : rows) {
-                if (row == null || row.getId() == null) {
-                    continue;
-                }
-                lastId = row.getId();
-                if (result.getScanned() >= maxWords) {
+        AtomicInteger scanned = new AtomicInteger();
+        AtomicInteger filled = new AtomicInteger();
+        AtomicInteger failed = new AtomicInteger();
+        AtomicInteger skipped = new AtomicInteger();
+
+        ExecutorService pool = Executors.newFixedThreadPool(parallelism, r -> {
+            Thread t = new Thread(r, "meaning-tts-" + System.identityHashCode(r));
+            t.setDaemon(true);
+            return t;
+        });
+        try {
+            long lastId = 0L;
+            int pageRounds = 0;
+            while (scanned.get() < maxWords && pageRounds < 100_000) {
+                pageRounds++;
+                AdminWordBaseInfoRequest query = new AdminWordBaseInfoRequest();
+                query.setLanguageCode(req.getLanguageCode());
+                query.setWord(req.getWord());
+                query.setTags(req.getTags());
+                query.setTag(req.getTag());
+                query.setHasPicture(req.getHasPicture());
+                query.setPictureConfirmed(req.getPictureConfirmed());
+                int fetchSize = Math.min(BATCH_SEARCH_PAGE_SIZE, maxWords - scanned.get());
+                if (fetchSize <= 0) {
                     break;
                 }
-                result.setScanned(result.getScanned() + 1);
-                if (!StringUtils.hasText(row.getWord())) {
-                    result.setSkipped(result.getSkipped() + 1);
-                    continue;
+                LambdaQueryWrapper<AdminWordBaseInfo> wrapper = buildWrapper(query)
+                    .gt(AdminWordBaseInfo::getId, lastId)
+                    .orderByAsc(AdminWordBaseInfo::getId)
+                    .last("LIMIT " + fetchSize);
+                List<AdminWordBaseInfo> rows = mapper.selectList(wrapper);
+                if (rows == null || rows.isEmpty()) {
+                    break;
                 }
-                try {
-                    boolean filled = generateMeaningAudioForRow(row, force);
-                    if (filled) {
-                        result.setFilled(result.getFilled() + 1);
-                        Thread.sleep(TTS_GAP_MS);
-                    } else {
-                        result.setSkipped(result.getSkipped() + 1);
+                lastId = rows.get(rows.size() - 1).getId();
+
+                List<AdminWordBaseInfo> batch = new ArrayList<>();
+                for (AdminWordBaseInfo row : rows) {
+                    if (row == null || row.getId() == null) {
+                        continue;
                     }
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    result.setNote("批量生成释义语音被中断；已处理 " + result.getScanned() + " 个词");
-                    return result;
-                } catch (Exception e) {
-                    result.setFailed(result.getFailed() + 1);
-                    log.warn("batch meaning audio failed id={} word={}: {}",
-                        row.getId(), row.getWord(), shortError(e.getMessage()));
+                    if (scanned.get() + batch.size() >= maxWords) {
+                        break;
+                    }
+                    batch.add(row);
+                }
+                if (batch.isEmpty()) {
+                    break;
+                }
+
+                List<Future<?>> futures = new ArrayList<>(batch.size());
+                for (AdminWordBaseInfo row : batch) {
+                    futures.add(pool.submit(() -> {
+                        scanned.incrementAndGet();
+                        if (!StringUtils.hasText(row.getWord())) {
+                            skipped.incrementAndGet();
+                            return;
+                        }
+                        try {
+                            boolean ok = generateMeaningAudioForRow(row, force);
+                            if (ok) {
+                                filled.incrementAndGet();
+                            } else {
+                                skipped.incrementAndGet();
+                            }
+                        } catch (Exception e) {
+                            failed.incrementAndGet();
+                            log.warn("batch meaning audio failed id={} word={}: {}",
+                                row.getId(), row.getWord(), e.getMessage());
+                        }
+                    }));
+                }
+                for (Future<?> f : futures) {
+                    try {
+                        f.get();
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        result.setNote("批量生成释义语音被中断；已处理 " + scanned.get() + " 个词");
+                        result.setScanned(scanned.get());
+                        result.setFilled(filled.get());
+                        result.setFailed(failed.get());
+                        result.setSkipped(skipped.get());
+                        return result;
+                    } catch (Exception e) {
+                        failed.incrementAndGet();
+                        log.warn("batch meaning audio future failed: {}", e.getMessage());
+                    }
+                }
+                if (rows.size() < fetchSize) {
+                    break;
                 }
             }
-            if (rows.size() < fetchSize) {
-                break;
+        } finally {
+            pool.shutdown();
+            try {
+                if (!pool.awaitTermination(30, TimeUnit.SECONDS)) {
+                    pool.shutdownNow();
+                }
+            } catch (InterruptedException ie) {
+                pool.shutdownNow();
+                Thread.currentThread().interrupt();
             }
         }
+
+        result.setScanned(scanned.get());
+        result.setFilled(filled.get());
+        result.setFailed(failed.get());
+        result.setSkipped(skipped.get());
         if (result.getScanned() == 0) {
             result.setNote("没有需要生成释义语音的单词");
         } else {
-            result.setNote("已按当前筛选生成释义语音并写入 common_binary_file；释义未变则跳过（force=true 可强制重生成）。");
+            result.setNote("已按当前筛选并行生成释义语音（parallelism=" + parallelism
+                + "）；TTS HTTP 客户端限流 in-flight=1，与写库重叠。释义未变则跳过（force=true 可强制重生成）。");
         }
         return result;
+    }
+
+    private int resolveTtsParallelism(Integer requestParallelism) {
+        if (requestParallelism != null && requestParallelism > 0) {
+            return Math.min(8, requestParallelism);
+        }
+        return ttsParallelism;
     }
 
     /**
@@ -959,7 +1029,7 @@ public class AdminWordBaseInfoServiceImpl
         meaningAudio.put("source", "QWEN3_TTS");
         meaningAudio.put("voice", qwen3TtsClient.getVoice());
         meaningAudio.put("contentType", "audio/mpeg");
-        meaningAudio.put("updatedAt", LocalDateTime.now().format(SYNC_TIME_FMT));
+        meaningAudio.put("updatedAt", ChinaTime.nowDateTime());
         ext.put("meaningAudio", meaningAudio);
         refreshMetaTags(ext);
         row.setExtInfo(ext.toJSONString());
@@ -1021,7 +1091,7 @@ public class AdminWordBaseInfoServiceImpl
         }
         JSONObject ext = new JSONObject();
         ext.put("source", "ENTRY");
-        ext.put("lastSyncTime", LocalDateTime.now().format(SYNC_TIME_FMT));
+        ext.put("lastSyncTime", ChinaTime.nowDateTime());
         refreshMetaTags(ext);
         saveExt(null, languageCode, word, ext.toJSONString(), result);
     }

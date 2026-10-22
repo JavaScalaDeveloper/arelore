@@ -172,4 +172,11 @@ export const adminApi = {
   syncWordBaseInfo: (data?: any): Promise<ApiResponse<any>> =>
     // 含有道补释义，词量大时可能超过半小时
     request.post('/admin/word/base-info/sync', data || {}, { timeout: 2 * 60 * 60 * 1000 }),
+
+  /** 公共二进制文件列表（不含 file_data） */
+  getCommonBinaryFileList: (data: any): Promise<ApiResponse<any>> =>
+    request.post('/admin/common/binary-file/list', data),
+  /** 详情含 base64，可能较大 */
+  getCommonBinaryFileDetail: (data: { id: number }): Promise<ApiResponse<any>> =>
+    request.post('/admin/common/binary-file/detail', data, { timeout: 120000 }),
 };

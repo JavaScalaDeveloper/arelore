@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Form, Input, message, Space } from 'antd';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { stripLocalePrefix, useLocaleNavigate } from '../../locale';
 import { authApi } from '../../api/auth';
 import { reportClientLog } from '../../utils/clientLogger';
 import { sha256Hex } from '../../utils/hash';
@@ -12,7 +13,7 @@ interface LoginFormData {
 }
 
 const MobileLoginPage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useLocaleNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -24,7 +25,9 @@ const MobileLoginPage: React.FC = () => {
     }
     try {
       const decodedRedirect = decodeURIComponent(redirect);
-      if (!decodedRedirect.startsWith('/mobile') || decodedRedirect.startsWith('/mobile/login')) {
+      const pathOnly = decodedRedirect.split('?')[0].split('#')[0];
+      const bare = stripLocalePrefix(pathOnly);
+      if (!bare.startsWith('/mobile') || bare.startsWith('/mobile/login')) {
         return '/mobile/home';
       }
       return decodedRedirect;

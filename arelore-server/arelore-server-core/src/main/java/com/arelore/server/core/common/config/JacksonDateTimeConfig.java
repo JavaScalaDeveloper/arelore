@@ -1,5 +1,6 @@
 package com.arelore.server.core.common.config;
 
+import com.arelore.server.core.common.time.ChinaTime;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -11,7 +12,6 @@ import org.springframework.context.annotation.Configuration;
 
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.TimeZone;
 
@@ -29,9 +29,12 @@ public class JacksonDateTimeConfig {
 
             builder.modules(javaTimeModule);
             builder.simpleDateFormat(DATETIME_PATTERN);
-            builder.timeZone(TimeZone.getTimeZone(ZoneId.of("Asia/Shanghai")));
+            TimeZone shanghai = TimeZone.getTimeZone(ChinaTime.ZONE);
+            builder.timeZone(shanghai);
             builder.featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-            builder.dateFormat(new SimpleDateFormat(DATETIME_PATTERN));
+            SimpleDateFormat sdf = new SimpleDateFormat(DATETIME_PATTERN);
+            sdf.setTimeZone(shanghai);
+            builder.dateFormat(sdf);
             // 20 位 user_id 等超长整数：必须用字符串，否则前端 Number 会丢精度导致查不到学习记录
             builder.serializerByType(BigDecimal.class, ToStringSerializer.instance);
         };

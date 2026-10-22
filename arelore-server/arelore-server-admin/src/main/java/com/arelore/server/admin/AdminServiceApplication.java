@@ -1,5 +1,6 @@
 package com.arelore.server.admin;
 
+import com.arelore.server.core.common.time.ChinaTime;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
@@ -24,6 +25,7 @@ import org.springframework.context.annotation.FilterType;
 public class AdminServiceApplication {
 
     public static void main(String[] args) {
+        ChinaTime.installAsDefault();
         SpringApplication.run(AdminServiceApplication.class, args);
     }
 }

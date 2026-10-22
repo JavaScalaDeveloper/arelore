@@ -3,6 +3,7 @@ import {
   getPreference,
   getToken,
   setPreference,
+  STUDY_MODE_DICTATION,
   STUDY_MODE_LISTEN_SPELL,
   STUDY_MODE_SEE_MEANING,
   STUDY_MODE_SEE_PICK_IMAGE,
@@ -13,6 +14,7 @@ import {
 const MODE_LABELS: Record<string, string> = {
   [STUDY_MODE_LISTEN_SPELL]: '听词（摸鱼）',
   [STUDY_MODE_SEE_MEANING]: '看词识意',
+  [STUDY_MODE_DICTATION]: '听写',
   [STUDY_MODE_SEE_PICK_IMAGE]: '看词选图',
 };
 

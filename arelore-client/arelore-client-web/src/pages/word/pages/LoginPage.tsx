@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Form, Input, Progress, Space, Tabs, Typography, message } from 'antd';
 import { LockOutlined, MailOutlined } from '@ant-design/icons';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { useLocaleNavigate } from '../../../locale';
 import { authApi } from '../api/auth';
 import { sha256Hex } from '../../../utils/hash';
 import { passwordStrengthView } from '../../../utils/passwordStrength';
@@ -23,7 +24,7 @@ function parseMode(raw: string | null): Mode {
 }
 
 export default function LoginPage() {
-  const navigate = useNavigate();
+  const navigate = useLocaleNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [form] = Form.useForm();
   const [mode, setMode] = useState<Mode>(() => parseMode(searchParams.get('mode')));

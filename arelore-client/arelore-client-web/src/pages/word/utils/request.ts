@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { buildLocalePath, getLocaleFromLocation, stripLocalePrefix } from '../../../locale/path';
 
 export interface ApiResponse<T = any> {
   code: number;
@@ -11,11 +12,20 @@ const request: AxiosInstance = axios.create({
   timeout: 30000,
 });
 
+function wordLoginHref() {
+  return buildLocalePath(getLocaleFromLocation(), '/word/login');
+}
+
+function isOnWordLogin() {
+  return stripLocalePrefix(window.location.pathname).startsWith('/word/login');
+}
+
 request.interceptors.request.use((config: any) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
   }
+  config.headers['X-Locale'] = getLocaleFromLocation();
   return config;
 });
 
@@ -26,8 +36,8 @@ request.interceptors.response.use(
       if (res.code === 401 || res.code === 2001) {
         localStorage.removeItem('token');
         localStorage.removeItem('word_current_user');
-        if (!window.location.pathname.startsWith('/word/login')) {
-          window.location.href = '/word/login';
+        if (!isOnWordLogin()) {
+          window.location.href = wordLoginHref();
         }
       }
       return Promise.reject(Object.assign(new Error(res.message || '请求失败'), { code: res.code, data: res }));
@@ -38,8 +48,8 @@ request.interceptors.response.use(
     if (error?.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('word_current_user');
-      if (!window.location.pathname.startsWith('/word/login')) {
-        window.location.href = '/word/login';
+      if (!isOnWordLogin()) {
+        window.location.href = wordLoginHref();
       }
     }
     const network = !error?.response;

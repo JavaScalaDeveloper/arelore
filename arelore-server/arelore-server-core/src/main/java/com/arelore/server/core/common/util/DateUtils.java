@@ -1,12 +1,14 @@
 package com.arelore.server.core.common.util;
 
+import com.arelore.server.core.common.time.ChinaTime;
+
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 
 /**
- * 日期时间工具类
+ * 日期时间工具类（当前时间一律按东八区）
  */
 public class DateUtils {
 
@@ -35,7 +37,7 @@ public class DateUtils {
      * @return yyyy-MM-dd
      */
     public static String getCurrentDate() {
-        return LocalDate.now().toString();
+        return LocalDate.now(ChinaTime.ZONE).toString();
     }
 
     /**
@@ -44,7 +46,7 @@ public class DateUtils {
      * @return HH:mm:ss
      */
     public static String getCurrentTime() {
-        return LocalTime.now().format(DateTimeFormatter.ofPattern(DEFAULT_TIME_FORMAT));
+        return LocalTime.now(ChinaTime.ZONE).format(DateTimeFormatter.ofPattern(DEFAULT_TIME_FORMAT));
     }
 
     /**
@@ -53,7 +55,7 @@ public class DateUtils {
      * @return yyyy-MM-dd HH:mm:ss
      */
     public static String getCurrentDateTime() {
-        return LocalDateTime.now().format(DateTimeFormatter.ofPattern(DEFAULT_DATETIME_FORMAT));
+        return ChinaTime.nowDateTime();
     }
 
     /**
@@ -168,7 +170,7 @@ public class DateUtils {
         if (timestamp == null) {
             return null;
         }
-        return LocalDateTime.ofInstant(Instant.ofEpochSecond(timestamp), ZoneId.systemDefault());
+        return LocalDateTime.ofInstant(Instant.ofEpochSecond(timestamp), ChinaTime.ZONE);
     }
 
     /**
@@ -181,7 +183,7 @@ public class DateUtils {
         if (timestampMillis == null) {
             return null;
         }
-        return LocalDateTime.ofInstant(Instant.ofEpochMilli(timestampMillis), ZoneId.systemDefault());
+        return LocalDateTime.ofInstant(Instant.ofEpochMilli(timestampMillis), ChinaTime.ZONE);
     }
 
     /**
@@ -194,7 +196,7 @@ public class DateUtils {
         if (dateTime == null) {
             return null;
         }
-        return dateTime.atZone(ZoneId.systemDefault()).toEpochSecond();
+        return dateTime.atZone(ChinaTime.ZONE).toEpochSecond();
     }
 
     /**
@@ -207,7 +209,7 @@ public class DateUtils {
         if (dateTime == null) {
             return null;
         }
-        return dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        return dateTime.atZone(ChinaTime.ZONE).toInstant().toEpochMilli();
     }
 
     /**
@@ -326,7 +328,7 @@ public class DateUtils {
         if (date == null) {
             return null;
         }
-        return LocalDateTime.ofInstant(date.toInstant(), ZoneId.systemDefault());
+        return LocalDateTime.ofInstant(date.toInstant(), ChinaTime.ZONE);
     }
 
     /**
@@ -339,6 +341,6 @@ public class DateUtils {
         if (localDateTime == null) {
             return null;
         }
-        return Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
+        return Date.from(localDateTime.atZone(ChinaTime.ZONE).toInstant());
     }
 }
