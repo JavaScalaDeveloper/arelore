@@ -1,0 +1,143 @@
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/user/dto/UserWordStudyPhraseResponse.java
+  551bca709d578fc4 1-9
+arelore-server/arelore-server-admin/src/main/java/com/arelore/server/admin/controller/CommonUserDailyVisitManageController.java
+  551bca709d578fc4 1-52
+docs/word/content-mainline-a.md
+  551bca709d578fc4 1-220
+arelore-client/arelore-client-web/src/pages/word/pages/StudyPage.tsx
+  551bca709d578fc4 700-756
+arelore-client/arelore-client-web/src/pages/word/WordApp.tsx
+  551bca709d578fc4 11,15,21
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/common/AdminCommonBinaryFileService.java
+  551bca709d578fc4 7-8,14-16
+docs/word/dict-enrichment.md
+  551bca709d578fc4 1-29
+arelore-client/arelore-client-web/src/pages/word/components/AppShell.tsx
+  551bca709d578fc4 16
+arelore-client/arelore-client-web-admin/src/pages/ProductHome.tsx
+  551bca709d578fc4 29
+arelore-server/.gitignore
+  551bca709d578fc4 5
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/support/YoudaoDictClient.java
+  551bca709d578fc4 21,24-28,148-178,182-454
+docs/README.md
+  551bca709d578fc4 1-16
+arelore-client/arelore-client-web/src/pages/word/seo/WordDocumentSeo.tsx
+  551bca709d578fc4 1-111
+docs/word/promotion-plan.md
+  551bca709d578fc4 1-246
+docs/word/competitive-pain-points.md
+  551bca709d578fc4 1-76
+arelore-client/arelore-client-web/public/index.html
+  551bca709d578fc4 17-41
+arelore-client/arelore-client-web/src/pages/word/components/WordSeoLanding.tsx
+  551bca709d578fc4 1-169
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/user/dto/UserWordStudyRelatedItemResponse.java
+  551bca709d578fc4 1-9
+arelore-client/arelore-client-web-admin/src/pages/CommonUserDailyVisitManagement.tsx
+  551bca709d578fc4 1-227
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/support/Qwen3TtsClient.java
+  551bca709d578fc4 39,50-51,61-63,80-83,243
+arelore-server/arelore-server-admin/src/main/java/com/arelore/server/admin/controller/CommonBinaryFileManageController.java
+  551bca709d578fc4 7,45-68
+arelore-client/arelore-client-web/src/pages/word/seo/wordSeo.ts
+  551bca709d578fc4 1-146
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/user/dto/UserWordStudySynonymGroupResponse.java
+  551bca709d578fc4 1-13
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/registration/entity/CommonUserDailyVisit.java
+  551bca709d578fc4 1-37
+docs/word/product-optimization.md
+  551bca709d578fc4 1-94
+arelore-client/arelore-client-web/public/robots.txt
+  551bca709d578fc4 1-8
+arelore-client/arelore-client-web/public/sitemap.xml
+  551bca709d578fc4 1-23
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/common/AdminCommonUserDailyVisitServiceImpl.java
+  551bca709d578fc4 1-93
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/common/time/ChinaTime.java
+  551bca709d578fc4 3,30-34
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/common/CommonUserDailyVisitServiceImpl.java
+  551bca709d578fc4 1-35
+docs/word/README.md
+  551bca709d578fc4 1-41
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/common/AdminCommonUserDailyVisitService.java
+  551bca709d578fc4 1-13
+arelore-server/arelore-server-admin/src/main/resources/sql/arelore_common/common_user_daily_visit.sql
+  551bca709d578fc4 1-22
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/AdminWordBaseInfoServiceImpl.java
+  551bca709d578fc4 132-138,141-142,222-242,304,308,319,327,347-348,365,370,376,387-388,392-393,399-402,426-445,447-448,450,455-456,458-467,470-471,473,475,477,479,481-501,512,1097-1101,1123,1231,1241
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/common/dto/IdsRequest.java
+  551bca709d578fc4 1-10
+arelore-client/arelore-client-web/src/App.tsx
+  551bca709d578fc4 52-53,56-59,64-65,68-82,84-108,178-195,291,552
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/common/AdminCommonBinaryFileServiceImpl.java
+  551bca709d578fc4 177-198
+arelore-client/arelore-client-web-admin/src/api/admin.tsx
+  551bca709d578fc4 182-193
+arelore-client/arelore-client-web-admin/src/pages/CommonBinaryFileManagement.tsx
+  551bca709d578fc4 18,20,91-92,109,117-169,288-296,302,305-309,364,367-379,392-416
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/registration/mapper/CommonUserDailyVisitMapper.java
+  551bca709d578fc4 1-22
+arelore-server/arelore-server-user/src/main/java/com/arelore/server/user/config/UserDailyVisitInterceptor.java
+  551bca709d578fc4 1-105
+docs/word/content-video-ideas.md
+  551bca709d578fc4 1-264
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/common/dto/AdminCommonUserDailyVisitRequest.java
+  551bca709d578fc4 1-18
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/user/UserWordLearnRecordServiceImpl.java
+  551bca709d578fc4 22-25,725-735,744-746,752-759,813,818-825,838-847,902-1040
+arelore-server/arelore-server-user/src/main/java/com/arelore/server/user/config/UserWebMvcConfig.java
+  551bca709d578fc4 1-28
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/common/CommonUserDailyVisitService.java
+  551bca709d578fc4 1-11
+arelore-client/arelore-client-web-admin/src/App.tsx
+  551bca709d578fc4 20,75
+docs/cert/README.md
+  551bca709d578fc4 1-18
+arelore-client/arelore-client-web-admin/src/pages/WordBaseInfoManagement.tsx
+  551bca709d578fc4 101-160,195-196,205-208,513,586,618-622,900-964
+README.md
+  551bca709d578fc4 59
+arelore-client/arelore-client-web/src/pages/word/api/word.ts
+  551bca709d578fc4 8-28,46-49
+arelore-client/arelore-client-web/src/pages/word/pages/HomePage.tsx
+  551bca709d578fc4 6,91,131-138
+docs/word/content-production.md
+  551bca709d578fc4 1-92
+docs/word/content-mainline-b.md
+  551bca709d578fc4 1-152
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/common/dto/AdminCommonUserDailyVisitResponse.java
+  551bca709d578fc4 1-15
+arelore-client/arelore-client-web/src/pages/word/word.css
+  551bca709d578fc4 350-409
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/user/dto/UserWordStudyRelatedGroupResponse.java
+  551bca709d578fc4 1-12
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/support/WordPictureBinaryStore.java
+  551bca709d578fc4 90-107
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/user/dto/UserWordStudyCardResponse.java
+  551bca709d578fc4 30,32-39
+arelore-client/arelore-client-web-admin/src/pages/Layout.tsx
+  551bca709d578fc4 16,52
+arelore-server/arelore-server-admin/src/main/resources/application.yml
+  551bca709d578fc4 70-72,77,82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "63008003d54f356916050ae9e172841da39bd78c",
+  "prompts": {
+    "551bca709d578fc4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cursor-bridge-synthetic",
+        "model": "unknown"
+      },
+      "human_author": "huang.huang1 <huang.huang1@jtexpress.com>",
+      "messages": [],
+      "total_additions": 4107,
+      "total_deletions": 442,
+      "accepted_lines": 8528,
+      "overriden_lines": 0
+    }
+  }
+}
