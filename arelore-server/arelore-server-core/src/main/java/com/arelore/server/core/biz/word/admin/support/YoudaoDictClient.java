@@ -18,9 +18,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 有道 jsonapi 轻量客户端：抽取配图、音标、一词多义释义，不落完整大包。
+ * 有道 jsonapi 轻量客户端：抽取配图、音标、释义、双语例句、词组、近义、派生，不落完整大包。
  */
 public final class YoudaoDictClient {
+    private static final int MAX_EXAMPLES = 3;
+    private static final int MAX_PHRASES = 8;
+    private static final int MAX_SYNONYM_GROUPS = 6;
+    private static final int MAX_RELATED_GROUPS = 6;
+    private static final int MAX_ETYM_CHARS = 800;
     private static final java.util.regex.Pattern POS_PREFIX =
         java.util.regex.Pattern.compile("^([a-zA-Z]+\\.?|【[^】]+】)\\s*(.*)$");
     private static final String JSONAPI = "https://dict.youdao.com/jsonapi?q=";
@@ -140,7 +145,311 @@ public final class YoudaoDictClient {
                 putIfText(ext, "usphone", ecWord.getString("usphone"));
             }
         }
+
+        // 双语例句 → 与词书 entry 相同结构 sentence.sentences[{sContent,sCn}]
+        List<Map<String, String>> sentenceItems = extractBlngSentences(root.getJSONObject("blng_sents_part"));
+        if (sentenceItems.isEmpty()) {
+            sentenceItems = extractAuthSentences(root.getJSONObject("auth_sents_part"));
+        }
+        if (!sentenceItems.isEmpty()) {
+            JSONObject sentence = new JSONObject();
+            sentence.put("sentences", sentenceItems);
+            ext.put("sentence", sentence);
+        }
+
+        List<Map<String, String>> phrases = extractPhrases(root.getJSONObject("phrs"));
+        if (!phrases.isEmpty()) {
+            ext.put("phrases", phrases);
+        }
+
+        List<Map<String, Object>> synonyms = extractSynonyms(root.getJSONObject("syno"));
+        if (!synonyms.isEmpty()) {
+            ext.put("synonyms", synonyms);
+        }
+
+        List<Map<String, Object>> relatedWords = extractRelatedWords(root.getJSONObject("rel_word"));
+        if (!relatedWords.isEmpty()) {
+            ext.put("relatedWords", relatedWords);
+        }
+
+        String etym = extractEtymSummary(root.getJSONObject("etym"));
+        if (StringUtils.hasText(etym)) {
+            ext.put("etym", etym);
+        }
         return ext;
+    }
+
+    /** blng_sents_part.sentence-pair[] → [{sContent,sCn}] */
+    private static List<Map<String, String>> extractBlngSentences(JSONObject blng) {
+        List<Map<String, String>> list = new ArrayList<>();
+        if (blng == null) {
+            return list;
+        }
+        JSONArray pairs = blng.getJSONArray("sentence-pair");
+        if (pairs == null || pairs.isEmpty()) {
+            return list;
+        }
+        int limit = Math.min(pairs.size(), MAX_EXAMPLES);
+        for (int i = 0; i < limit; i++) {
+            JSONObject item = pairs.getJSONObject(i);
+            if (item == null) {
+                continue;
+            }
+            String en = firstNonBlank(
+                stripHtml(item.getString("sentence")),
+                stripHtml(item.getString("sentence-eng"))
+            );
+            String cn = stripHtml(item.getString("sentence-translation"));
+            if (!StringUtils.hasText(en) && !StringUtils.hasText(cn)) {
+                continue;
+            }
+            Map<String, String> row = new LinkedHashMap<>();
+            row.put("sContent", StringUtils.hasText(en) ? en : "");
+            row.put("sCn", StringUtils.hasText(cn) ? cn : "");
+            list.add(row);
+        }
+        return list;
+    }
+
+    /** auth_sents_part.sent[] 仅英文权威句，作双语缺失时的兜底 */
+    private static List<Map<String, String>> extractAuthSentences(JSONObject auth) {
+        List<Map<String, String>> list = new ArrayList<>();
+        if (auth == null) {
+            return list;
+        }
+        JSONArray sents = auth.getJSONArray("sent");
+        if (sents == null || sents.isEmpty()) {
+            return list;
+        }
+        int limit = Math.min(sents.size(), 2);
+        for (int i = 0; i < limit; i++) {
+            JSONObject item = sents.getJSONObject(i);
+            if (item == null) {
+                continue;
+            }
+            String en = stripHtml(item.getString("foreign"));
+            if (!StringUtils.hasText(en)) {
+                continue;
+            }
+            Map<String, String> row = new LinkedHashMap<>();
+            row.put("sContent", en);
+            row.put("sCn", "");
+            list.add(row);
+        }
+        return list;
+    }
+
+    /** phrs.phrs[].phr → [{en,cn}] */
+    private static List<Map<String, String>> extractPhrases(JSONObject phrsRoot) {
+        List<Map<String, String>> list = new ArrayList<>();
+        if (phrsRoot == null) {
+            return list;
+        }
+        JSONArray phrs = phrsRoot.getJSONArray("phrs");
+        if (phrs == null || phrs.isEmpty()) {
+            return list;
+        }
+        int limit = Math.min(phrs.size(), MAX_PHRASES);
+        for (int i = 0; i < limit; i++) {
+            JSONObject wrap = phrs.getJSONObject(i);
+            if (wrap == null) {
+                continue;
+            }
+            JSONObject phr = wrap.getJSONObject("phr");
+            if (phr == null) {
+                continue;
+            }
+            String en = extractNestedI(phr.getJSONObject("headword"));
+            String cn = "";
+            JSONArray trs = phr.getJSONArray("trs");
+            if (trs != null && !trs.isEmpty()) {
+                JSONObject tr0 = trs.getJSONObject(0);
+                if (tr0 != null) {
+                    cn = extractNestedI(tr0.getJSONObject("tr"));
+                }
+            }
+            if (!StringUtils.hasText(en)) {
+                continue;
+            }
+            Map<String, String> row = new LinkedHashMap<>();
+            row.put("en", en.trim());
+            if (StringUtils.hasText(cn)) {
+                row.put("cn", cn.trim());
+            }
+            list.add(row);
+        }
+        return list;
+    }
+
+    /** syno.synos[] → [{pos,tran,words:[...]}] */
+    private static List<Map<String, Object>> extractSynonyms(JSONObject synoRoot) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        if (synoRoot == null) {
+            return list;
+        }
+        JSONArray synos = synoRoot.getJSONArray("synos");
+        if (synos == null || synos.isEmpty()) {
+            return list;
+        }
+        int limit = Math.min(synos.size(), MAX_SYNONYM_GROUPS);
+        for (int i = 0; i < limit; i++) {
+            JSONObject wrap = synos.getJSONObject(i);
+            if (wrap == null) {
+                continue;
+            }
+            JSONObject syno = wrap.getJSONObject("syno");
+            if (syno == null) {
+                continue;
+            }
+            List<String> words = new ArrayList<>();
+            JSONArray ws = syno.getJSONArray("ws");
+            if (ws != null) {
+                for (int j = 0; j < ws.size() && words.size() < 6; j++) {
+                    JSONObject w = ws.getJSONObject(j);
+                    if (w == null) {
+                        continue;
+                    }
+                    String word = w.getString("w");
+                    if (StringUtils.hasText(word)) {
+                        words.add(word.trim());
+                    }
+                }
+            }
+            if (words.isEmpty()) {
+                continue;
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            putIfTextMap(row, "pos", syno.getString("pos"));
+            putIfTextMap(row, "tran", syno.getString("tran"));
+            row.put("words", words);
+            list.add(row);
+        }
+        return list;
+    }
+
+    /** rel_word.rels[] → [{pos, words:[{word,tran}]}] */
+    private static List<Map<String, Object>> extractRelatedWords(JSONObject relRoot) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        if (relRoot == null) {
+            return list;
+        }
+        JSONArray rels = relRoot.getJSONArray("rels");
+        if (rels == null || rels.isEmpty()) {
+            return list;
+        }
+        int limit = Math.min(rels.size(), MAX_RELATED_GROUPS);
+        for (int i = 0; i < limit; i++) {
+            JSONObject wrap = rels.getJSONObject(i);
+            if (wrap == null) {
+                continue;
+            }
+            JSONObject rel = wrap.getJSONObject("rel");
+            if (rel == null) {
+                continue;
+            }
+            List<Map<String, String>> words = new ArrayList<>();
+            JSONArray wordArr = rel.getJSONArray("words");
+            if (wordArr != null) {
+                for (int j = 0; j < wordArr.size() && words.size() < 8; j++) {
+                    JSONObject w = wordArr.getJSONObject(j);
+                    if (w == null) {
+                        continue;
+                    }
+                    String word = w.getString("word");
+                    if (!StringUtils.hasText(word)) {
+                        continue;
+                    }
+                    Map<String, String> item = new LinkedHashMap<>();
+                    item.put("word", word.trim());
+                    String tran = w.getString("tran");
+                    if (StringUtils.hasText(tran)) {
+                        item.put("tran", tran.trim());
+                    }
+                    words.add(item);
+                }
+            }
+            if (words.isEmpty()) {
+                continue;
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            putIfTextMap(row, "pos", rel.getString("pos"));
+            row.put("words", words);
+            list.add(row);
+        }
+        return list;
+    }
+
+    /** etym.etyms.zh[0].value 截断摘要 */
+    private static String extractEtymSummary(JSONObject etymRoot) {
+        if (etymRoot == null) {
+            return "";
+        }
+        JSONObject etyms = etymRoot.getJSONObject("etyms");
+        if (etyms == null) {
+            return "";
+        }
+        JSONArray zh = etyms.getJSONArray("zh");
+        if (zh == null || zh.isEmpty()) {
+            return "";
+        }
+        JSONObject first = zh.getJSONObject(0);
+        if (first == null) {
+            return "";
+        }
+        String value = first.getString("value");
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        String text = value.trim().replace("\r\n", "\n");
+        // 学习卡只展示短摘要，避免整段词源刷屏
+        if (text.length() > MAX_ETYM_CHARS) {
+            int cut = text.indexOf('\n');
+            if (cut > 40 && cut < MAX_ETYM_CHARS) {
+                text = text.substring(0, cut).trim();
+            } else {
+                text = text.substring(0, MAX_ETYM_CHARS).trim() + "…";
+            }
+        }
+        return text;
+    }
+
+    private static String extractNestedI(JSONObject node) {
+        if (node == null) {
+            return "";
+        }
+        JSONObject l = node.getJSONObject("l");
+        if (l == null) {
+            return firstNonBlank(node.getString("i"), "");
+        }
+        Object iNode = l.get("i");
+        if (iNode instanceof String) {
+            return ((String) iNode).trim();
+        }
+        if (iNode instanceof JSONArray) {
+            JSONArray arr = (JSONArray) iNode;
+            for (int j = 0; j < arr.size(); j++) {
+                Object v = arr.get(j);
+                if (v instanceof String && StringUtils.hasText((String) v)) {
+                    return ((String) v).trim();
+                }
+            }
+        }
+        return "";
+    }
+
+    private static String stripHtml(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        return value.replaceAll("<[^>]+>", "").trim();
+    }
+
+    private static void putIfTextMap(Map<String, ?> map, String key, String value) {
+        if (StringUtils.hasText(value) && map instanceof LinkedHashMap) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> m = (Map<String, Object>) map;
+            m.put(key, value.trim());
+        }
     }
 
     /**

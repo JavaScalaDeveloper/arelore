@@ -174,6 +174,28 @@ public class AdminCommonBinaryFileServiceImpl
         return res;
     }
 
+    @Override
+    public int deleteByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return 0;
+        }
+        List<Long> unique = new ArrayList<>();
+        Set<Long> seen = new LinkedHashSet<>();
+        for (Long id : ids) {
+            if (id != null && seen.add(id)) {
+                unique.add(id);
+            }
+        }
+        if (unique.isEmpty()) {
+            return 0;
+        }
+        int rows = 0;
+        for (Long id : unique) {
+            rows += mapper.deleteById(id);
+        }
+        return rows;
+    }
+
     private static void fillExtFields(AdminCommonBinaryFileResponse res, String extJson, byte[] fileData) {
         if (!StringUtils.hasText(extJson)) {
             if (fileData != null) {

@@ -129,9 +129,17 @@ public class AdminWordBaseInfoServiceImpl
         } else if (filterHasMeaningAudio) {
             applyHasMeaningAudioFilter(wrapper);
         }
+        boolean filterNoExample = selectedTags.contains("no_example");
+        boolean filterHasExample = selectedTags.contains("has_example");
+        if (filterNoExample) {
+            applyNoExampleFilter(wrapper);
+        } else if (filterHasExample) {
+            applyHasExampleFilter(wrapper);
+        }
         for (String t : selectedTags) {
             if ("no_picture".equals(t) || "has_picture".equals(t)
-                || "no_meaning_audio".equals(t) || "has_meaning_audio".equals(t)) {
+                || "no_meaning_audio".equals(t) || "has_meaning_audio".equals(t)
+                || "no_example".equals(t) || "has_example".equals(t)) {
                 continue;
             }
             applyTagContains(wrapper, t);
@@ -211,6 +219,27 @@ public class AdminWordBaseInfoServiceImpl
         );
     }
 
+    /** 无例句：兼容历史无 tags / sentence 为空 */
+    private static void applyNoExampleFilter(LambdaQueryWrapper<AdminWordBaseInfo> wrapper) {
+        wrapper.and(w -> w
+            .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"no_example\"")
+            .or()
+            .isNull(AdminWordBaseInfo::getExtInfo)
+            .or()
+            .apply("JSON_EXTRACT(ext_info, '$.sentence.sentences') IS NULL")
+            .or()
+            .apply("JSON_LENGTH(COALESCE(JSON_EXTRACT(ext_info, '$.sentence.sentences'), JSON_ARRAY())) = 0")
+        );
+    }
+
+    private static void applyHasExampleFilter(LambdaQueryWrapper<AdminWordBaseInfo> wrapper) {
+        wrapper.and(w -> w
+            .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"has_example\"")
+            .or()
+            .apply("JSON_LENGTH(COALESCE(JSON_EXTRACT(ext_info, '$.sentence.sentences'), JSON_ARRAY())) > 0")
+        );
+    }
+
     private static void applyTagContains(LambdaQueryWrapper<AdminWordBaseInfo> wrapper, String tag) {
         if (!StringUtils.hasText(tag)) {
             return;
@@ -272,11 +301,11 @@ public class AdminWordBaseInfoServiceImpl
                 break;
             }
         }
-        // 第二阶段：对无释义词查有道补释义/音标（带空格跳过；不改已有配图）
+        // 第二阶段：无释义 / 无例句等词查有道补释义、音标、例句、词组、近义、派生（带空格跳过；不改已有配图）
         fillMissingMeaningsFromYoudao(result);
         if (!StringUtils.hasText(result.getNote())) {
             result.setNote(String.format(
-                "词形同步完成；补释义：扫描 %d，写入 %d，失败 %d，跳过 %d",
+                "词形同步完成；补词典：扫描 %d，写入 %d，失败 %d，跳过 %d",
                 result.getMeaningScanned(),
                 result.getMeaningFilled(),
                 result.getMeaningFailed(),
@@ -287,7 +316,7 @@ public class AdminWordBaseInfoServiceImpl
     }
 
     /**
-     * 分页扫描无释义词，调有道写入 meanings/音标；带空格词跳过；保留已有 pictures。
+     * 分页扫描缺释义或缺例句的词，调有道写入 meanings/音标/例句/词组/近义/派生；带空格词跳过；保留已有 pictures。
      */
     private void fillMissingMeaningsFromYoudao(AdminWordBaseInfoSyncResponse result) {
         long lastId = 0L;
@@ -295,7 +324,7 @@ public class AdminWordBaseInfoServiceImpl
         while (pageRounds < 100_000) {
             pageRounds++;
             LambdaQueryWrapper<AdminWordBaseInfo> wrapper = new LambdaQueryWrapper<>();
-            applyNoMeaningFilter(wrapper);
+            applyNeedYoudaoEnrichFilter(wrapper);
             wrapper.gt(AdminWordBaseInfo::getId, lastId)
                 .orderByAsc(AdminWordBaseInfo::getId)
                 .last("LIMIT " + ENTRY_PAGE_SIZE);
@@ -315,8 +344,8 @@ public class AdminWordBaseInfoServiceImpl
                     continue;
                 }
                 JSONObject ext = parseExt(row.getExtInfo());
-                if (hasMeanings(ext)) {
-                    // 标签滞后 / 已有释义：刷新标签后跳过，避免重复打有道
+                if (hasMeanings(ext) && hasExamples(ext) && hasPhrases(ext)) {
+                    // 标签滞后：刷新后跳过，避免重复打有道
                     refreshMetaTags(ext);
                     row.setExtInfo(ext.toJSONString());
                     mapper.updateById(row);
@@ -333,18 +362,18 @@ public class AdminWordBaseInfoServiceImpl
                     Thread.sleep(YOUDAO_GAP_MS);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
-                    result.setNote("补释义被中断；已扫描 " + result.getMeaningScanned() + " 个无释义词");
+                    result.setNote("补词典被中断；已扫描 " + result.getMeaningScanned() + " 个待补词");
                     return;
                 } catch (Exception e) {
                     result.setMeaningFailed(result.getMeaningFailed() + 1);
                     markMeaningSyncError(row, ext, e.getMessage());
-                    log.warn("fill meaning failed id={} word={}: {}",
+                    log.warn("fill dict enrich failed id={} word={}: {}",
                         row.getId(), word, shortError(e.getMessage()));
                     try {
                         Thread.sleep(YOUDAO_GAP_MS);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
-                        result.setNote("补释义被中断；已扫描 " + result.getMeaningScanned() + " 个无释义词");
+                        result.setNote("补词典被中断；已扫描 " + result.getMeaningScanned() + " 个待补词");
                         return;
                     }
                 }
@@ -355,16 +384,22 @@ public class AdminWordBaseInfoServiceImpl
         }
     }
 
-    /** 无释义过滤：兼容历史无 tags / meanings 为空 */
-    private static void applyNoMeaningFilter(LambdaQueryWrapper<AdminWordBaseInfo> wrapper) {
+    /** 缺释义或缺例句：兼容历史无 tags */
+    private static void applyNeedYoudaoEnrichFilter(LambdaQueryWrapper<AdminWordBaseInfo> wrapper) {
         wrapper.and(w -> w
             .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"no_meaning\"")
+            .or()
+            .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"no_example\"")
             .or()
             .isNull(AdminWordBaseInfo::getExtInfo)
             .or()
             .apply("JSON_EXTRACT(ext_info, '$.meanings') IS NULL")
             .or()
             .apply("JSON_LENGTH(COALESCE(JSON_EXTRACT(ext_info, '$.meanings'), JSON_ARRAY())) = 0")
+            .or()
+            .apply("JSON_EXTRACT(ext_info, '$.sentence.sentences') IS NULL")
+            .or()
+            .apply("JSON_LENGTH(COALESCE(JSON_EXTRACT(ext_info, '$.sentence.sentences'), JSON_ARRAY())) = 0")
         );
     }
 
@@ -388,29 +423,82 @@ public class AdminWordBaseInfoServiceImpl
         return meanings != null && !meanings.isEmpty();
     }
 
+    private static boolean hasExamples(JSONObject ext) {
+        if (ext == null) {
+            return false;
+        }
+        JSONObject sentence = ext.getJSONObject("sentence");
+        if (sentence == null) {
+            return false;
+        }
+        JSONArray sentences = sentence.getJSONArray("sentences");
+        return sentences != null && !sentences.isEmpty();
+    }
+
+    private static boolean hasPhrases(JSONObject ext) {
+        if (ext == null) {
+            return false;
+        }
+        JSONArray phrases = ext.getJSONArray("phrases");
+        return phrases != null && !phrases.isEmpty();
+    }
+
     /**
-     * 有道补释义/音标；不覆盖已有配图与确认状态。
+     * 有道补释义/音标/例句/词组/近义/派生/词源摘要；不覆盖已有配图与确认状态。
+     * 释义/音标仅在本地为空时写入；例句等富化字段在本地为空时写入。
      *
-     * @return true 已写入至少一条释义
+     * @return true 本次至少写入了一项词典内容
      */
     private boolean fillMeaningFromYoudao(AdminWordBaseInfo row, JSONObject ext) throws Exception {
         JSONObject slim = YoudaoDictClient.fetchSlimExt(row.getWord());
         JSONArray meanings = slim.getJSONArray("meanings");
-        boolean hasMeaning = meanings != null && !meanings.isEmpty();
-        boolean hasPhone = StringUtils.hasText(slim.getString("ukphone"))
+        boolean slimHasMeaning = meanings != null && !meanings.isEmpty();
+        boolean slimHasPhone = StringUtils.hasText(slim.getString("ukphone"))
             || StringUtils.hasText(slim.getString("usphone"));
-        if (!hasMeaning && !hasPhone) {
-            markMeaningSyncError(row, ext, "有道无释义");
+        boolean slimHasExample = slim.getJSONObject("sentence") != null
+            && slim.getJSONObject("sentence").getJSONArray("sentences") != null
+            && !slim.getJSONObject("sentence").getJSONArray("sentences").isEmpty();
+        boolean slimHasPhrase = slim.getJSONArray("phrases") != null && !slim.getJSONArray("phrases").isEmpty();
+        boolean slimHasSynonym = slim.getJSONArray("synonyms") != null && !slim.getJSONArray("synonyms").isEmpty();
+        boolean slimHasRelated = slim.getJSONArray("relatedWords") != null && !slim.getJSONArray("relatedWords").isEmpty();
+        boolean slimHasEtym = StringUtils.hasText(slim.getString("etym"));
+        if (!slimHasMeaning && !slimHasPhone && !slimHasExample && !slimHasPhrase
+            && !slimHasSynonym && !slimHasRelated && !slimHasEtym) {
+            markMeaningSyncError(row, ext, "有道无可用词典字段");
             return false;
         }
-        if (hasMeaning) {
+        boolean wrote = false;
+        if (slimHasMeaning && !hasMeanings(ext)) {
             ext.put("meanings", meanings);
+            wrote = true;
         }
-        if (StringUtils.hasText(slim.getString("ukphone"))) {
+        if (StringUtils.hasText(slim.getString("ukphone")) && !StringUtils.hasText(ext.getString("ukphone"))) {
             ext.put("ukphone", slim.getString("ukphone"));
+            wrote = true;
         }
-        if (StringUtils.hasText(slim.getString("usphone"))) {
+        if (StringUtils.hasText(slim.getString("usphone")) && !StringUtils.hasText(ext.getString("usphone"))) {
             ext.put("usphone", slim.getString("usphone"));
+            wrote = true;
+        }
+        if (slimHasExample && !hasExamples(ext)) {
+            ext.put("sentence", slim.getJSONObject("sentence"));
+            wrote = true;
+        }
+        if (slimHasPhrase && !hasPhrases(ext)) {
+            ext.put("phrases", slim.getJSONArray("phrases"));
+            wrote = true;
+        }
+        if (slimHasSynonym && (ext.getJSONArray("synonyms") == null || ext.getJSONArray("synonyms").isEmpty())) {
+            ext.put("synonyms", slim.getJSONArray("synonyms"));
+            wrote = true;
+        }
+        if (slimHasRelated && (ext.getJSONArray("relatedWords") == null || ext.getJSONArray("relatedWords").isEmpty())) {
+            ext.put("relatedWords", slim.getJSONArray("relatedWords"));
+            wrote = true;
+        }
+        if (slimHasEtym && !StringUtils.hasText(ext.getString("etym"))) {
+            ext.put("etym", slim.getString("etym"));
+            wrote = true;
         }
         // 仅在尚未有来源时标记；不改 pictures / pictureConfirmed
         if (!StringUtils.hasText(ext.getString("source")) || "ENTRY".equalsIgnoreCase(ext.getString("source"))) {
@@ -421,7 +509,7 @@ public class AdminWordBaseInfoServiceImpl
         refreshMetaTags(ext);
         row.setExtInfo(ext.toJSONString());
         mapper.updateById(row);
-        return hasMeaning;
+        return wrote;
     }
 
     private void markMeaningSyncError(AdminWordBaseInfo row, JSONObject ext, String errorMsg) {
@@ -1006,7 +1094,11 @@ public class AdminWordBaseInfoServiceImpl
         String speechHash = sha256Hex(speechText);
         JSONObject existing = ext.getJSONObject("meaningAudio");
         Long oldFileId = existing == null ? null : existing.getLong("fileId");
-        if (!force && oldFileId != null && speechHash.equals(existing.getString("speechHash"))) {
+        // 仅当 fileId 对应二进制仍存在、且释义 hash 未变时才跳过（避免删库后仍被当成「已有语音」）
+        if (!force
+            && oldFileId != null
+            && speechHash.equals(existing.getString("speechHash"))
+            && pictureBinaryStore.exists(oldFileId)) {
             // 已有语音：补打 has_meaning_audio 标签后跳过
             String before = row.getExtInfo();
             refreshMetaTags(ext);
@@ -1028,6 +1120,7 @@ public class AdminWordBaseInfoServiceImpl
         meaningAudio.put("speechHash", speechHash);
         meaningAudio.put("source", "QWEN3_TTS");
         meaningAudio.put("voice", qwen3TtsClient.getVoice());
+        meaningAudio.put("speed", qwen3TtsClient.getSpeed());
         meaningAudio.put("contentType", "audio/mpeg");
         meaningAudio.put("updatedAt", ChinaTime.nowDateTime());
         ext.put("meaningAudio", meaningAudio);
@@ -1135,6 +1228,7 @@ public class AdminWordBaseInfoServiceImpl
 
         JSONArray meanings = ext.getJSONArray("meanings");
         boolean hasMeaning = meanings != null && !meanings.isEmpty();
+        boolean hasExample = hasExamples(ext);
         boolean syncError = StringUtils.hasText(ext.getString("syncError"));
         JSONObject meaningAudio = ext.getJSONObject("meaningAudio");
         boolean hasMeaningAudio = meaningAudio != null && meaningAudio.getLong("fileId") != null;
@@ -1144,6 +1238,7 @@ public class AdminWordBaseInfoServiceImpl
         tags.add(confirmed ? "confirmed" : "unconfirmed");
         tags.add("source_" + pictureSource.toLowerCase());
         tags.add(hasMeaning ? "has_meaning" : "no_meaning");
+        tags.add(hasExample ? "has_example" : "no_example");
         tags.add(hasMeaningAudio ? "has_meaning_audio" : "no_meaning_audio");
         if (syncError) {
             tags.add("sync_error");

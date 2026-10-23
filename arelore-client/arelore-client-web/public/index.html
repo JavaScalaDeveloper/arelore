@@ -14,6 +14,31 @@
     <meta http-equiv="Expires" content="0" />
     
     <title>Arelore - 官方网站</title>
+    <!-- /word 首屏 SEO：在 React 加载前写入，便于爬虫抓取 -->
+    <script>
+      (function () {
+        try {
+          var path = location.pathname.replace(/^\/(zh-cn|en-us)(?=\/|$)/, '') || '/';
+          if (path === '/word' || path.indexOf('/word/') === 0) {
+            document.title = '墨鱼工作台';
+            var desc = document.querySelector('meta[name="description"]');
+            if (desc) {
+              desc.setAttribute(
+                'content',
+                '墨鱼背词是面向碎片时间的英语单词学习工具，支持看词识意、听力跟读与听写默写。可在通勤、排队、讲座间隙用听觉练习巩固词汇与拼写，配合词书与复习计划稳步提升单词量。'
+              );
+            }
+            var kw = document.createElement('meta');
+            kw.setAttribute('name', 'keywords');
+            kw.setAttribute(
+              'content',
+              '墨鱼背词,英语单词学习,在线背单词,单词听写,听力背单词,碎片时间学英语,英语词汇记忆,看词识意,单词复习计划,英语拼写练习'
+            );
+            document.head.appendChild(kw);
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

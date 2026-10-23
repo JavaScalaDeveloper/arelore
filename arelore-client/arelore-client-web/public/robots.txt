@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Allow: /word
+Allow: /word/
+Allow: /zh-cn/word
+Allow: /en-us/word
+
+Sitemap: /sitemap.xml

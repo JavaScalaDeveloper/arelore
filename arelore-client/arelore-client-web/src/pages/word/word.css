@@ -347,3 +347,63 @@
 .word-app-root .plan-form .ant-select {
   max-width: 320px;
 }
+
+.word-app-root .word-seo-landing {
+  max-width: 800px;
+}
+
+.word-app-root .word-seo-hero {
+  margin-bottom: 32px;
+}
+
+.word-app-root .word-seo-lead {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin-bottom: 20px;
+}
+
+.word-app-root .word-seo-section {
+  margin-bottom: 28px;
+}
+
+.word-app-root .word-seo-section h2 {
+  font-size: 20px !important;
+  margin-bottom: 12px !important;
+}
+
+.word-app-root .word-seo-features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.word-app-root .word-seo-steps {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text);
+}
+
+.word-app-root .word-seo-steps li {
+  margin-bottom: 8px;
+}
+
+.word-app-root .word-seo-steps .ant-typography {
+  margin-bottom: 4px;
+}
+
+.word-app-root .word-seo-faq {
+  margin-bottom: 24px;
+}
+
+.word-app-root .word-seo-faq h2 {
+  font-size: 20px !important;
+  margin-bottom: 12px !important;
+}
+
+@media (max-width: 720px) {
+  .word-app-root .word-seo-features {
+    grid-template-columns: 1fr;
+  }
+}

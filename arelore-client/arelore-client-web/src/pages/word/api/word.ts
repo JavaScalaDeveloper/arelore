@@ -5,6 +5,27 @@ export interface StudyExample {
   cn?: string;
 }
 
+export interface StudyPhrase {
+  en?: string;
+  cn?: string;
+}
+
+export interface StudySynonymGroup {
+  pos?: string;
+  tran?: string;
+  words?: string[];
+}
+
+export interface StudyRelatedItem {
+  word?: string;
+  tran?: string;
+}
+
+export interface StudyRelatedGroup {
+  pos?: string;
+  words?: StudyRelatedItem[];
+}
+
 export interface StudyCard {
   mode?: string;
   wordCode: string;
@@ -22,6 +43,10 @@ export interface StudyCard {
   exampleEn?: string;
   exampleCn?: string;
   examples?: StudyExample[];
+  phrases?: StudyPhrase[];
+  synonyms?: StudySynonymGroup[];
+  relatedWords?: StudyRelatedGroup[];
+  etym?: string;
 }
 
 export interface StudySession {

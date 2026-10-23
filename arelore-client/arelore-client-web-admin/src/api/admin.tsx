@@ -179,4 +179,16 @@ export const adminApi = {
   /** 详情含 base64，可能较大 */
   getCommonBinaryFileDetail: (data: { id: number }): Promise<ApiResponse<any>> =>
     request.post('/admin/common/binary-file/detail', data, { timeout: 120000 }),
+  deleteCommonBinaryFile: (data: { id: number }): Promise<ApiResponse<any>> =>
+    request.post('/admin/common/binary-file/delete', data),
+  batchDeleteCommonBinaryFiles: (data: { ids: number[] }): Promise<ApiResponse<any>> =>
+    request.post('/admin/common/binary-file/batch-delete', data),
+
+  /** C 端日访问统计 */
+  getCommonUserDailyVisitList: (data: any): Promise<ApiResponse<any>> =>
+    request.post('/admin/common/user-daily-visit/list', data),
+  deleteCommonUserDailyVisit: (data: { id: number }): Promise<ApiResponse<any>> =>
+    request.post('/admin/common/user-daily-visit/delete', data),
+  batchDeleteCommonUserDailyVisits: (data: { ids: number[] }): Promise<ApiResponse<any>> =>
+    request.post('/admin/common/user-daily-visit/batch-delete', data),
 };

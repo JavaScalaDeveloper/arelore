@@ -98,6 +98,66 @@ function meaningLines(extInfo?: string): string[] {
     .filter(Boolean);
 }
 
+function exampleLines(extInfo?: string): { en: string; cn: string }[] {
+  const ext = parseExtInfo(extInfo);
+  const sentences = ext?.sentence?.sentences;
+  if (!Array.isArray(sentences)) {
+    return [];
+  }
+  return sentences
+    .map((s: any) => ({
+      en: String(s?.sContent || s?.sContent_eng || '').trim(),
+      cn: String(s?.sCn || '').trim(),
+    }))
+    .filter((s: { en: string; cn: string }) => s.en || s.cn)
+    .slice(0, 5);
+}
+
+function phraseLines(extInfo?: string): string[] {
+  const ext = parseExtInfo(extInfo);
+  const phrases = Array.isArray(ext.phrases) ? ext.phrases : [];
+  return phrases
+    .map((p: any) => {
+      const en = p?.en || '';
+      const cn = p?.cn || '';
+      return cn ? `${en}（${cn}）` : en;
+    })
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+function synonymLines(extInfo?: string): string[] {
+  const ext = parseExtInfo(extInfo);
+  const synonyms = Array.isArray(ext.synonyms) ? ext.synonyms : [];
+  return synonyms
+    .map((g: any) => {
+      const pos = g?.pos ? `${g.pos} ` : '';
+      const words = Array.isArray(g?.words) ? g.words.join('、') : '';
+      const tran = g?.tran ? ` — ${g.tran}` : '';
+      return `${pos}${words}${tran}`.trim();
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+function relatedLines(extInfo?: string): string[] {
+  const ext = parseExtInfo(extInfo);
+  const related = Array.isArray(ext.relatedWords) ? ext.relatedWords : [];
+  return related
+    .map((g: any) => {
+      const pos = g?.pos ? `${g.pos} ` : '';
+      const words = Array.isArray(g?.words)
+        ? g.words
+            .map((w: any) => (w?.tran ? `${w.word}（${w.tran}）` : w?.word))
+            .filter(Boolean)
+            .join('、')
+        : '';
+      return `${pos}${words}`.trim();
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
 function meaningAudioFileId(extInfo?: string): number | undefined {
   const ext = parseExtInfo(extInfo);
   const id = ext?.meaningAudio?.fileId;
@@ -132,6 +192,8 @@ const TAG_OPTIONS = [
   { value: 'source_none', label: '来源·无' },
   { value: 'has_meaning', label: '有释义' },
   { value: 'no_meaning', label: '无释义' },
+  { value: 'has_example', label: '有例句' },
+  { value: 'no_example', label: '无例句' },
   { value: 'has_meaning_audio', label: '有释义语音' },
   { value: 'no_meaning_audio', label: '无释义语音' },
   { value: 'sync_error', label: '同步失败' },
@@ -140,6 +202,10 @@ const TAG_OPTIONS = [
 const TAG_COLOR: Record<string, string> = {
   no_picture: 'warning',
   has_picture: 'blue',
+  has_meaning: 'blue',
+  no_meaning: 'warning',
+  has_example: 'geekblue',
+  no_example: 'orange',
   has_meaning_audio: 'cyan',
   no_meaning_audio: 'default',
   confirmed: 'success',
@@ -444,7 +510,7 @@ const WordBaseInfoManagement: React.FC = () => {
     Modal.confirm({
       title: '从词条同步单词',
       content:
-        '将分页扫描全部词条词形写入基础表；再对无释义词查有道补释义/音标（带空格词跳过，不改已有配图）。词量大时可能较久。配图请用「批量搜图」。',
+        '将分页扫描全部词条词形写入基础表；再对缺释义/缺例句的词查有道补释义、音标、双语例句、词组、近义、派生与词源摘要（带空格词跳过，不改已有配图与已有字段）。词量大时可能较久。配图请用「批量搜图」。',
       okText: '开始同步',
       cancelText: '取消',
       onOk: async () => {
@@ -517,7 +583,7 @@ const WordBaseInfoManagement: React.FC = () => {
       : '未选标签';
     Modal.confirm({
       title: '批量生成释义语音',
-      content: `按当前筛选（标签：${tagText}）调用本机 Qwen3-TTS（localhost:8880）生成整段释义语音，写入 common_binary_file。已有且释义未变则跳过。请先确保本地 TTS 服务已启动。词量大时可能很久。`,
+      content: `按当前筛选（标签：${tagText}）调用本机 Qwen3-TTS（localhost:8880）生成整段释义语音，写入 common_binary_file。已有 fileId 且二进制仍存在、释义未变则跳过；文件已删会重新生成。请先确保本地 TTS 服务已启动。词量大时可能很久。`,
       okText: '开始生成',
       cancelText: '取消',
       onOk: async () => {
@@ -549,6 +615,11 @@ const WordBaseInfoManagement: React.FC = () => {
   const detailExt = parseExtInfo(detail?.extInfo);
   const detailPics = pictureRefs(detail?.extInfo);
   const detailMeanings = meaningLines(detail?.extInfo);
+  const detailExamples = exampleLines(detail?.extInfo);
+  const detailPhrases = phraseLines(detail?.extInfo);
+  const detailSynonyms = synonymLines(detail?.extInfo);
+  const detailRelated = relatedLines(detail?.extInfo);
+  const detailEtym = typeof detailExt.etym === 'string' ? detailExt.etym.trim() : '';
   const detailTags = tagList(detail?.extInfo);
   const detailMeaningAudioId = meaningAudioFileId(detail?.extInfo);
   const pictureConfirmed = !!detailExt.pictureConfirmed;
@@ -825,6 +896,71 @@ const WordBaseInfoManagement: React.FC = () => {
                 )}
               </div>
             </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <Text strong>双语例句（有道同步 / 学习端展示）</Text>
+              <div style={{ marginTop: 8 }}>
+                {detailExamples.length ? (
+                  <ul style={{ margin: 0, paddingLeft: 20 }}>
+                    {detailExamples.map((ex) => (
+                      <li key={ex.en || ex.cn}>
+                        <div>{ex.en || '-'}</div>
+                        {ex.cn ? <Text type="secondary">{ex.cn}</Text> : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <Tag>无例句（可「从词条同步」补全）</Tag>
+                )}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <Text strong>词组 / 近义 / 派生</Text>
+              <div style={{ marginTop: 8 }}>
+                {detailPhrases.length || detailSynonyms.length || detailRelated.length ? (
+                  <>
+                    {detailPhrases.length > 0 && (
+                      <div style={{ marginBottom: 8 }}>
+                        <Text type="secondary">词组：</Text>
+                        {detailPhrases.join('；')}
+                      </div>
+                    )}
+                    {detailSynonyms.length > 0 && (
+                      <div style={{ marginBottom: 8 }}>
+                        <Text type="secondary">近义：</Text>
+                        <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                          {detailSynonyms.map((line) => (
+                            <li key={line}>{line}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {detailRelated.length > 0 && (
+                      <div>
+                        <Text type="secondary">派生：</Text>
+                        <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                          {detailRelated.map((line) => (
+                            <li key={line}>{line}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <Tag>暂无（同步后补全）</Tag>
+                )}
+              </div>
+            </div>
+
+            {detailEtym ? (
+              <div style={{ marginBottom: 16 }}>
+                <Text strong>词源摘要</Text>
+                <Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
+                  {detailEtym}
+                </Paragraph>
+              </div>
+            ) : null}
 
             <div style={{ marginBottom: 16 }}>
               <Space wrap>

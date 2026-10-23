@@ -17,6 +17,7 @@ import WordBookManagement from './pages/WordBookManagement';
 import WordEntryManagement from './pages/WordEntryManagement';
 import WordBaseInfoManagement from './pages/WordBaseInfoManagement';
 import CommonBinaryFileManagement from './pages/CommonBinaryFileManagement';
+import CommonUserDailyVisitManagement from './pages/CommonUserDailyVisitManagement';
 import WordUserManagement from './pages/WordUserManagement';
 import {
   LocaleGate,
@@ -71,6 +72,7 @@ function AdminRoutes() {
           <Route path="entries" element={<WordEntryManagement />} />
           <Route path="base-info" element={<WordBaseInfoManagement />} />
           <Route path="binary-files" element={<CommonBinaryFileManagement />} />
+          <Route path="user-daily-visits" element={<CommonUserDailyVisitManagement />} />
           <Route index element={<ProductIndex />} />
         </Route>
       </Routes>

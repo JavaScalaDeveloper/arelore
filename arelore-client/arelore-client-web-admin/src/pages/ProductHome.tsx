@@ -26,7 +26,7 @@ const products = [
     key: 'common',
     name: '公共基础',
     code: 'common',
-    desc: '跨产品公共资源，如二进制文件库',
+    desc: '跨产品公共资源：二进制文件库、C 端日访问统计',
     icon: <DatabaseOutlined style={{ fontSize: 36, color: '#08979c' }} />,
     path: '/common/binary-files'
   }

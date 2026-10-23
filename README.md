@@ -56,7 +56,7 @@ mvn spring-boot:run
 
 访问 http://localhost:8080
 
-详细文档请参考各模块下的 README。
+详细文档请参考各模块下的 README；产品与运营文档见根目录 [docs/](./docs/)。
 
 ## 技术栈总览
 

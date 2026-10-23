@@ -67,18 +67,19 @@ arelore:
       # 用 127.0.0.1，避免 localhost→IPv6 与 uvicorn 不一致
       base-url: ${ARELORE_TTS_QWEN_BASE_URL:http://127.0.0.1:8880}
       model: ${ARELORE_TTS_QWEN_MODEL:qwen3-tts}
-      # 与 curl/README 一致；alloy 会映射到 Vivian
-      voice: ${ARELORE_TTS_QWEN_VOICE:alloy}
+      # Serena 音色；speed 建议 1.0（>1 易引入加速伪影/底噪）
+      voice: ${ARELORE_TTS_QWEN_VOICE:Serena}
+      speed: ${ARELORE_TTS_QWEN_SPEED:1.0}
       response-format: mp3
       # 单次 HTTP 读超时（仅覆盖实际合成，不含客户端排队）；默认 30 分钟
       timeout-seconds: ${ARELORE_TTS_QWEN_TIMEOUT_SECONDS:1800}
       # 读超时 / 连接重置等瞬时失败时的总尝试次数（含首次）
-      max-attempts: ${ARELORE_TTS_QWEN_MAX_ATTEMPTS:3}
+      max-attempts: ${ARELORE_TTS_QWEN_MAX_ATTEMPTS:1}
       retry-delay-ms: ${ARELORE_TTS_QWEN_RETRY_DELAY_MS:3000}
       # 同时对 TTS 发 HTTP 的上限，应对齐服务端 TTS_MAX_CONCURRENT（默认 1）
       in-flight: ${ARELORE_TTS_QWEN_IN_FLIGHT:1}
       # 批量任务线程数：>1 时可在「写库」与「下一词排队等 TTS」之间重叠
-      parallelism: ${ARELORE_TTS_QWEN_PARALLELISM:2}
+      parallelism: ${ARELORE_TTS_QWEN_PARALLELISM:1}
 
 logging:
   level:

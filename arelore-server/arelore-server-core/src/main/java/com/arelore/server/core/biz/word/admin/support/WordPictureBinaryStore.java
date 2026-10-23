@@ -87,6 +87,24 @@ public class WordPictureBinaryStore {
         return item;
     }
 
+    /**
+     * 轻量存在性检查（不读 file_data）。无效 status=0 视为不存在。
+     * 供批量生成释义语音等场景：元数据仍有 fileId 但文件已被删时需重新生成。
+     */
+    public boolean exists(Long fileId) {
+        if (fileId == null) {
+            return false;
+        }
+        CommonBinaryFile row = fileMapper.selectOne(new LambdaQueryWrapper<CommonBinaryFile>()
+            .select(CommonBinaryFile::getId, CommonBinaryFile::getStatus)
+            .eq(CommonBinaryFile::getId, fileId)
+            .last("limit 1"));
+        if (row == null) {
+            return false;
+        }
+        return row.getStatus() == null || row.getStatus() != 0;
+    }
+
     public AdminWordPictureContentResponse loadContent(Long fileId) {
         if (fileId == null) {
             return null;

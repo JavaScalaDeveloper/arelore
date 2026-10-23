@@ -3,6 +3,7 @@ import { Button, Card, Progress, Space, Tag, Typography, message } from 'antd';
 import {  } from 'react-router-dom';
 import { useLocaleNavigate } from '../../../locale';
 import { wordApi } from '../api/word';
+import WordSeoLanding from '../components/WordSeoLanding';
 import { modeLabel, syncPreference } from '../utils/preference';
 import { getPreference, getToken, setBookId, STUDY_MODE_LISTEN_SPELL } from '../utils/storage';
 import { shortErrorMessage } from '../utils/request';
@@ -87,17 +88,7 @@ export default function HomePage() {
   }, [refreshHome, refreshPreference]);
 
   if (status === 'needLogin') {
-    return (
-      <div className="page">
-        <Card className="state-card">
-          <Title level={4}>请先登录</Title>
-          <Paragraph type="secondary">登录后可选择单词书并开始学习</Paragraph>
-          <Button type="primary" onClick={() => navigate('/word/login')}>
-            邮箱登录
-          </Button>
-        </Card>
-      </div>
-    );
+    return <WordSeoLanding />;
   }
 
   if (status === 'loading') {
@@ -137,9 +128,14 @@ export default function HomePage() {
   return (
     <div className="page">
       <div className="page-head">
-        <Title level={3} style={{ margin: 0 }}>
-          今日学习
-        </Title>
+        <div>
+          <Title level={1} style={{ margin: 0, fontSize: 22 }}>
+            今日学习
+          </Title>
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            听力 · 听写 · 看词识意
+          </Text>
+        </div>
         <Tag color={isListenMode ? 'processing' : 'default'}>{studyModeLabel}</Tag>
       </div>
 

@@ -19,6 +19,10 @@ import com.arelore.server.core.biz.word.user.dto.UserWordStudyAnswerRequest;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudyAnswerResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudyCardResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudyExampleResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyPhraseResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyRelatedGroupResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudyRelatedItemResponse;
+import com.arelore.server.core.biz.word.user.dto.UserWordStudySynonymGroupResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudyPlanRequest;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudyPlanResponse;
 import com.arelore.server.core.biz.word.user.dto.UserWordStudySessionRequest;
@@ -718,6 +722,17 @@ public class UserWordLearnRecordServiceImpl
         if (!pictures.isEmpty()) {
             card.setPicture(pictures.get(0));
         }
+        // 词书无释义时，回退 base_info.meanings（有道同步）
+        if (!StringUtils.hasText(card.getMeaning()) && bundle != null && StringUtils.hasText(bundle.meaningText)) {
+            card.setMeaning(bundle.meaningText);
+        }
+        if (!StringUtils.hasText(card.getPhonetic()) && bundle != null) {
+            if (voiceType == 1) {
+                card.setPhonetic(firstNonBlank(bundle.ukphone, bundle.usphone));
+            } else {
+                card.setPhonetic(firstNonBlank(bundle.usphone, bundle.ukphone));
+            }
+        }
         JSONObject remMethod = ext.getJSONObject("remMethod");
         if (remMethod != null) {
             String mnemonic = remMethod.getString("val");
@@ -726,10 +741,21 @@ public class UserWordLearnRecordServiceImpl
             }
         }
         List<UserWordStudyExampleResponse> examples = buildExamples(ext);
+        if (examples.isEmpty() && bundle != null && bundle.examples != null) {
+            examples = new ArrayList<>(bundle.examples);
+        }
         card.setExamples(examples);
         if (!examples.isEmpty()) {
             card.setExampleEn(examples.get(0).getEn());
             card.setExampleCn(examples.get(0).getCn());
+        }
+        if (bundle != null) {
+            card.setPhrases(bundle.phrases == null ? new ArrayList<>() : new ArrayList<>(bundle.phrases));
+            card.setSynonyms(bundle.synonyms == null ? new ArrayList<>() : new ArrayList<>(bundle.synonyms));
+            card.setRelatedWords(bundle.relatedWords == null ? new ArrayList<>() : new ArrayList<>(bundle.relatedWords));
+            if (StringUtils.hasText(bundle.etym)) {
+                card.setEtym(bundle.etym);
+            }
         }
         return card;
     }
@@ -784,10 +810,19 @@ public class UserWordLearnRecordServiceImpl
         return result;
     }
 
+    /** base_info 富化：配图 + 有道例句/词组/近义/派生等 */
     private static final class WordPictureBundle {
         private final List<String> urls = new ArrayList<>();
         private final List<Long> fileIds = new ArrayList<>();
         private Long meaningAudioFileId;
+        private String meaningText;
+        private String ukphone;
+        private String usphone;
+        private List<UserWordStudyExampleResponse> examples = new ArrayList<>();
+        private List<UserWordStudyPhraseResponse> phrases = new ArrayList<>();
+        private List<UserWordStudySynonymGroupResponse> synonyms = new ArrayList<>();
+        private List<UserWordStudyRelatedGroupResponse> relatedWords = new ArrayList<>();
+        private String etym;
     }
 
     private WordPictureBundle extractPictures(String extInfo) {
@@ -799,6 +834,16 @@ public class UserWordLearnRecordServiceImpl
             if (audioFileId != null) {
                 bundle.meaningAudioFileId = audioFileId;
             }
+        }
+        bundle.ukphone = ext.getString("ukphone");
+        bundle.usphone = ext.getString("usphone");
+        bundle.meaningText = buildMeaningFromBaseMeanings(ext);
+        bundle.examples = buildExamples(ext);
+        bundle.phrases = buildPhrases(ext);
+        bundle.synonyms = buildSynonyms(ext);
+        bundle.relatedWords = buildRelatedWords(ext);
+        if (StringUtils.hasText(ext.getString("etym"))) {
+            bundle.etym = ext.getString("etym").trim();
         }
         JSONArray arr = ext.getJSONArray("pictures");
         if (arr == null || arr.isEmpty()) {
@@ -852,6 +897,145 @@ public class UserWordLearnRecordServiceImpl
             sb.append(cn.trim());
         }
         return sb.toString();
+    }
+
+    /** base_info.meanings[{pos,trans}] */
+    private String buildMeaningFromBaseMeanings(JSONObject ext) {
+        JSONArray meanings = ext.getJSONArray("meanings");
+        if (meanings == null || meanings.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < meanings.size(); i++) {
+            JSONObject item = meanings.getJSONObject(i);
+            if (item == null) {
+                continue;
+            }
+            String pos = item.getString("pos");
+            String cn = item.getString("trans");
+            if (!StringUtils.hasText(cn)) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append("；");
+            }
+            if (StringUtils.hasText(pos)) {
+                sb.append(pos.trim());
+                if (!pos.trim().endsWith(".")) {
+                    sb.append('.');
+                }
+                sb.append(' ');
+            }
+            sb.append(cn.trim());
+        }
+        return sb.toString();
+    }
+
+    private List<UserWordStudyPhraseResponse> buildPhrases(JSONObject ext) {
+        List<UserWordStudyPhraseResponse> list = new ArrayList<>();
+        JSONArray arr = ext.getJSONArray("phrases");
+        if (arr == null || arr.isEmpty()) {
+            return list;
+        }
+        int limit = Math.min(arr.size(), 6);
+        for (int i = 0; i < limit; i++) {
+            JSONObject item = arr.getJSONObject(i);
+            if (item == null) {
+                continue;
+            }
+            String en = item.getString("en");
+            if (!StringUtils.hasText(en)) {
+                continue;
+            }
+            UserWordStudyPhraseResponse row = new UserWordStudyPhraseResponse();
+            row.setEn(en.trim());
+            String cn = item.getString("cn");
+            if (StringUtils.hasText(cn)) {
+                row.setCn(cn.trim());
+            }
+            list.add(row);
+        }
+        return list;
+    }
+
+    private List<UserWordStudySynonymGroupResponse> buildSynonyms(JSONObject ext) {
+        List<UserWordStudySynonymGroupResponse> list = new ArrayList<>();
+        JSONArray arr = ext.getJSONArray("synonyms");
+        if (arr == null || arr.isEmpty()) {
+            return list;
+        }
+        int limit = Math.min(arr.size(), 6);
+        for (int i = 0; i < limit; i++) {
+            JSONObject item = arr.getJSONObject(i);
+            if (item == null) {
+                continue;
+            }
+            JSONArray words = item.getJSONArray("words");
+            if (words == null || words.isEmpty()) {
+                continue;
+            }
+            UserWordStudySynonymGroupResponse row = new UserWordStudySynonymGroupResponse();
+            row.setPos(item.getString("pos"));
+            row.setTran(item.getString("tran"));
+            List<String> wordList = new ArrayList<>();
+            for (int j = 0; j < words.size() && wordList.size() < 6; j++) {
+                String w = words.getString(j);
+                if (StringUtils.hasText(w)) {
+                    wordList.add(w.trim());
+                }
+            }
+            if (wordList.isEmpty()) {
+                continue;
+            }
+            row.setWords(wordList);
+            list.add(row);
+        }
+        return list;
+    }
+
+    private List<UserWordStudyRelatedGroupResponse> buildRelatedWords(JSONObject ext) {
+        List<UserWordStudyRelatedGroupResponse> list = new ArrayList<>();
+        JSONArray arr = ext.getJSONArray("relatedWords");
+        if (arr == null || arr.isEmpty()) {
+            return list;
+        }
+        int limit = Math.min(arr.size(), 6);
+        for (int i = 0; i < limit; i++) {
+            JSONObject item = arr.getJSONObject(i);
+            if (item == null) {
+                continue;
+            }
+            JSONArray words = item.getJSONArray("words");
+            if (words == null || words.isEmpty()) {
+                continue;
+            }
+            UserWordStudyRelatedGroupResponse row = new UserWordStudyRelatedGroupResponse();
+            row.setPos(item.getString("pos"));
+            List<UserWordStudyRelatedItemResponse> wordList = new ArrayList<>();
+            for (int j = 0; j < words.size() && wordList.size() < 8; j++) {
+                JSONObject w = words.getJSONObject(j);
+                if (w == null) {
+                    continue;
+                }
+                String word = w.getString("word");
+                if (!StringUtils.hasText(word)) {
+                    continue;
+                }
+                UserWordStudyRelatedItemResponse ri = new UserWordStudyRelatedItemResponse();
+                ri.setWord(word.trim());
+                String tran = w.getString("tran");
+                if (StringUtils.hasText(tran)) {
+                    ri.setTran(tran.trim());
+                }
+                wordList.add(ri);
+            }
+            if (wordList.isEmpty()) {
+                continue;
+            }
+            row.setWords(wordList);
+            list.add(row);
+        }
+        return list;
     }
 
     private List<UserWordStudyExampleResponse> buildExamples(JSONObject ext) {

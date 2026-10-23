@@ -4,6 +4,7 @@ import com.arelore.server.core.biz.common.AdminCommonBinaryFileService;
 import com.arelore.server.core.biz.common.dto.AdminCommonBinaryFileRequest;
 import com.arelore.server.core.biz.common.dto.AdminCommonBinaryFileResponse;
 import com.arelore.server.core.common.dto.IdRequest;
+import com.arelore.server.core.common.dto.IdsRequest;
 import com.arelore.server.core.common.dto.PageResult;
 import com.arelore.server.core.common.result.Result;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -40,5 +41,29 @@ public class CommonBinaryFileManageController {
         } catch (IllegalArgumentException e) {
             return Result.error(e.getMessage());
         }
+    }
+
+    /** 单条物理删除 */
+    @PostMapping("/delete")
+    public Result<String> delete(@RequestBody IdRequest request) {
+        Long id = request == null ? null : request.getId();
+        if (id == null) {
+            return Result.error("ID 不能为空");
+        }
+        int rows = service.deleteById(id);
+        if (rows <= 0) {
+            return Result.error("记录不存在或已删除");
+        }
+        return Result.success("删除成功");
+    }
+
+    /** 批量物理删除（多选） */
+    @PostMapping("/batch-delete")
+    public Result<String> batchDelete(@RequestBody IdsRequest request) {
+        if (request == null || request.getIds() == null || request.getIds().isEmpty()) {
+            return Result.error("请选择要删除的记录");
+        }
+        int rows = service.deleteByIds(request.getIds());
+        return Result.success("已删除 " + rows + " 条");
     }
 }

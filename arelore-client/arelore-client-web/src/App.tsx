@@ -49,45 +49,63 @@ const navigationItems: any[] = [
     label: '产品中心',
     children: [
       {
-        key: 'databaseSecurity',
-        label: '数据库安全',
+        key: 'foreignLanguage',
+        label: '外语',
         children: [
           {
-            key: 'databaseClassification',
-            label: '数据库分类分级',
-            path: '/home/products/database-classification'
+            key: 'word',
+            icon: <BookOutlined />,
+            label: '墨鱼背词',
+            path: '/word'
+          }
+        ]
+      },
+      {
+        key: 'security',
+        label: '安全',
+        children: [
+          {
+            key: 'databaseSecurity',
+            label: '数据库安全',
+            children: [
+              {
+                key: 'databaseClassification',
+                label: '数据库分类分级',
+                path: '/home/products/database-classification'
+              },
+              {
+                key: 'databaseAudit',
+                label: '数据库审计',
+                path: '/home/products/database-audit'
+              }
+            ]
           },
           {
-            key: 'databaseAudit',
-            label: '数据库审计',
-            path: '/home/products/database-audit'
-          }
-        ]
-      },
-      {
-        key: 'apiSecurity',
-        label: 'API安全',
-        path: '/home/products/api-security'
-      },
-      {
-        key: 'applicationSecurity',
-        label: '应用安全',
-        children: [
+            key: 'apiSecurity',
+            label: 'API安全',
+            path: '/home/products/api-security'
+          },
           {
-            key: 'codeSecurityScan',
-            label: '代码安全扫描',
-            path: '/home/products/application-security/code-security-scan'
-          }
-        ]
-      },
-      {
-        key: 'mqSecurity',
-        label: 'MQ安全',
-        children: [
+            key: 'applicationSecurity',
+            label: '应用安全',
+            children: [
+              {
+                key: 'codeSecurityScan',
+                label: '代码安全扫描',
+                path: '/home/products/application-security/code-security-scan'
+              }
+            ]
+          },
           {
-            key: 'mqClassification',
-            label: 'MQ分类分级',
-            path: '/home/products/mq-classification'
+            key: 'mqSecurity',
+            label: 'MQ安全',
+            children: [
+              {
+                key: 'mqClassification',
+                label: 'MQ分类分级',
+                path: '/home/products/mq-classification'
+              }
+            ]
           }
         ]
       }
@@ -154,9 +172,26 @@ const navigationItems: any[] = [
       }
     ]
   },
-  { key: 'word', icon: <BookOutlined />, label: '背单词', path: '/word' },
   { key: 'contact', icon: <PhoneOutlined />, label: '联系我们', path: '/home/contact' },
 ];
+
+/** 递归渲染导航（支持产品中心 → 外语/安全 → 子类 → 产品） */
+function renderNavNodes(items: any[]): React.ReactNode[] {
+  return (items || []).map((item) => {
+    if (item.children && item.children.length) {
+      return (
+        <Menu.SubMenu key={item.key} icon={item.icon} title={item.label}>
+          {renderNavNodes(item.children)}
+        </Menu.SubMenu>
+      );
+    }
+    return (
+      <Menu.Item key={item.key} icon={item.icon}>
+        {item.label}
+      </Menu.Item>
+    );
+  });
+}
 
 function App() {
   return (
@@ -253,37 +288,7 @@ function MainApp() {
             onClick={handleNavClick}
             className="nav-menu"
           >
-            {navigationItems.map(item => {
-              if (item.type === 'sub' || ('children' in item && item.children)) {
-                return (
-                  <Menu.SubMenu key={item.key} icon={item.icon} title={item.label}>
-                    {(item.children || []).map((child: any) => {
-                      if (child.children) {
-                        return (
-                          <Menu.SubMenu key={child.key} title={child.label}>
-                            {child.children.map((grandchild: any) => (
-                              <Menu.Item key={grandchild.key}>
-                                {grandchild.label}
-                              </Menu.Item>
-                            ))}
-                          </Menu.SubMenu>
-                        );
-                      }
-                      return (
-                        <Menu.Item key={child.key}>
-                          {child.label}
-                        </Menu.Item>
-                      );
-                    })}
-                  </Menu.SubMenu>
-                );
-              }
-              return (
-                <Menu.Item key={item.key} icon={item.icon}>
-                  {item.label}
-                </Menu.Item>
-              );
-            })}
+            {renderNavNodes(navigationItems)}
           </Menu>
 
           {/* 右侧功能区 */}
@@ -544,7 +549,7 @@ function MainApp() {
             <a href="/home/contact">帮助中心</a>
           </div>
           <p style={{ fontSize: '12px', color: '#999', marginTop: '12px' }}>
-            鄂ICP备2026013952号-1
+            沪ICP备2026055763号
           </p>
         </div>
       </Footer>

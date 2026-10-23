@@ -1,5 +1,6 @@
 package com.arelore.server.core.common.time;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -24,6 +25,11 @@ public final class ChinaTime {
 
     public static LocalDateTime now() {
         return LocalDateTime.now(ZONE);
+    }
+
+    /** 东八区当前自然日 */
+    public static LocalDate nowDate() {
+        return LocalDate.now(ZONE);
     }
 
     public static String nowDateTime() {

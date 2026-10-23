@@ -8,15 +8,17 @@ import LoginPage from './pages/LoginPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import StudyPage from './pages/StudyPage';
+import WordDocumentSeo from './seo/WordDocumentSeo';
 import { LocaleNavigate, useStrippedLocation } from '../../locale';
 import './word.css';
 
-/** 背单词子应用：挂在 /word/*（桌面浏览器交互），支持 /en-us/word 等区域前缀 */
+/** 墨鱼背词子应用：挂在 /word/*，支持 /en-us/word 等区域前缀 */
 export default function WordApp() {
   const strippedLocation = useStrippedLocation();
 
   return (
     <div className="word-app-root">
+      <WordDocumentSeo />
       <Routes location={strippedLocation}>
         <Route path="/word" element={<AppShell />}>
           <Route index element={<HomePage />} />

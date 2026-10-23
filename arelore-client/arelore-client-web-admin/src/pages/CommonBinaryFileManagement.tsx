@@ -15,8 +15,9 @@ import {
   Typography,
   message,
 } from 'antd';
-import { EyeOutlined, SearchOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
+import type { Key } from 'react';
 import { adminApi } from '../api/admin';
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -87,6 +88,8 @@ const CommonBinaryFileManagement: React.FC = () => {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detail, setDetail] = useState<any | null>(null);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   const loadData = async (overrides?: { pageNum?: number; pageSize?: number; filters?: any }) => {
     const nextPageNum = overrides?.pageNum ?? pageNum;
@@ -103,11 +106,65 @@ const CommonBinaryFileManagement: React.FC = () => {
       setTotal(Number(res.data?.total) || 0);
       setPageNum(res.data?.pageNum || nextPageNum);
       setPageSize(res.data?.pageSize || nextPageSize);
+      setSelectedRowKeys([]);
     } catch {
       // 拦截器已提示
     } finally {
       setLoading(false);
     }
+  };
+
+  const confirmDeleteOne = (row: any) => {
+    Modal.confirm({
+      title: '确认删除',
+      content: `将物理删除二进制文件 #${row.id}${row.fileSizeText ? `（${row.fileSizeText}）` : ''}。引用它的词条试听会失败，可用「批量生成释义语音」重新生成。`,
+      okText: '删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        setDeleting(true);
+        try {
+          await adminApi.deleteCommonBinaryFile({ id: row.id });
+          message.success('删除成功');
+          loadData();
+        } catch (e: any) {
+          if (!e?.notified) {
+            message.error(e?.message || '删除失败');
+          }
+        } finally {
+          setDeleting(false);
+        }
+      },
+    });
+  };
+
+  const confirmBatchDelete = () => {
+    const ids = selectedRowKeys.map((k) => Number(k)).filter((n) => Number.isFinite(n) && n > 0);
+    if (!ids.length) {
+      message.warning('请先勾选要删除的记录');
+      return;
+    }
+    Modal.confirm({
+      title: '批量删除',
+      content: `将物理删除选中的 ${ids.length} 条二进制文件。词条侧若仍引用这些 fileId，「试听」会报文件不存在；可用「批量生成释义语音」补回。`,
+      okText: '删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        setDeleting(true);
+        try {
+          const res = await adminApi.batchDeleteCommonBinaryFiles({ ids });
+          message.success(res.message || `已删除 ${ids.length} 条`);
+          loadData();
+        } catch (e: any) {
+          if (!e?.notified) {
+            message.error(e?.message || '批量删除失败');
+          }
+        } finally {
+          setDeleting(false);
+        }
+      },
+    });
   };
 
   useEffect(() => {
@@ -228,14 +285,28 @@ const CommonBinaryFileManagement: React.FC = () => {
             >
               重置
             </Button>
+            <Button
+              danger
+              icon={<DeleteOutlined />}
+              disabled={!selectedRowKeys.length}
+              loading={deleting}
+              onClick={confirmBatchDelete}
+            >
+              批量删除{selectedRowKeys.length ? `（${selectedRowKeys.length}）` : ''}
+            </Button>
           </Space>
         </Form.Item>
       </Form>
       <Table
         rowKey="id"
-        loading={loading}
+        loading={loading || deleting}
         dataSource={dataSource}
         scroll={{ x: 1100 }}
+        rowSelection={{
+          selectedRowKeys,
+          onChange: (keys) => setSelectedRowKeys(keys),
+          preserveSelectedRowKeys: true,
+        }}
         pagination={{
           current: pageNum,
           pageSize,
@@ -290,12 +361,22 @@ const CommonBinaryFileManagement: React.FC = () => {
           {
             title: '操作',
             key: 'actions',
-            width: 100,
+            width: 160,
             fixed: 'right',
             render: (_, row) => (
-              <Button type="link" icon={<EyeOutlined />} onClick={() => openDetail(row)}>
-                详情
-              </Button>
+              <Space size={0}>
+                <Button type="link" icon={<EyeOutlined />} onClick={() => openDetail(row)}>
+                  详情
+                </Button>
+                <Button
+                  type="link"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => confirmDeleteOne(row)}
+                >
+                  删除
+                </Button>
+              </Space>
             ),
           },
         ]}
@@ -308,7 +389,31 @@ const CommonBinaryFileManagement: React.FC = () => {
           setDetailOpen(false);
           setDetail(null);
         }}
-        footer={null}
+        footer={
+          detail ? (
+            <Space>
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                loading={deleting}
+                onClick={() => {
+                  setDetailOpen(false);
+                  confirmDeleteOne(detail);
+                }}
+              >
+                删除
+              </Button>
+              <Button
+                onClick={() => {
+                  setDetailOpen(false);
+                  setDetail(null);
+                }}
+              >
+                关闭
+              </Button>
+            </Space>
+          ) : null
+        }
         width={820}
         destroyOnClose
         confirmLoading={detailLoading}

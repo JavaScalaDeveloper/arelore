@@ -36,6 +36,7 @@ public class Qwen3TtsClient {
     private final String baseUrl;
     private final String model;
     private final String voice;
+    private final double speed;
     private final String responseFormat;
     private final int timeoutSeconds;
     private final int maxAttempts;
@@ -46,7 +47,8 @@ public class Qwen3TtsClient {
         @Value("${arelore.tts.qwen.enabled:true}") boolean enabled,
         @Value("${arelore.tts.qwen.base-url:http://127.0.0.1:8880}") String baseUrl,
         @Value("${arelore.tts.qwen.model:qwen3-tts}") String model,
-        @Value("${arelore.tts.qwen.voice:alloy}") String voice,
+        @Value("${arelore.tts.qwen.voice:Serena}") String voice,
+        @Value("${arelore.tts.qwen.speed:1.0}") double speed,
         @Value("${arelore.tts.qwen.response-format:mp3}") String responseFormat,
         @Value("${arelore.tts.qwen.timeout-seconds:1800}") int timeoutSeconds,
         @Value("${arelore.tts.qwen.max-attempts:3}") int maxAttempts,
@@ -56,7 +58,9 @@ public class Qwen3TtsClient {
         this.enabled = enabled;
         this.baseUrl = normalizeBaseUrl(baseUrl);
         this.model = StringUtils.hasText(model) ? model.trim() : "qwen3-tts";
-        this.voice = StringUtils.hasText(voice) ? voice.trim() : "alloy";
+        this.voice = StringUtils.hasText(voice) ? voice.trim() : "Serena";
+        // 默认 1.0；过高 speed 在部分 Qwen3-TTS 部署上会出现底噪/齿音伪影
+        this.speed = speed > 0 ? speed : 1.0;
         this.responseFormat = StringUtils.hasText(responseFormat) ? responseFormat.trim() : "mp3";
         this.timeoutSeconds = timeoutSeconds > 0 ? timeoutSeconds : 1800;
         this.maxAttempts = maxAttempts > 0 ? Math.min(8, maxAttempts) : 3;
@@ -71,6 +75,10 @@ public class Qwen3TtsClient {
 
     public String getVoice() {
         return voice;
+    }
+
+    public double getSpeed() {
+        return speed;
     }
 
     /** 拼出可直接复制到终端复现的 curl（与 README 同形态）。 */
@@ -232,6 +240,7 @@ public class Qwen3TtsClient {
         body.put("voice", voice);
         body.put("input", text == null ? "" : text);
         body.put("response_format", responseFormat);
+        body.put("speed", speed);
         return body;
     }
 

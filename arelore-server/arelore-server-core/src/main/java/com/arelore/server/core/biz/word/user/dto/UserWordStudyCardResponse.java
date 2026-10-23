@@ -27,6 +27,14 @@ public class UserWordStudyCardResponse {
     private String exampleEn;
     /** 中文例句（取首条） */
     private String exampleCn;
-    /** 完整例句列表 */
+    /** 完整例句列表（词书 entry 优先，否则 base_info 有道补全） */
     private List<UserWordStudyExampleResponse> examples = new ArrayList<>();
+    /** 词组搭配 */
+    private List<UserWordStudyPhraseResponse> phrases = new ArrayList<>();
+    /** 近义分组 */
+    private List<UserWordStudySynonymGroupResponse> synonyms = new ArrayList<>();
+    /** 派生/相关词分组 */
+    private List<UserWordStudyRelatedGroupResponse> relatedWords = new ArrayList<>();
+    /** 词源摘要（有道） */
+    private String etym;
 }

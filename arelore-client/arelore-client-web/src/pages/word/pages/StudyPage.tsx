@@ -697,6 +697,63 @@ export default function StudyPage() {
             {!isDictationMode && card.mnemonic && (
               <Paragraph type="secondary">记忆：{card.mnemonic}</Paragraph>
             )}
+            {!isDictationMode && card.examples && card.examples.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <Text type="secondary">例句</Text>
+                {card.examples.map((ex, idx) => (
+                  <div key={`${ex.en || ''}-${idx}`} style={{ marginTop: 4 }}>
+                    <Paragraph style={{ marginBottom: 0 }}>{ex.en}</Paragraph>
+                    {ex.cn && (
+                      <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                        {ex.cn}
+                      </Paragraph>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {!isDictationMode && card.phrases && card.phrases.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <Text type="secondary">词组</Text>
+                <Paragraph style={{ marginBottom: 0 }}>
+                  {card.phrases
+                    .map((p) => (p.cn ? `${p.en}（${p.cn}）` : p.en))
+                    .filter(Boolean)
+                    .join('；')}
+                </Paragraph>
+              </div>
+            )}
+            {!isDictationMode && card.synonyms && card.synonyms.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <Text type="secondary">近义</Text>
+                {card.synonyms.map((g, idx) => (
+                  <Paragraph key={`syn-${idx}`} type="secondary" style={{ marginBottom: 2 }}>
+                    {g.pos ? `${g.pos} ` : ''}
+                    {(g.words || []).join('、')}
+                    {g.tran ? ` — ${g.tran}` : ''}
+                  </Paragraph>
+                ))}
+              </div>
+            )}
+            {!isDictationMode && card.relatedWords && card.relatedWords.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <Text type="secondary">派生</Text>
+                {card.relatedWords.map((g, idx) => (
+                  <Paragraph key={`rel-${idx}`} type="secondary" style={{ marginBottom: 2 }}>
+                    {g.pos ? `${g.pos} ` : ''}
+                    {(g.words || [])
+                      .map((w) => (w.tran ? `${w.word}（${w.tran}）` : w.word))
+                      .filter(Boolean)
+                      .join('、')}
+                  </Paragraph>
+                ))}
+              </div>
+            )}
+            {!isDictationMode && card.etym && (
+              <Paragraph type="secondary" style={{ marginTop: 8 }}>
+                词源：{card.etym}
+              </Paragraph>
+            )}
           </div>
         )}
 

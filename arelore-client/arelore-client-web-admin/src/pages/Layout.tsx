@@ -13,6 +13,7 @@ import {
   AppstoreOutlined,
   BookOutlined,
   DatabaseOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import { RegionSwitcher, stripLocalePrefix, useLocaleNavigate } from '../locale';
 
@@ -48,6 +49,7 @@ const WORD_MENUS: MenuItem[] = [
 
 const COMMON_MENUS: MenuItem[] = [
   { key: '/common/binary-files', icon: <DatabaseOutlined />, label: '二进制文件' },
+  { key: '/common/user-daily-visits', icon: <BarChartOutlined />, label: 'C端日访问' },
 ];
 
 const MENUS_BY_PRODUCT: Record<ProductKey, MenuItem[]> = {

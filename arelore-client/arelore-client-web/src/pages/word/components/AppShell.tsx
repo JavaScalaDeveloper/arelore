@@ -13,7 +13,7 @@ export default function AppShell() {
       <header className="word-header">
         <div className="word-header-inner">
           <NavLink to={localePath('/word')} className="word-brand" end>
-            Arelore 背单词
+            墨鱼背词
           </NavLink>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginLeft: 'auto' }}>
             {!isLogin && (
