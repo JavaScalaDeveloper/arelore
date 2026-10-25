@@ -102,7 +102,7 @@ const PromptListPage: React.FC = () => {
   const [mdOpen, setMdOpen] = useState(false);
   const [mdContent, setMdContent] = useState('');
   const [mdExporting, setMdExporting] = useState(false);
-  const [savingManualIds, setSavingManualIds] = useState<Record<string, boolean>>({});
+  const [savingRowIds, setSavingRowIds] = useState<Record<string, boolean>>({});
 
   const loadTags = useCallback(async () => {
     try {
@@ -178,25 +178,33 @@ const PromptListPage: React.FC = () => {
     return map;
   }, [manualTagOptions]);
 
-  const onManualTagsChange = async (row: AiPromptItem, nextTags: string[]) => {
+  const saveRowInline = async (
+    row: AiPromptItem,
+    patch: Partial<Pick<AiPromptItem, 'manualTagList' | 'publishStatus'>>,
+    opts?: { refreshTags?: boolean; errorTip?: string }
+  ) => {
     if (!row.id) {
       message.error('缺少 id，无法保存');
       return;
     }
     const key = String(row.id);
-    const prev = row.manualTagList || [];
-    const normalized = Array.from(
-      new Set((nextTags || []).map((t) => String(t).trim()).filter(Boolean))
-    );
-    // 无变化不请求
-    const same =
-      prev.length === normalized.length && prev.every((t, i) => t === normalized[i]);
-    if (same) return;
+    const prev = {
+      manualTagList: row.manualTagList || [],
+      publishStatus: row.publishStatus || 'DRAFT',
+    };
+    const nextManual =
+      patch.manualTagList !== undefined ? patch.manualTagList : prev.manualTagList;
+    const nextStatus =
+      patch.publishStatus !== undefined ? patch.publishStatus : prev.publishStatus;
 
     setRows((list) =>
-      list.map((r) => (r.id === row.id ? { ...r, manualTagList: normalized } : r))
+      list.map((r) =>
+        r.id === row.id
+          ? { ...r, manualTagList: nextManual, publishStatus: nextStatus }
+          : r
+      )
     );
-    setSavingManualIds((m) => ({ ...m, [key]: true }));
+    setSavingRowIds((m) => ({ ...m, [key]: true }));
     try {
       await promptApi.save({
         id: row.id,
@@ -204,23 +212,48 @@ const PromptListPage: React.FC = () => {
         summary: row.summary,
         promptText: row.promptText,
         configTagList: row.configTagList || [],
-        manualTagList: normalized,
-        publishStatus: row.publishStatus || 'DRAFT',
+        manualTagList: nextManual,
+        publishStatus: nextStatus,
       });
-      // 新打的人工标签写入字典后刷新选项
-      loadTags();
+      if (opts?.refreshTags) {
+        loadTags();
+      }
     } catch (e: any) {
       setRows((list) =>
-        list.map((r) => (r.id === row.id ? { ...r, manualTagList: prev } : r))
+        list.map((r) =>
+          r.id === row.id
+            ? { ...r, manualTagList: prev.manualTagList, publishStatus: prev.publishStatus }
+            : r
+        )
       );
-      message.error(e?.message || '打标保存失败');
+      message.error(e?.message || opts?.errorTip || '保存失败');
     } finally {
-      setSavingManualIds((m) => {
+      setSavingRowIds((m) => {
         const next = { ...m };
         delete next[key];
         return next;
       });
     }
+  };
+
+  const onManualTagsChange = async (row: AiPromptItem, nextTags: string[]) => {
+    const prev = row.manualTagList || [];
+    const normalized = Array.from(
+      new Set((nextTags || []).map((t) => String(t).trim()).filter(Boolean))
+    );
+    const same =
+      prev.length === normalized.length && prev.every((t, i) => t === normalized[i]);
+    if (same) return;
+    await saveRowInline(row, { manualTagList: normalized }, {
+      refreshTags: true,
+      errorTip: '打标保存失败',
+    });
+  };
+
+  const onPublishStatusChange = async (row: AiPromptItem, nextStatus: string) => {
+    const prev = row.publishStatus || 'DRAFT';
+    if (!nextStatus || nextStatus === prev) return;
+    await saveRowInline(row, { publishStatus: nextStatus }, { errorTip: '状态保存失败' });
   };
 
   const allTagOptions = useMemo(() => {
@@ -417,7 +450,7 @@ const PromptListPage: React.FC = () => {
       width: 240,
       render: (_: string[], row: AiPromptItem) => {
         const key = String(row.id || '');
-        const saving = !!savingManualIds[key];
+        const saving = !!savingRowIds[key];
         return (
           <Select
             mode="tags"
@@ -457,8 +490,22 @@ const PromptListPage: React.FC = () => {
     {
       title: '状态',
       dataIndex: 'publishStatus',
-      width: 90,
-      render: (v: string) => PUBLISH_OPTIONS.find((o) => o.value === v)?.label || v,
+      width: 120,
+      render: (_: string, row: AiPromptItem) => {
+        const key = String(row.id || '');
+        const saving = !!savingRowIds[key];
+        return (
+          <Select
+            size="small"
+            style={{ width: '100%', minWidth: 96 }}
+            options={PUBLISH_OPTIONS}
+            value={row.publishStatus || 'DRAFT'}
+            loading={saving}
+            disabled={!row.id || saving}
+            onChange={(v) => onPublishStatusChange(row, v)}
+          />
+        );
+      },
     },
     {
       title: 'UUID',
