@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { buildLocalePath, getLocaleFromLocation, stripLocalePrefix } from '../../../locale/path';
+import { clearAuthSession, getAuthToken } from '../../../utils/authSession';
 
 export interface ApiResponse<T = any> {
   code: number;
@@ -8,7 +9,7 @@ export interface ApiResponse<T = any> {
 }
 
 const request: AxiosInstance = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8081/api',
+  baseURL: process.env.REACT_APP_API_BASE_URL || '',
   timeout: 30000,
 });
 
@@ -21,7 +22,7 @@ function isOnWordLogin() {
 }
 
 request.interceptors.request.use((config: any) => {
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   if (token) {
     config.headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
   }
@@ -34,8 +35,7 @@ request.interceptors.response.use(
     const res = response.data;
     if (res && typeof res === 'object' && 'code' in res && res.code !== 200) {
       if (res.code === 401 || res.code === 2001) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('word_current_user');
+        clearAuthSession();
         if (!isOnWordLogin()) {
           window.location.href = wordLoginHref();
         }
@@ -46,8 +46,7 @@ request.interceptors.response.use(
   },
   (error: any) => {
     if (error?.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('word_current_user');
+      clearAuthSession();
       if (!isOnWordLogin()) {
         window.location.href = wordLoginHref();
       }

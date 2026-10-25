@@ -85,7 +85,9 @@ public class AuthController {
             AuthLoginResponse responseData = authService.mobileLogin(request);
             return Result.success(responseData);
         } catch (IllegalArgumentException e) {
-            log.warn("mobileLogin failed, username={}, message={}", request == null ? "" : request.getUsername(), e.getMessage(), e);
+            // 业务可预期失败（用户不存在/密码错误等），不打堆栈以免误导
+            log.warn("mobileLogin failed, username={}, message={}",
+                request == null ? "" : request.getUsername(), e.getMessage());
             return Result.error(2003, e.getMessage());
         }
     }

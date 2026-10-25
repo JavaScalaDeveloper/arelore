@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Form, Input, Progress, Space, Tabs, Typography, message } from 'antd';
 import { LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useSearchParams } from 'react-router-dom';
-import { useLocaleNavigate } from '../../../locale';
+import { stripLocalePrefix, useLocaleNavigate } from '../../../locale';
 import { authApi } from '../api/auth';
 import { sha256Hex } from '../../../utils/hash';
 import { passwordStrengthView } from '../../../utils/passwordStrength';
@@ -16,6 +16,11 @@ const CODE_COOLDOWN_SEC = 90;
 
 type Mode = 'password' | 'code' | 'register' | 'reset';
 
+export interface LoginPageProps {
+  /** 无 redirect 参数时的登录成功落点；站点 /login 传 /home，背词默认 /word */
+  successFallback?: string;
+}
+
 function parseMode(raw: string | null): Mode {
   if (raw === 'code' || raw === 'register' || raw === 'reset' || raw === 'password') {
     return raw;
@@ -23,7 +28,23 @@ function parseMode(raw: string | null): Mode {
   return 'password';
 }
 
-export default function LoginPage() {
+function resolveRedirect(raw: string | null, fallback: string): string {
+  if (!raw) {
+    return fallback;
+  }
+  try {
+    const decoded = decodeURIComponent(raw);
+    const bare = stripLocalePrefix(decoded.split('?')[0].split('#')[0]);
+    if (!bare || bare === '/login' || bare.startsWith('/login/') || bare.startsWith('/word/login')) {
+      return fallback;
+    }
+    return decoded.startsWith('/') ? decoded : `/${decoded}`;
+  } catch {
+    return fallback;
+  }
+}
+
+export default function LoginPage({ successFallback = '/word' }: LoginPageProps) {
   const navigate = useLocaleNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [form] = Form.useForm();
@@ -34,13 +55,30 @@ export default function LoginPage() {
   const [passwordDraft, setPasswordDraft] = useState('');
   const strength = useMemo(() => passwordStrengthView(passwordDraft), [passwordDraft]);
 
+  const successPath = useMemo(
+    () => resolveRedirect(searchParams.get('redirect'), successFallback),
+    [searchParams, successFallback]
+  );
+
   const switchMode = (next: Mode) => {
     setMode(next);
-    setSearchParams(next === 'password' ? {} : { mode: next }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        const nextParams = new URLSearchParams(prev);
+        if (next === 'password') {
+          nextParams.delete('mode');
+        } else {
+          nextParams.set('mode', next);
+        }
+        return nextParams;
+      },
+      { replace: true }
+    );
   };
 
   const finishLogin = useCallback(
     async (token: string, user: any) => {
+      // setToken/setUser 会同步写入 token+userToken、word_current_user+currentUser
       setToken(token);
       setUser(user || {});
       try {
@@ -49,9 +87,9 @@ export default function LoginPage() {
         /* ignore */
       }
       message.success('登录成功');
-      navigate('/word', { replace: true });
+      navigate(successPath, { replace: true });
     },
-    [navigate]
+    [navigate, successPath]
   );
 
   useEffect(() => {
@@ -60,11 +98,11 @@ export default function LoginPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    // 已登录时允许进入「设置/找回密码」；其它模式回首页
+    // 已登录时允许进入「设置/找回密码」；其它模式跳到目标页
     if (getToken() && mode !== 'reset') {
-      navigate('/word', { replace: true });
+      navigate(successPath, { replace: true });
     }
-  }, [navigate, mode]);
+  }, [navigate, mode, successPath]);
 
   useEffect(() => {
     if (countdown <= 0) {

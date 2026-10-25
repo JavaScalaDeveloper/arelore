@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { buildLocalePath, getLocaleFromLocation } from '../locale/path';
+import { clearAuthSession, getAuthToken } from './authSession';
 
 // 响应数据接口
 export interface ApiResponse<T = any> {
@@ -24,10 +25,9 @@ function redirectWithLocale(pathWithoutLocale: string) {
 // 请求拦截器
 request.interceptors.request.use(
   (config: any) => {
-    // 从 localStorage 获取 token
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
     }
     config.headers['X-Locale'] = getLocaleFromLocation();
     return config;
@@ -49,8 +49,10 @@ request.interceptors.response.use(
       
       // 如果是未授权，跳转到登录页
       if (res.code === 401 || res.code === 2001) {
-        localStorage.removeItem('token');
-        redirectWithLocale('/login');
+        clearAuthSession();
+        const path = window.location.pathname + window.location.search;
+        const redirect = encodeURIComponent(path);
+        redirectWithLocale(`/login?redirect=${redirect}`);
       }
       
       return Promise.reject(new Error(res.message || '请求失败')) as any;
@@ -66,8 +68,10 @@ request.interceptors.response.use(
       const { status, data } = error.response;
       
       if (status === 401) {
-        localStorage.removeItem('token');
-        redirectWithLocale('/login');
+        clearAuthSession();
+        const path = window.location.pathname + window.location.search;
+        const redirect = encodeURIComponent(path);
+        redirectWithLocale(`/login?redirect=${redirect}`);
       }
       
       return Promise.reject(data || error);

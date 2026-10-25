@@ -25,7 +25,7 @@ function upsertMeta(attr: 'name' | 'property', key: string, content: string) {
   el.setAttribute('content', content);
 }
 
-function upsertLink(rel: string, id: string, href: string) {
+function upsertLink(rel: string, id: string, href: string, attrs?: Record<string, string>) {
   let el = document.getElementById(id) as HTMLLinkElement | null;
   if (!el) {
     el = document.createElement('link');
@@ -34,6 +34,31 @@ function upsertLink(rel: string, id: string, href: string) {
     document.head.appendChild(el);
   }
   el.href = href;
+  if (attrs) {
+    Object.entries(attrs).forEach(([k, v]) => el!.setAttribute(k, v));
+  }
+}
+
+function setWordFavicons(active: boolean) {
+  const prefix = process.env.PUBLIC_URL || '';
+  const v = '?v=2';
+  if (active) {
+    upsertLink('shortcut icon', 'app-favicon-ico', `${prefix}/favicon-word.ico${v}`);
+    upsertLink('icon', 'app-favicon', `${prefix}/favicon-word.png${v}`, { type: 'image/png' });
+    upsertLink('icon', 'app-favicon-32', `${prefix}/favicon-word-32.png${v}`, {
+      type: 'image/png',
+      sizes: '32x32',
+    });
+    upsertLink('apple-touch-icon', 'app-apple-touch', `${prefix}/apple-touch-icon-word.png${v}`);
+  } else {
+    upsertLink('shortcut icon', 'app-favicon-ico', `${prefix}/favicon.ico${v}`);
+    upsertLink('icon', 'app-favicon', `${prefix}/favicon.png${v}`, { type: 'image/png' });
+    upsertLink('icon', 'app-favicon-32', `${prefix}/favicon-32.png${v}`, {
+      type: 'image/png',
+      sizes: '32x32',
+    });
+    upsertLink('apple-touch-icon', 'app-apple-touch', `${prefix}/apple-touch-icon.png${v}`);
+  }
 }
 
 function upsertJsonLd(data: object) {
@@ -60,6 +85,7 @@ export default function WordDocumentSeo() {
 
     document.title = WORD_SEO.title;
     document.documentElement.lang = 'zh-CN';
+    setWordFavicons(true);
 
     upsertMeta('name', 'description', WORD_SEO.description);
     upsertMeta('name', 'keywords', WORD_SEO.keywords);
@@ -81,6 +107,7 @@ export default function WordDocumentSeo() {
 
     return () => {
       document.title = prevTitle || 'Arelore - 官方网站';
+      setWordFavicons(false);
       const jsonLd = document.getElementById(JSON_LD_ID);
       if (jsonLd) {
         jsonLd.remove();

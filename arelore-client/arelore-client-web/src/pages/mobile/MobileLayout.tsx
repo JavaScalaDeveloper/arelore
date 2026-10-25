@@ -4,10 +4,11 @@ import type { MenuProps } from 'antd';
 import { LogoutOutlined, UserOutlined } from '@ant-design/icons';
 import { Outlet } from 'react-router-dom';
 import { RegionSwitcher, useLocaleNavigate } from '../../locale';
+import { clearAuthSession, getAuthUserRaw } from '../../utils/authSession';
 
 const MobileLayout: React.FC = () => {
   const navigate = useLocaleNavigate();
-  const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  const user = JSON.parse(getAuthUserRaw() || '{}');
 
   const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
     if (key === 'profile') {
@@ -16,8 +17,7 @@ const MobileLayout: React.FC = () => {
     }
 
     if (key === 'logout') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('currentUser');
+      clearAuthSession();
       navigate('/mobile/login', { replace: true });
     }
   };

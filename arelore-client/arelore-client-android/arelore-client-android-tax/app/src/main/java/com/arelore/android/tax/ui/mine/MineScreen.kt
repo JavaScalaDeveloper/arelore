@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.HeadsetMic
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
@@ -60,7 +61,9 @@ import com.arelore.android.tax.ui.theme.TaxTextSecondary
 @Composable
 fun MineScreen(
     profile: Profile,
-    onOpenIncomeConfig: () -> Unit
+    fontScaleLabel: String,
+    onOpenIncomeConfig: () -> Unit,
+    onOpenFontSize: () -> Unit
 ) {
     var maskId by remember { mutableStateOf(false) }
     val displayId = if (maskId) {
@@ -186,6 +189,13 @@ fun MineScreen(
             Column {
                 MenuRow(Icons.Default.AccountBalanceWallet, "收入配置（模拟）", onClick = onOpenIncomeConfig)
                 HorizontalDivider(color = Color(0xFFF0F2F5))
+                MenuRow(
+                    Icons.Default.FormatSize,
+                    "字体大小",
+                    trailing = fontScaleLabel,
+                    onClick = onOpenFontSize
+                )
+                HorizontalDivider(color = Color(0xFFF0F2F5))
                 MenuRow(Icons.Default.FavoriteBorder, "切换关怀版")
                 HorizontalDivider(color = Color(0xFFF0F2F5))
                 MenuRow(Icons.Default.Security, "安全中心")
@@ -234,7 +244,12 @@ private fun QuickItem(icon: ImageVector, tint: Color, title: String, action: Str
 }
 
 @Composable
-private fun MenuRow(icon: ImageVector, title: String, onClick: () -> Unit = {}) {
+private fun MenuRow(
+    icon: ImageVector,
+    title: String,
+    trailing: String? = null,
+    onClick: () -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -244,7 +259,11 @@ private fun MenuRow(icon: ImageVector, title: String, onClick: () -> Unit = {}) 
     ) {
         Icon(icon, contentDescription = null, tint = TaxTextPrimary, modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(12.dp))
-        Text(title, modifier = Modifier.weight(1f), fontSize = 15.sp, color = TaxTextPrimary)
+        Text(title, modifier = Modifier.weight(1f), fontSize = 16.sp, color = TaxTextPrimary)
+        if (trailing != null) {
+            Text(trailing, fontSize = 14.sp, color = TaxTextSecondary)
+            Spacer(Modifier.width(4.dp))
+        }
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TaxTextSecondary)
     }
 }

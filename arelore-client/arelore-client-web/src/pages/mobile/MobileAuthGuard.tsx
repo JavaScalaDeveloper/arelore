@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { LocaleNavigate } from '../../locale';
+import { getAuthToken } from '../../utils/authSession';
 
 interface MobileAuthGuardProps {
   children: React.ReactElement;
@@ -8,7 +9,7 @@ interface MobileAuthGuardProps {
 
 const MobileAuthGuard: React.FC<MobileAuthGuardProps> = ({ children }) => {
   const location = useLocation();
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
 
   if (!token) {
     const redirect = encodeURIComponent(`${location.pathname}${location.search}${location.hash}`);

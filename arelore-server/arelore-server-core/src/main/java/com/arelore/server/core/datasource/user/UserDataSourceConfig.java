@@ -20,7 +20,8 @@ import javax.sql.DataSource;
 @MapperScan(
     basePackages = {
         "com.arelore.server.core.registration.mapper",
-        "com.arelore.server.core.biz.user.mapper"
+        "com.arelore.server.core.biz.user.mapper",
+        "com.arelore.server.core.biz.prompt.user.mapper"
     },
     sqlSessionTemplateRef = "userSqlSessionTemplate"
 )

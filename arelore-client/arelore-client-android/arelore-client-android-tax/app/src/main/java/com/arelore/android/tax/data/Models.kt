@@ -1,5 +1,7 @@
 package com.arelore.android.tax.data
 
+import java.util.UUID
+
 data class IncomeRecord(
     val id: String,
     val year: Int,
@@ -12,11 +14,14 @@ data class IncomeRecord(
 )
 
 data class MonthlyIncomeConfig(
+    val id: String = UUID.randomUUID().toString(),
     val year: Int,
     val month: Int,
     val amount: Double,
     val agent: String = DEFAULT_AGENT,
-    val subType: String = "正常工资薪金"
+    val subType: String = "正常工资薪金",
+    /** Explicit declared tax from seed/screenshot; null = calculate when querying. */
+    val tax: Double? = null
 ) {
     val period: String get() = "%04d-%02d".format(year, month)
 }

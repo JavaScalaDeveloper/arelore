@@ -3,6 +3,7 @@ import { Modal, Tabs, QRCode, Button, message, Space, Result } from 'antd';
 import { WechatOutlined, QrcodeOutlined, LoginOutlined } from '@ant-design/icons';
 import { authApi } from '../api/auth';
 import { UserInfo } from '../types';
+import { setAuthToken, setAuthUser } from '../utils/authSession';
 
 interface WechatLoginModalProps {
   visible: boolean;
@@ -64,9 +65,9 @@ const WechatLoginModal: React.FC<WechatLoginModalProps> = ({ visible, onCancel, 
       if (response.code === 200 && response.data) {
         const { token, user } = response.data;
         
-        // 保存 token 和用户信息
-        localStorage.setItem('userToken', token);
-        localStorage.setItem('currentUser', JSON.stringify(user));
+        // 保存 token 和用户信息（与墨鱼背词等模块共用）
+        setAuthToken(token);
+        setAuthUser(user);
         
         message.success('登录成功！');
         onLoginSuccess(user);
@@ -133,9 +134,8 @@ const WechatLoginModal: React.FC<WechatLoginModalProps> = ({ visible, onCancel, 
 
       const mockToken = 'mock_jwt_token_' + Date.now();
 
-      // 保存 token 和用户信息
-      localStorage.setItem('userToken', mockToken);
-      localStorage.setItem('currentUser', JSON.stringify(mockUserInfo));
+      setAuthToken(mockToken);
+      setAuthUser(mockUserInfo);
 
       message.success('登录成功！');
       onLoginSuccess(mockUserInfo);

@@ -121,6 +121,12 @@ start_app() {
     fi
 
     echo "正在启动应用..."
+    # CRA 会读 .env；用 .env.development.local 覆盖，避免被仓库里的 .env(8081) 盖住
+    cat > "${APP_DIR}/.env.development.local" <<EOF
+PORT=${PORT}
+REACT_APP_API_BASE_URL=${API_BASE_URL}
+BROWSER=none
+EOF
     export PORT
     export REACT_APP_API_BASE_URL="$API_BASE_URL"
     export BROWSER=none

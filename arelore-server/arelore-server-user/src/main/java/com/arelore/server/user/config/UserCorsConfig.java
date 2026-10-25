@@ -18,26 +18,15 @@ public class UserCorsConfig {
     @Bean
     public CorsFilter userCorsFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        
-        // 允许所有域名进行跨域调用（生产环境应该指定具体域名）
+        // Bearer Token 走 Header，不依赖 Cookie；避免 credentials+* 在浏览器被拒
+        config.setAllowCredentials(false);
         config.addAllowedOriginPattern("*");
-        
-        // 允许跨域的请求头
         config.addAllowedHeader("*");
-        
-        // 允许跨域的请求方法
         config.addAllowedMethod("*");
-        
-        // 允许携带认证信息（cookies、HTTP 认证等）
-        config.setAllowCredentials(true);
-        
-        // 预检请求的缓存时间（秒）
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // 对所有路径生效
         source.registerCorsConfiguration("/**", config);
-        
         return new CorsFilter(source);
     }
 }

@@ -3,6 +3,9 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val appVersionName = "1.0.0"
+val apkBaseName = "arelore-android-wechat"
+
 android {
     namespace = "com.arelore.android.wechat"
     compileSdk = 35
@@ -12,7 +15,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0.0"
+        versionName = appVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -37,6 +40,18 @@ android {
 
     buildFeatures {
         viewBinding = true
+    }
+}
+
+// Output e.g. arelore-android-wechat-1.0.0-debug.apk
+base {
+    archivesName.set("$apkBaseName-$appVersionName")
+}
+
+android.applicationVariants.configureEach {
+    outputs.configureEach {
+        val outputImpl = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+        outputImpl.outputFileName = "$apkBaseName-$appVersionName-${buildType.name}.apk"
     }
 }
 

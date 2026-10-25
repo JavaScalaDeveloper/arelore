@@ -1,13 +1,22 @@
 package com.arelore.android.tax
 
+import android.graphics.Color as AndroidColor
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.ChatBubbleOutline
@@ -24,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -41,21 +51,52 @@ import com.arelore.android.tax.data.TaxRepository
 import com.arelore.android.tax.ui.home.HomeScreen
 import com.arelore.android.tax.ui.income.IncomeConfigScreen
 import com.arelore.android.tax.ui.mine.MineScreen
+import com.arelore.android.tax.ui.settings.FONT_SIZE_OPTIONS
+import com.arelore.android.tax.ui.settings.FontSizeScreen
 import com.arelore.android.tax.ui.tax.TaxFilterScreen
 import com.arelore.android.tax.ui.tax.TaxListScreen
 import com.arelore.android.tax.ui.theme.TaxBlue
 import com.arelore.android.tax.ui.theme.TaxTextSecondary
 import com.arelore.android.tax.ui.theme.TaxTheme
+import kotlin.math.abs
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // API 35+ ignores statusBarColor; paint black ourselves + light status icons
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(AndroidColor.BLACK),
+            navigationBarStyle = SystemBarStyle.light(AndroidColor.WHITE, AndroidColor.WHITE)
+        )
         val repo = TaxRepository(applicationContext)
         repo.ensureSeeded()
         setContent {
-            TaxTheme {
-                TaxApp(repo)
+            var fontScale by remember { mutableFloatStateOf(repo.fontScale()) }
+            TaxTheme(fontScale = fontScale) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Opaque black notification bar (matches official 个税 App)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .windowInsetsTopHeight(WindowInsets.statusBars)
+                            .background(Color.Black)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .consumeWindowInsets(WindowInsets.statusBars)
+                    ) {
+                        TaxApp(
+                            repo = repo,
+                            fontScale = fontScale,
+                            onFontScaleChange = {
+                                repo.setFontScale(it)
+                                fontScale = it
+                            }
+                        )
+                    }
+                }
             }
         }
     }
@@ -70,10 +111,18 @@ private enum class MainTab(val label: String, val icon: ImageVector) {
 }
 
 @Composable
-fun TaxApp(repo: TaxRepository) {
+fun TaxApp(
+    repo: TaxRepository,
+    fontScale: Float,
+    onFontScaleChange: (Float) -> Unit
+) {
     val navController = rememberNavController()
     var selectedTab by remember { mutableIntStateOf(0) }
     var incomeTick by remember { mutableIntStateOf(0) }
+    val fontLabel = FONT_SIZE_OPTIONS
+        .firstOrNull { abs(it.scale - fontScale) < 0.001f }
+        ?.label
+        ?: "标准"
 
     NavHost(navController = navController, startDestination = "main") {
         composable("main") {
@@ -114,7 +163,9 @@ fun TaxApp(repo: TaxRepository) {
                         )
                         MainTab.Mine -> MineScreen(
                             profile = repo.profile(),
-                            onOpenIncomeConfig = { navController.navigate("income_config") }
+                            fontScaleLabel = fontLabel,
+                            onOpenIncomeConfig = { navController.navigate("income_config") },
+                            onOpenFontSize = { navController.navigate("font_size") }
                         )
                         else -> PlaceholderTab(MainTab.entries[selectedTab].label)
                     }
@@ -125,22 +176,28 @@ fun TaxApp(repo: TaxRepository) {
         composable("tax_filter") {
             TaxFilterScreen(
                 onBack = { navController.popBackStack() },
-                onQuery = { year, type ->
-                    navController.navigate("tax_list/$year/${Uri.encode(type)}")
+                onQuery = { year, types ->
+                    val joined = types.joinToString(",")
+                    navController.navigate("tax_list/$year/${Uri.encode(joined)}") {
+                        popUpTo("tax_filter") { inclusive = false }
+                    }
                 }
             )
         }
 
         composable(
-            route = "tax_list/{year}/{type}",
+            route = "tax_list/{year}/{types}",
             arguments = listOf(
                 navArgument("year") { type = NavType.IntType },
-                navArgument("type") { type = NavType.StringType }
+                navArgument("types") { type = NavType.StringType }
             )
         ) { entry ->
-            val year = entry.arguments?.getInt("year") ?: 2026
-            val type = entry.arguments?.getString("type") ?: "工资薪金"
-            val records = repo.records(year, type)
+            val year = entry.arguments?.getInt("year") ?: 2025
+            val types = (entry.arguments?.getString("types") ?: "工资薪金")
+                .split(",")
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+            val records = repo.records(year, types)
             val (income, tax) = repo.summary(records)
             TaxListScreen(
                 records = records,
@@ -160,10 +217,18 @@ fun TaxApp(repo: TaxRepository) {
                     repo.saveMonthlyConfig(it)
                     incomeTick++
                 },
-                onDelete = { y, m ->
-                    repo.deleteMonthlyConfig(y, m)
+                onDelete = { id ->
+                    repo.deleteMonthlyConfig(id)
                     incomeTick++
                 }
+            )
+        }
+
+        composable("font_size") {
+            FontSizeScreen(
+                currentScale = fontScale,
+                onBack = { navController.popBackStack() },
+                onSelect = onFontScaleChange
             )
         }
     }

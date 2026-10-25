@@ -1,8 +1,13 @@
+import {
+  clearAuthSession,
+  getAuthToken,
+  getAuthUserRaw,
+  setAuthToken,
+  setAuthUser,
+} from '../../../utils/authSession';
 import { normalizeLetterVoice, LETTER_VOICE_RANDOM, type LetterVoiceId } from './letterVoices';
 
 const KEY_BOOK = 'word_current_book_id';
-const KEY_USER = 'word_current_user';
-const KEY_TOKEN = 'token';
 const KEY_PREFERENCE = 'word_preference';
 
 export const STUDY_MODE_SEE_MEANING = 'see_meaning';
@@ -63,19 +68,15 @@ export function setBookId(id: string): void {
 }
 
 export function getToken(): string {
-  return localStorage.getItem(KEY_TOKEN) || '';
+  return getAuthToken();
 }
 
 export function setToken(token: string): void {
-  if (token) {
-    localStorage.setItem(KEY_TOKEN, token);
-  } else {
-    localStorage.removeItem(KEY_TOKEN);
-  }
+  setAuthToken(token || null);
 }
 
 export function getUser<T = any>(): T | null {
-  const raw = localStorage.getItem(KEY_USER);
+  const raw = getAuthUserRaw();
   if (!raw) {
     return null;
   }
@@ -87,16 +88,11 @@ export function getUser<T = any>(): T | null {
 }
 
 export function setUser(user: unknown): void {
-  if (user == null) {
-    localStorage.removeItem(KEY_USER);
-    return;
-  }
-  localStorage.setItem(KEY_USER, JSON.stringify(user));
+  setAuthUser(user);
 }
 
 export function clearSession(): void {
-  localStorage.removeItem(KEY_USER);
-  localStorage.removeItem(KEY_TOKEN);
+  clearAuthSession();
 }
 
 export function getPreference(): WordPreference {

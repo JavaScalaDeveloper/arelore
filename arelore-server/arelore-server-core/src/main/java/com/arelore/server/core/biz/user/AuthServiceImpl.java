@@ -441,7 +441,7 @@ public class AuthServiceImpl implements AuthService {
         requireClientPasswordHash(clientPasswordHash);
         UserRegistrationResult account = findEmailAccount(email);
         if (account == null) {
-            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "账号不存在或密码错误");
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "用户不存在");
         }
         JSONObject ext = parseExtInfo(account.getExtInfo());
         String salt = ext.getString("passwordSalt");
@@ -451,7 +451,7 @@ public class AuthServiceImpl implements AuthService {
         }
         String actualHash = PasswordHashUtils.sha256(salt + ":" + clientPasswordHash);
         if (!expectedHash.equals(actualHash)) {
-            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "账号不存在或密码错误");
+            throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "密码错误");
         }
         return issueEmailSession(account);
     }
@@ -522,8 +522,9 @@ public class AuthServiceImpl implements AuthService {
             user.setNickname("移动端测试用户");
             user.setAvatar("");
         } else {
-            // 非测试账号：从注册结果表读取并校验密码（兼容多口令格式）
-            UserRegistrationResult result = findMobileAccount(username);
+            // 非测试账号：支持手机号 / 邮箱账号；按场景区分「不存在 / 停用 / 未设密 / 密码错误」
+            UserRegistrationResult result = findPasswordLoginAccount(username);
+            assertAccountActive(result);
             verifyMobilePassword(result, passwordCredentials);
             BigDecimal dbUserId = result.getUserId();
             if (dbUserId == null) {
@@ -559,40 +560,75 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * 按手机号查询可登录账号（手机号账号类型 + 正常状态）。
+     * 密码登录查账号：先按手机号（MOBILE），再按邮箱（EMAIL，忽略大小写）。
+     * 不按 status 过滤，便于区分「不存在」与「已停用/封禁」。
      */
-    private UserRegistrationResult findMobileAccount(String mobile) {
+    private UserRegistrationResult findPasswordLoginAccount(String username) {
+        UserRegistrationResult mobile = selectAccountByType(AccountTypeEnum.MOBILE.code(), username);
+        if (mobile != null) {
+            return mobile;
+        }
+        String email = normalizeEmail(username);
+        if (StringUtils.hasText(email) && email.contains("@")) {
+            UserRegistrationResult emailAccount = selectAccountByType(AccountTypeEnum.EMAIL.code(), email);
+            if (emailAccount != null) {
+                return emailAccount;
+            }
+        }
+        throw new IllegalArgumentException("用户不存在");
+    }
+
+    private UserRegistrationResult selectAccountByType(String accountType, String account) {
+        if (!StringUtils.hasText(accountType) || !StringUtils.hasText(account)) {
+            return null;
+        }
         LambdaQueryWrapper<UserRegistrationResult> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UserRegistrationResult::getAccountType, AccountTypeEnum.MOBILE.code())
-            .eq(UserRegistrationResult::getAccount, mobile)
-            .eq(UserRegistrationResult::getStatus, 1)
+        wrapper.eq(UserRegistrationResult::getAccountType, accountType)
+            .eq(UserRegistrationResult::getAccount, account)
             .orderByDesc(UserRegistrationResult::getId)
             .last("limit 1");
-        UserRegistrationResult result = userRegistrationResultMapper.selectOne(wrapper);
-        if (result == null) {
+        return userRegistrationResultMapper.selectOne(wrapper);
+    }
+
+    /** status: 1-正常 2-封禁 3-停用 */
+    private void assertAccountActive(UserRegistrationResult account) {
+        if (account == null) {
             throw new IllegalArgumentException("用户不存在");
         }
-        return result;
+        Integer status = account.getStatus();
+        if (status == null) {
+            throw new IllegalArgumentException("账号状态异常，请联系客服");
+        }
+        if (status == 1) {
+            return;
+        }
+        if (status == 2) {
+            throw new IllegalArgumentException("账号已被封禁");
+        }
+        if (status == 3) {
+            throw new IllegalArgumentException("账号已停用");
+        }
+        throw new IllegalArgumentException("账号不可登录（状态=" + status + "）");
     }
 
     /**
-     * 校验手机号账号密码：
+     * 校验账号密码：
      * 从 ext_info 读取 passwordSalt/passwordHash，与当前输入密码做同算法比对。
      */
     private void verifyMobilePassword(UserRegistrationResult result, List<String> passwordCredentials) {
         if (result.getExtInfo() == null || result.getExtInfo().isEmpty()) {
-            throw new IllegalArgumentException("密码错误");
+            throw new IllegalArgumentException("尚未设置密码，请先注册设密或找回密码");
         }
         JSONObject ext;
         try {
             ext = JSON.parseObject(result.getExtInfo());
         } catch (Exception e) {
-            throw new IllegalArgumentException("密码错误");
+            throw new IllegalArgumentException("账号密码数据异常，请找回密码后重试");
         }
         String salt = ext == null ? "" : ext.getString("passwordSalt");
         String expectedHash = ext == null ? "" : ext.getString("passwordHash");
-        if (salt.isEmpty() || expectedHash.isEmpty()) {
-            throw new IllegalArgumentException("密码错误");
+        if (!StringUtils.hasText(salt) || !StringUtils.hasText(expectedHash)) {
+            throw new IllegalArgumentException("尚未设置密码，请先注册设密或找回密码");
         }
 
         // 兼容策略：

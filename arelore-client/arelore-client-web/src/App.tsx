@@ -10,9 +10,11 @@ import {
 import { Routes, Route } from 'react-router-dom';
 import WordApp from './pages/word/WordApp';
 import WechatLoginModal from './pages/LoginPage';
+import WebLoginPage from './pages/WebLoginPage';
 import TextMaskingPage from './pages/TextMaskingPage';
 import FileDetectionPage from './pages/FileDetectionPage';
 import PdfToWordPage from './pages/PdfToWordPage';
+import PromptApp from './pages/prompt/PromptApp';
 import MobileLoginPage from './pages/mobile/MobileLoginPage';
 import MobileRegisterPage from './pages/mobile/MobileRegisterPage';
 import MobileForgotPasswordPage from './pages/mobile/MobileForgotPasswordPage';
@@ -36,6 +38,7 @@ import {
   useLocaleNavigate,
   useStrippedLocation,
 } from './locale';
+import { getAuthToken, getAuthUserRaw, syncAuthSession } from './utils/authSession';
 import './App.css';
 
 const { Header, Content, Footer } = Layout;
@@ -57,6 +60,17 @@ const navigationItems: any[] = [
             icon: <BookOutlined />,
             label: '墨鱼背词',
             path: '/word'
+          }
+        ]
+      },
+      {
+        key: 'creator',
+        label: '创作',
+        children: [
+          {
+            key: 'aiPrompt',
+            label: 'AI提示词',
+            path: '/home/products/ai-prompt/list'
           }
         ]
       },
@@ -210,26 +224,19 @@ function MainApp() {
   const strippedLocation = useStrippedLocation();
   const { pathnameWithoutLocale } = useLocale();
 
-  // 初始化时检查登录状态
+  // 初始化：补齐 token/userToken 等别名，背词与其它模块共用登录态
   useEffect(() => {
-    checkLoginStatus();
-  }, []);
-
-  // 检查登录状态
-  const checkLoginStatus = () => {
-    const token = localStorage.getItem('userToken');
-    const userStr = localStorage.getItem('currentUser');
-    
+    syncAuthSession();
+    const token = getAuthToken();
+    const userStr = getAuthUserRaw();
     if (token && userStr) {
       try {
         JSON.parse(userStr);
       } catch (error) {
         console.error('解析用户信息失败:', error);
-        localStorage.removeItem('userToken');
-        localStorage.removeItem('currentUser');
       }
     }
-  };
+  }, []);
 
   // 处理导航点击
   const handleNavClick = (e: { key: string }) => {
@@ -271,6 +278,13 @@ function MainApp() {
     return <WordApp />;
   }
 
+  if (
+    pathnameWithoutLocale === '/home/products/ai-prompt' ||
+    pathnameWithoutLocale.startsWith('/home/products/ai-prompt/')
+  ) {
+    return <PromptApp />;
+  }
+
   return (
     <Layout className="app-layout">
       <Header className="app-header">
@@ -301,6 +315,7 @@ function MainApp() {
       <Content className="app-content">
         <Routes location={strippedLocation}>
           <Route path="/" element={<LocaleNavigate to="/home" replace />} />
+          <Route path="/login" element={<WebLoginPage />} />
           <Route path="/mobile" element={<LocaleNavigate to="/mobile/home" replace />} />
           <Route path="/mobile/login" element={<MobileLoginPage />} />
           <Route path="/mobile/register" element={<MobileRegisterPage />} />

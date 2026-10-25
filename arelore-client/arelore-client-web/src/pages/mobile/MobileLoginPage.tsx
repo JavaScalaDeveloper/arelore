@@ -5,6 +5,7 @@ import { stripLocalePrefix, useLocaleNavigate } from '../../locale';
 import { authApi } from '../../api/auth';
 import { reportClientLog } from '../../utils/clientLogger';
 import { sha256Hex } from '../../utils/hash';
+import { getAuthToken, setAuthToken, setAuthUser } from '../../utils/authSession';
 import './MobileLoginPage.css';
 
 interface LoginFormData {
@@ -37,8 +38,7 @@ const MobileLoginPage: React.FC = () => {
   }, [location.search]);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
+    if (getAuthToken()) {
       navigate(getRedirectPath(), { replace: true });
     }
   }, [getRedirectPath, navigate]);
@@ -61,8 +61,8 @@ const MobileLoginPage: React.FC = () => {
         passwordHash
       });
       if (res.code === 200 && res.data) {
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('currentUser', JSON.stringify(res.data.user));
+        setAuthToken(res.data.token);
+        setAuthUser(res.data.user);
         message.success('登录成功');
         navigate(getRedirectPath(), { replace: true });
       }

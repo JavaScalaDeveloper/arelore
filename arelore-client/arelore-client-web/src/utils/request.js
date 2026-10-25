@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { clearAuthSession, getAuthToken } from './authSession';
 
 // 创建 axios 实例
 const request = axios.create({
@@ -9,10 +10,9 @@ const request = axios.create({
 // 请求拦截器
 request.interceptors.request.use(
   (config) => {
-    // 从 localStorage 获取 token
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
     }
     return config;
   },
@@ -33,7 +33,7 @@ request.interceptors.response.use(
       
       // 如果是未授权，跳转到登录页
       if (res.code === 401 || res.code === 2001) {
-        localStorage.removeItem('token');
+        clearAuthSession();
         window.location.href = '/login';
       }
       
@@ -50,7 +50,7 @@ request.interceptors.response.use(
       const { status, data } = error.response;
       
       if (status === 401) {
-        localStorage.removeItem('token');
+        clearAuthSession();
         window.location.href = '/login';
       }
       
