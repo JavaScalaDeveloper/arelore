@@ -1,0 +1,77 @@
+.cursor/skills/prompt/seed-en-dialogue-china/SKILL.md
+  551bca709d578fc4 4-7,10,12,14-45,50-51,54-55,57,59-86,89-93,95-107,116-118,121-124,127,129-142,144-146
+arelore-client/arelore-client-android/arelore-client-android-prompt/app/src/main/java/com/arelore/android/prompt/ui/PromptListScreen.kt
+  551bca709d578fc4 111-117
+docs/word/review-soft-land.md
+  551bca709d578fc4 1-33
+arelore-client/arelore-client-web-admin/start.sh
+  551bca709d578fc4 6-10,12,55,59,64,72,250-253
+arelore-client/arelore-client-web-admin/.env
+  551bca709d578fc4 1-5
+arelore-client/arelore-client-web-admin/README.md
+  551bca709d578fc4 61
+arelore-client/arelore-client-web/README.md
+  551bca709d578fc4 106
+arelore-client/README.md
+  551bca709d578fc4 26
+arelore-client/arelore-client-web/src/pages/word/pages/BooksPage.tsx
+  551bca709d578fc4 2,17,62-63,137-138,149-153,183-189,194,316-341,343
+arelore-server/arelore-server-admin/src/main/resources/sql/arelore_creator/prompt/seed_en_dialogue_china_1000.sql
+  551bca709d578fc4 1-32015
+arelore-client/arelore-client-web/.env
+  551bca709d578fc4 2-4
+arelore-client/arelore-client-mini/arelore-client-mini-cert/start.sh
+  551bca709d578fc4 29
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/user/UserWordStudyPlanServiceImpl.java
+  551bca709d578fc4 130-135,269-279
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/mapper/AdminWordEntryMapper.java
+  551bca709d578fc4 29-30,36-45,47-48,53-54,64-84
+arelore-server/arelore-server-admin/src/main/resources/sql/arelore_creator/prompt/user_ai_prompt.sql
+  551bca709d578fc4 22,39
+arelore-client/arelore-client-mini/README.md
+  551bca709d578fc4 17
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/AdminWordBaseInfoServiceImpl.java
+  551bca709d578fc4 527-570,1074,1118-1119,1148,1150,1174,1255,1281,1295-1296
+arelore-server/arelore-server-admin/src/main/resources/application-test.yml
+  551bca709d578fc4 1,12-13
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/user/UserWordLearnRecordServiceImpl.java
+  551bca709d578fc4 42,143,147-149,184,231,235,244,251,260,343,346-348,352,357,366,1121-1199
+arelore-client/arelore-client-web/start.sh
+  551bca709d578fc4 6-8,10,61-63,70-71,255,258
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/prompt/user/UserAiPromptServiceImpl.java
+  551bca709d578fc4 38,440-443
+arelore-client/arelore-client-web/src/api/prompt.ts
+  551bca709d578fc4 4
+docs/word/product-optimization.md
+  551bca709d578fc4 48,88
+docs/word/README.md
+  551bca709d578fc4 19,35
+arelore-client/arelore-client-web-admin/src/pages/WordBaseInfoManagement.tsx
+  551bca709d578fc4 173,177,180-187,206,219,595,992-1004
+arelore-server/arelore-server-admin/src/main/resources/application.yml
+  551bca709d578fc4 77
+arelore-client/arelore-client-mini/arelore-client-mini-cert/README.md
+  551bca709d578fc4 22
+arelore-client/arelore-client-web/src/pages/prompt/PromptListPage.tsx
+  551bca709d578fc4 7,67,428-460,466-500,617
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "eff48c9d413fc97f52c4df9fb24c5e06f44f1745",
+  "prompts": {
+    "551bca709d578fc4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cursor-bridge-synthetic",
+        "model": "unknown"
+      },
+      "human_author": "huang.huang1 <huang.huang1@jtexpress.com>",
+      "messages": [],
+      "total_additions": 57658,
+      "total_deletions": 12351,
+      "accepted_lines": 51573,
+      "overriden_lines": 0
+    }
+  }
+}
