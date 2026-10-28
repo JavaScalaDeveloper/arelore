@@ -1,7 +1,7 @@
 import request from '../utils/request';
 import { ApiResponse } from '../types';
 
-export type PublishStatus = 'DRAFT' | 'PUBLISHED' | 'OFFLINE';
+export type PublishStatus = 'DRAFT' | 'PRODUCING' | 'PUBLISHED' | 'OFFLINE';
 export type PromptTagType = 'CONFIG' | 'MANUAL';
 
 export interface AiPromptItem {

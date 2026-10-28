@@ -3,12 +3,13 @@
 # ==============================================================================
 # Arelore 管理端 Web 启动脚本
 # ==============================================================================
-# 前端端口仍按环境隔离；后端 API 与 mini-cert 域名约定对齐（admin 端口 +1）：
-#   环境   admin-web  admin-api
-#   prd    3001       http://www.arelore.com:8082/api
-#   pre    3101       http://localhost:8082/api
-#   test   3201       http://www.arelore.com:8282/api
+# 同机可与 user-web / user-api 并行；避开 user-web 的 3000/3001/3100/3300
+#   环境   admin-web  admin-api（对齐 application-*.yml server.port）
+#   prd    3101       http://www.arelore.com:8082/api   （application-prd.yml → 8082）
+#   pre    3111       http://localhost:8082/api
+#   test   3201       http://test.arelore.com:8282/api   （application-test.yml → 8282）
 #   dev    3301       http://localhost:8082/api
+# 不用 2000/2001（偏生僻）；不用 3100（与 user-web pre 冲突）；不用 3001（已给 user-web test）
 #
 # 使用方法：
 #   ./start.sh [环境]              # 启动，环境：dev/test/pre/prd（默认 test）
@@ -51,16 +52,16 @@ resolve_env() {
 apply_env_ports() {
     case "$ENVIRONMENT" in
         prd)
-            PORT=3001
+            PORT=3101
             API_BASE_URL="http://www.arelore.com:8082/api"
             ;;
         pre)
-            PORT=3101
+            PORT=3111
             API_BASE_URL="http://localhost:8082/api"
             ;;
         test)
             PORT=3201
-            API_BASE_URL="http://www.arelore.com:8282/api"
+            API_BASE_URL="http://test.arelore.com:8282/api"
             ;;
         dev)
             PORT=3301
@@ -68,7 +69,7 @@ apply_env_ports() {
             ;;
         *)
             PORT=3201
-            API_BASE_URL="http://www.arelore.com:8282/api"
+            API_BASE_URL="http://test.arelore.com:8282/api"
             ;;
     esac
     LOG_FILE="${LOG_DIR}/${APP_NAME}-${ENVIRONMENT}.log"
@@ -246,10 +247,10 @@ show_help() {
 命令: start | stop | restart | status | logs | help
 环境: prd | pre | test | dev（默认 test）
 
-端口/API 约定（与 mini-cert 域名对齐，admin 端口 +1）:
-  prd  admin-web=3001  api=http://www.arelore.com:8082/api
-  pre  admin-web=3101  api=http://localhost:8082/api
-  test admin-web=3201  api=http://www.arelore.com:8282/api
+端口/API 约定（admin-api 端口 = application-{env}.yml server.port）:
+  prd  admin-web=3101  api=http://www.arelore.com:8082/api
+  pre  admin-web=3111  api=http://localhost:8082/api
+  test admin-web=3201  api=http://test.arelore.com:8282/api
   dev  admin-web=3301  api=http://localhost:8082/api
 
 示例:

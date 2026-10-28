@@ -108,7 +108,13 @@ fun PromptListScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(null to "全部", "PUBLISHED" to "已发布", "DRAFT" to "草稿", "OFFLINE" to "已下架")
+                listOf(
+                    null to "全部",
+                    "PUBLISHED" to "已发布",
+                    "PRODUCING" to "制作中",
+                    "DRAFT" to "草稿",
+                    "OFFLINE" to "已下架",
+                )
                     .forEach { (value, label) ->
                         FilterChip(
                             selected = publishStatus == value,

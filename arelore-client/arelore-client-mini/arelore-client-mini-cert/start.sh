@@ -26,7 +26,7 @@ case "$ENV_NAME" in
     ;;
   test)
     # 分支默认值勿与「当前 shell 里已 export 的 TARO_APP_API_BASE_URL」混用，否则 test 也会误用 8081 等地址
-    API_BASE_URL="http://www.arelore.com:8281/api"
+    API_BASE_URL="http://test.arelore.com:8281/api"
     ;;
   pre)
     API_BASE_URL="http://localhost:8081/api"

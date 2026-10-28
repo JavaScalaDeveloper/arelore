@@ -19,7 +19,7 @@
 | 环境 | API |
 |------|-----|
 | `dev` / `pre` | `http://localhost:8081/api` |
-| `test` | `http://www.arelore.com:8281/api` |
+| `test` | `http://test.arelore.com:8281/api` |
 | `prd` | `http://www.arelore.com:8081/api` |
 
 推荐用 `start.sh`（会 `npm install`、构建，并后台跑 `dev:weapp`）：

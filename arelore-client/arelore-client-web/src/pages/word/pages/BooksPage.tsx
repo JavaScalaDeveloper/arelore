@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Card, Radio, Select, Space, Spin, Typography, message } from 'antd';
+import { Button, Card, Radio, Select, Space, Spin, Switch, Typography, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import {  } from 'react-router-dom';
 import { useLocaleNavigate } from '../../../locale';
 import { wordApi } from '../api/word';
 import { shortErrorMessage } from '../utils/request';
@@ -15,6 +14,7 @@ const RATIO_OPTIONS = [
   { label: '新学:复习 = 1:3', value: '1:3', reviewPart: 3 },
 ];
 const NEW_COUNT_OPTIONS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+const LOOKBACK_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
 const VOICE_OPTIONS = [
   { label: '美音', value: 2 },
   { label: '英音', value: 1 },
@@ -59,6 +59,8 @@ export default function BooksPage() {
   const [ratio, setRatio] = useState('1:1');
   const [dailyNewCount, setDailyNewCount] = useState(10);
   const [voiceType, setVoiceType] = useState(2);
+  const [reviewLookbackDays, setReviewLookbackDays] = useState(3);
+  const [softLandEnabled, setSoftLandEnabled] = useState(true);
 
   const derived = useMemo(
     () => calcPlan(selectedBook?.wordCount || 0, ratio, dailyNewCount),
@@ -132,6 +134,8 @@ export default function BooksPage() {
     setRatio('1:1');
     setDailyNewCount(10);
     setVoiceType(2);
+    setReviewLookbackDays(3);
+    setSoftLandEnabled(true);
     try {
       const res = await wordApi.planGet(book.code);
       const plan = res.data;
@@ -142,6 +146,11 @@ export default function BooksPage() {
         try {
           const ext = typeof plan.extInfo === 'string' ? JSON.parse(plan.extInfo) : plan.extInfo;
           if (ext?.voiceType === 1 || ext?.voiceType === 2) setVoiceType(ext.voiceType);
+          const lookback = Number(ext?.reviewLookbackDays);
+          if (lookback >= 1 && lookback <= 7) setReviewLookbackDays(lookback);
+          if (ext && Object.prototype.hasOwnProperty.call(ext, 'softLandEnabled')) {
+            setSoftLandEnabled(ext.softLandEnabled !== false);
+          }
         } catch {
           /* ignore */
         }
@@ -171,14 +180,19 @@ export default function BooksPage() {
     if (!selectedBook?.code || saving) return;
     setSaving(true);
     try {
+      const ext: Record<string, unknown> = {
+        reviewLookbackDays,
+        softLandEnabled,
+      };
+      if (showVoice) {
+        ext.voiceType = voiceType;
+      }
       const payload: any = {
         bookCode: selectedBook.code,
         newReviewRatio: ratio,
         dailyNewCount,
+        extInfo: JSON.stringify(ext),
       };
-      if (showVoice) {
-        payload.extInfo = JSON.stringify({ voiceType });
-      }
       await wordApi.planConfirm(payload);
       setBookId(selectedBook.code);
       message.success('计划已保存');
@@ -299,8 +313,34 @@ export default function BooksPage() {
                 </div>
               </div>
             )}
+            <div>
+              <Text>复习回溯天数</Text>
+              <div style={{ marginTop: 8 }}>
+                <Select
+                  style={{ width: 240 }}
+                  value={reviewLookbackDays}
+                  options={LOOKBACK_OPTIONS.map((n) => ({
+                    value: n,
+                    label: `最近 ${n} 个学习日`,
+                  }))}
+                  onChange={setReviewLookbackDays}
+                />
+              </div>
+              <Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
+                从最近 N 个有新学的日子里抽复习词，再与「每日复习」上限取小
+              </Paragraph>
+            </div>
+            <div>
+              <Text>断签软着陆</Text>
+              <div style={{ marginTop: 8 }}>
+                <Switch checked={softLandEnabled} onChange={setSoftLandEnabled} />
+                <Text type="secondary" style={{ marginLeft: 12 }}>
+                  断签 ≥2 天时，今日复习压到约每日新学量
+                </Text>
+              </div>
+            </div>
             <Paragraph type="secondary">
-              每日复习约 {derived.dailyReviewCount} 词 · 预计 {derived.planDays} 天完成
+              每日复习上限约 {derived.dailyReviewCount} 词 · 预计 {derived.planDays} 天完成
             </Paragraph>
             <Button type="primary" loading={saving} onClick={confirmPlan}>
               确认并开始

@@ -26,25 +26,32 @@ public interface AdminWordEntryMapper extends BaseMapper<AdminWordEntry> {
     );
 
     /**
-     * 复习词：除今天外，之前「最后一天」新学过的单词（以 learn_record.create_time 日期为准）。
-     * 从未学过时子查询为 NULL，结果为空。
+     * 复习词：最近 lookbackDays 个「有新学的日历日」里首次学会、且今日尚未复习的词。
+     * LIMIT 作为每日上限，避免断签后复习债无限滚大。
      */
     @Select("SELECT e.id, e.create_time, e.modify_time, e.book_code, e.word_code, e.word, e.sort_no, e.ext_info "
         + "FROM admin_word_entry e "
         + "INNER JOIN user_word_learn_record r "
         + "  ON r.book_code = e.book_code AND r.word_code = e.word_code AND r.user_id = #{userId} "
+        + "INNER JOIN ("
+        + "  SELECT d FROM ("
+        + "    SELECT DISTINCT DATE(r2.create_time) AS d "
+        + "    FROM user_word_learn_record r2 "
+        + "    WHERE r2.user_id = #{userId} AND r2.book_code = #{bookCode} "
+        + "      AND DATE(r2.create_time) < CURDATE() "
+        + "    ORDER BY d DESC "
+        + "    LIMIT #{lookbackDays}"
+        + "  ) recent_days"
+        + ") days ON DATE(r.create_time) = days.d "
         + "WHERE e.book_code = #{bookCode} "
-        + "AND DATE(r.create_time) = ("
-        + "  SELECT MAX(DATE(r2.create_time)) FROM user_word_learn_record r2 "
-        + "  WHERE r2.user_id = #{userId} AND r2.book_code = #{bookCode} "
-        + "  AND DATE(r2.create_time) < CURDATE()"
-        + ") "
-        + "ORDER BY r.create_time ASC, e.sort_no ASC "
+        + "AND DATE(r.modify_time) < CURDATE() "
+        + "ORDER BY DATE(r.create_time) DESC, e.sort_no ASC "
         + "LIMIT #{limit}")
     List<AdminWordEntry> selectForReview(
         @Param("userId") BigDecimal userId,
         @Param("bookCode") String bookCode,
-        @Param("limit") int limit
+        @Param("limit") int limit,
+        @Param("lookbackDays") int lookbackDays
     );
 
     @Select("SELECT COUNT(1) FROM user_word_learn_record "
@@ -54,6 +61,27 @@ public interface AdminWordEntryMapper extends BaseMapper<AdminWordEntry> {
         @Param("bookCode") String bookCode
     );
 
+    /** 可复习候选数（与 selectForReview 同一 lookback / 未今日复习条件） */
+    @Select("SELECT COUNT(1) FROM user_word_learn_record r "
+        + "INNER JOIN ("
+        + "  SELECT d FROM ("
+        + "    SELECT DISTINCT DATE(r2.create_time) AS d "
+        + "    FROM user_word_learn_record r2 "
+        + "    WHERE r2.user_id = #{userId} AND r2.book_code = #{bookCode} "
+        + "      AND DATE(r2.create_time) < CURDATE() "
+        + "    ORDER BY d DESC "
+        + "    LIMIT #{lookbackDays}"
+        + "  ) recent_days"
+        + ") days ON DATE(r.create_time) = days.d "
+        + "WHERE r.user_id = #{userId} AND r.book_code = #{bookCode} "
+        + "AND DATE(r.modify_time) < CURDATE()")
+    int countReviewCandidates(
+        @Param("userId") BigDecimal userId,
+        @Param("bookCode") String bookCode,
+        @Param("lookbackDays") int lookbackDays
+    );
+
+    /** 兼容旧调用：上一学习日新学词数 */
     @Select("SELECT COUNT(1) FROM user_word_learn_record r "
         + "WHERE r.user_id = #{userId} AND r.book_code = #{bookCode} "
         + "AND DATE(r.create_time) = ("

@@ -58,7 +58,7 @@ Windows PowerShell 请用 Git Bash：
 |------|-----------|-----------|
 | prd  | 3001      | `http://www.arelore.com:8082/api` |
 | pre  | 3101      | `http://localhost:8082/api` |
-| test | 3201      | `http://www.arelore.com:8282/api` |
+| test | 3201      | `http://test.arelore.com:8282/api` |
 | dev  | 3301      | `http://localhost:8082/api` |
 
 ### 构建生产版本

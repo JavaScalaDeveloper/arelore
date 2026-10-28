@@ -127,6 +127,12 @@ public class UserWordStudyPlanServiceImpl
             if (reqExt.containsKey("voiceType")) {
                 merged.put("voiceType", reqExt.get("voiceType"));
             }
+            if (reqExt.containsKey("reviewLookbackDays")) {
+                merged.put("reviewLookbackDays", reqExt.get("reviewLookbackDays"));
+            }
+            if (reqExt.containsKey("softLandEnabled")) {
+                merged.put("softLandEnabled", reqExt.get("softLandEnabled"));
+            }
             Integer dailyNew = request.getDailyNewCount() != null
                 ? request.getDailyNewCount()
                 : (exists != null ? exists.getDailyNewCount() : null);
@@ -259,6 +265,17 @@ public class UserWordStudyPlanServiceImpl
             ext.put("voiceType", voiceType);
         } else {
             ext.remove("voiceType");
+        }
+        Integer lookback = ext.getInteger("reviewLookbackDays");
+        if (lookback == null || lookback < 1 || lookback > 7) {
+            lookback = 3;
+        }
+        ext.put("reviewLookbackDays", lookback);
+        if (!ext.containsKey("softLandEnabled")) {
+            ext.put("softLandEnabled", true);
+        } else {
+            Boolean soft = ext.getBoolean("softLandEnabled");
+            ext.put("softLandEnabled", soft == null || soft);
         }
         if (resetDailyProgress) {
             String today = LocalDate.now().toString();

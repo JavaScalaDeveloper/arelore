@@ -4,6 +4,7 @@ import {
   Form,
   Input,
   Modal,
+  Popover,
   Select,
   Space,
   Table,
@@ -63,6 +64,7 @@ function downloadMarkdown(filename: string, content: string) {
 
 const PUBLISH_OPTIONS = [
   { label: '草稿', value: 'DRAFT' },
+  { label: '制作中', value: 'PRODUCING' },
   { label: '已发布', value: 'PUBLISHED' },
   { label: '已下架', value: 'OFFLINE' },
 ];
@@ -423,13 +425,79 @@ const PromptListPage: React.FC = () => {
   };
 
   const columns = [
-    { title: '标题（引流）', dataIndex: 'title', ellipsis: true, width: 200 },
+    {
+      title: '标题（引流）',
+      dataIndex: 'title',
+      ellipsis: true,
+      width: 200,
+      render: (title: string, row: AiPromptItem) => {
+        const prompt = (row.promptText || '').trim();
+        const preview = (
+          <div style={{ maxWidth: 420, maxHeight: 360, overflow: 'auto' }}>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              提示词预览
+            </Typography.Text>
+            <pre
+              style={{
+                margin: '8px 0 0',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                fontSize: 12,
+                lineHeight: 1.55,
+                fontFamily: 'inherit',
+              }}
+            >
+              {prompt || '（无提示词）'}
+            </pre>
+          </div>
+        );
+        return (
+          <Popover content={preview} trigger="hover" placement="rightTop" mouseEnterDelay={0.25}>
+            <span style={{ cursor: 'default' }}>{title || '-'}</span>
+          </Popover>
+        );
+      },
+    },
     {
       title: '描述（引流）',
       dataIndex: 'summary',
       ellipsis: true,
       width: 180,
-      render: (v: string) => v || '-',
+      render: (v: string, row: AiPromptItem) => {
+        const prompt = (row.promptText || '').trim();
+        const cell = v || '-';
+        if (!prompt) {
+          return cell;
+        }
+        return (
+          <Popover
+            content={
+              <div style={{ maxWidth: 420, maxHeight: 360, overflow: 'auto' }}>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  提示词预览
+                </Typography.Text>
+                <pre
+                  style={{
+                    margin: '8px 0 0',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    fontSize: 12,
+                    lineHeight: 1.55,
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {prompt}
+                </pre>
+              </div>
+            }
+            trigger="hover"
+            placement="rightTop"
+            mouseEnterDelay={0.25}
+          >
+            <span style={{ cursor: 'default' }}>{cell}</span>
+          </Popover>
+        );
+      },
     },
     {
       title: '配置标签',
@@ -546,7 +614,7 @@ const PromptListPage: React.FC = () => {
         提示词列表
       </Typography.Title>
       <Typography.Paragraph type="secondary" style={{ marginTop: -8 }}>
-        配置标签可手打，也可被 CSV 覆盖（如小红书、抖音）；人工标签仅在本页修改，导入不会改动。
+        配置标签可手打，也可被 CSV 覆盖（如小红书、抖音）；人工标签仅在本页修改，导入不会改动。鼠标悬停标题或描述可预览完整提示词。
       </Typography.Paragraph>
       <Space style={{ marginBottom: 16 }} wrap>
         <Input

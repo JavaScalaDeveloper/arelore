@@ -103,7 +103,7 @@ npm start
 |------|----------|----------|
 | prd  | 3000     | `http://www.arelore.com:8081/api` |
 | pre  | 3100     | `http://localhost:8081/api` |
-| test | 3200     | `http://www.arelore.com:8281/api` |
+| test | 3200     | `http://test.arelore.com:8281/api` |
 | dev  | 3300     | `http://localhost:8081/api` |
 
 ```bash

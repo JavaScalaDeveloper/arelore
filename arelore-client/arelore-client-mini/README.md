@@ -14,7 +14,7 @@
 | 环境 | user-api |
 |------|----------|
 | `dev` / `pre` | `http://localhost:8081/api` |
-| `test` | `http://www.arelore.com:8281/api` |
+| `test` | `http://test.arelore.com:8281/api` |
 | `prd` | `http://www.arelore.com:8081/api` |
 
 Windows PowerShell 请用 Git Bash，例如：

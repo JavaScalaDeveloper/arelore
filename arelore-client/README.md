@@ -23,7 +23,7 @@ arelore-client/
 | 环境 | user-api | admin-api |
 |------|----------|-----------|
 | dev / pre | `http://localhost:8081/api` | `http://localhost:8082/api` |
-| test | `http://www.arelore.com:8281/api` | `http://www.arelore.com:8282/api` |
+| test | `http://test.arelore.com:8281/api` | `http://test.arelore.com:8282/api` |
 | prd | `http://www.arelore.com:8081/api` | `http://www.arelore.com:8082/api` |
 
 - **认证方式**: JWT Token

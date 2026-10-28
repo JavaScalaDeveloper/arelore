@@ -170,14 +170,21 @@ function meaningAudioFileId(extInfo?: string): number | undefined {
 
 function tagList(extInfo?: string): string[] {
   const ext = parseExtInfo(extInfo);
-  const tags = Array.isArray(ext.tags) ? ext.tags.filter(Boolean).map(String) : [];
+  let tags = Array.isArray(ext.tags) ? ext.tags.filter(Boolean).map(String) : [];
   // 已有语音但尚未回写 tags 时，列表仍展示「有释义语音」
   const hasAudio = meaningAudioFileId(extInfo) != null;
   if (hasAudio && !tags.includes('has_meaning_audio')) {
-    return [...tags.filter((t) => t !== 'no_meaning_audio'), 'has_meaning_audio'];
+    tags = [...tags.filter((t) => t !== 'no_meaning_audio'), 'has_meaning_audio'];
   }
   if (!hasAudio && tags.includes('has_meaning_audio')) {
-    return [...tags.filter((t) => t !== 'has_meaning_audio'), 'no_meaning_audio'];
+    tags = [...tags.filter((t) => t !== 'has_meaning_audio'), 'no_meaning_audio'];
+  }
+  // TTS 失败字段已写但 tags 未刷时仍展示
+  if (ext.meaningAudioError && !tags.includes('meaning_audio_error')) {
+    tags = [...tags, 'meaning_audio_error'];
+  }
+  if (!ext.meaningAudioError && tags.includes('meaning_audio_error')) {
+    tags = tags.filter((t) => t !== 'meaning_audio_error');
   }
   return tags;
 }
@@ -196,6 +203,7 @@ const TAG_OPTIONS = [
   { value: 'no_example', label: '无例句' },
   { value: 'has_meaning_audio', label: '有释义语音' },
   { value: 'no_meaning_audio', label: '无释义语音' },
+  { value: 'meaning_audio_error', label: '释义语音失败' },
   { value: 'sync_error', label: '同步失败' },
 ];
 
@@ -208,6 +216,7 @@ const TAG_COLOR: Record<string, string> = {
   no_example: 'orange',
   has_meaning_audio: 'cyan',
   no_meaning_audio: 'default',
+  meaning_audio_error: 'error',
   confirmed: 'success',
   unconfirmed: 'default',
   sync_error: 'error',
@@ -583,7 +592,7 @@ const WordBaseInfoManagement: React.FC = () => {
       : '未选标签';
     Modal.confirm({
       title: '批量生成释义语音',
-      content: `按当前筛选（标签：${tagText}）调用本机 Qwen3-TTS（localhost:8880）生成整段释义语音，写入 common_binary_file。已有 fileId 且二进制仍存在、释义未变则跳过；文件已删会重新生成。请先确保本地 TTS 服务已启动。词量大时可能很久。`,
+      content: `按当前筛选（标签：${tagText}）调用本机 Qwen3-TTS（localhost:8880）生成整段释义语音，写入 common_binary_file。已有 fileId 且二进制仍存在、释义未变则跳过；文件已删会重新生成。失败词会打「释义语音失败」标签，可筛该标签后重跑。请先确保本地 TTS 服务已启动。词量大时可能很久。`,
       okText: '开始生成',
       cancelText: '取消',
       onOk: async () => {
@@ -980,6 +989,19 @@ const WordBaseInfoManagement: React.FC = () => {
                 ) : (
                   <Tag>尚未生成，可用顶部「批量生成释义语音」</Tag>
                 )}
+                {detailExt.meaningAudioError ? (
+                  <div style={{ marginTop: 8 }}>
+                    <Tag color="error">释义语音失败</Tag>
+                    <Text type="danger" style={{ marginLeft: 8 }}>
+                      {String(detailExt.meaningAudioError)}
+                    </Text>
+                    {detailExt.meaningAudioErrorAt ? (
+                      <Text type="secondary" style={{ marginLeft: 8 }}>
+                        {String(detailExt.meaningAudioErrorAt)}
+                      </Text>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
 

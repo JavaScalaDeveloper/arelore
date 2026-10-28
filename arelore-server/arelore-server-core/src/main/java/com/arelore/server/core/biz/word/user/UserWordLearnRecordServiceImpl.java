@@ -39,6 +39,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -139,10 +140,13 @@ public class UserWordLearnRecordServiceImpl
 
         JSONObject planExt = parseExt(plan.getExtInfo());
         String today = LocalDate.now().toString();
+        int lookbackDays = readReviewLookbackDays(planExt);
         // 学习记录为权威：今日已新学/复习数量（防 ABA 清 plan 后重发配额）
         int learnedToday = entryMapper.countLearnedToday(request.getUserId(), bookCode);
         int reviewedToday = entryMapper.countReviewedToday(request.getUserId(), bookCode);
-        int prevDayCount = Math.min(reviewLimit, entryMapper.countPreviousLearnDay(request.getUserId(), bookCode));
+        int candidateCount = entryMapper.countReviewCandidates(request.getUserId(), bookCode, lookbackDays);
+        int reviewTarget = resolveReviewTarget(
+            reviewLimit, candidateCount, learnLimit, planExt, learnedToday, reviewedToday);
         boolean newDay = !today.equals(planExt.getString("studyDate"))
             && learnedToday <= 0 && reviewedToday <= 0;
         if (newDay) {
@@ -177,7 +181,7 @@ public class UserWordLearnRecordServiceImpl
         int learnDone = learnProgress[0];
         int learnTodo = learnProgress[1];
         int[] reviewProgress = resolveDailyReviewProgress(
-            prevDayCount, planReviewDone, reviewedToday, countedReview.size(), todayReviewCodes);
+            reviewTarget, planReviewDone, reviewedToday, countedReview.size(), todayReviewCodes);
         int reviewDone = reviewProgress[0];
         int reviewTodo = reviewProgress[1];
 
@@ -224,11 +228,11 @@ public class UserWordLearnRecordServiceImpl
         }
 
         // 复习：配额已完成则不再重建；否则仅在无词表时构建
-        boolean reviewQuotaFilled = reviewTodo <= 0 && (reviewDone > 0 || prevDayCount == 0);
+        boolean reviewQuotaFilled = reviewTodo <= 0 && (reviewDone > 0 || reviewTarget == 0);
         if (!reviewQuotaFilled && todayReviewCodes.isEmpty()) {
             List<String> rebuilt = new ArrayList<>();
             List<AdminWordEntry> candidates = entryMapper.selectForReview(
-                request.getUserId(), bookCode, reviewLimit
+                request.getUserId(), bookCode, reviewTarget, lookbackDays
             );
             Set<String> blocked = new HashSet<>(todayLearnCodes);
             for (AdminWordEntry entry : candidates) {
@@ -237,14 +241,14 @@ public class UserWordLearnRecordServiceImpl
                 }
                 if (blocked.add(entry.getWordCode())) {
                     rebuilt.add(entry.getWordCode());
-                    if (rebuilt.size() >= reviewLimit) {
+                    if (rebuilt.size() >= reviewTarget) {
                         break;
                     }
                 }
             }
             todayReviewCodes = rebuilt;
             reviewProgress = resolveDailyReviewProgress(
-                prevDayCount, reviewDone, reviewedToday, countedReview.size(), todayReviewCodes);
+                reviewTarget, reviewDone, reviewedToday, countedReview.size(), todayReviewCodes);
             reviewDone = reviewProgress[0];
             reviewTodo = reviewProgress[1];
         }
@@ -253,7 +257,7 @@ public class UserWordLearnRecordServiceImpl
         learnDone = Math.max(learnDone, planLearnDone);
         reviewDone = Math.max(reviewDone, planReviewDone);
         learnTodo = Math.max(0, Math.min(learnTodo, Math.max(0, learnLimit - learnDone)));
-        reviewTodo = Math.max(0, Math.min(reviewTodo, Math.max(0, prevDayCount - reviewDone)));
+        reviewTodo = Math.max(0, Math.min(reviewTodo, Math.max(0, reviewTarget - reviewDone)));
 
         // 始终回写：校准后的完成数落库
         planExt.put("todayLearnWordCodes", toJsonArray(todayLearnCodes));
@@ -336,18 +340,21 @@ public class UserWordLearnRecordServiceImpl
 
         JSONObject planExt = parseExt(plan.getExtInfo());
         String today = LocalDate.now().toString();
+        int lookbackDays = readReviewLookbackDays(planExt);
         int learnedToday = entryMapper.countLearnedToday(current.getUserId(), bookCode);
         int reviewedToday = entryMapper.countReviewedToday(current.getUserId(), bookCode);
-        int prevDayCount = Math.min(reviewLimit, entryMapper.countPreviousLearnDay(current.getUserId(), bookCode));
+        int candidateCount = entryMapper.countReviewCandidates(current.getUserId(), bookCode, lookbackDays);
+        int reviewTarget = resolveReviewTarget(
+            reviewLimit, candidateCount, dailyNew, planExt, learnedToday, reviewedToday);
         boolean sameDay = today.equals(planExt.getString("studyDate")) || learnedToday > 0 || reviewedToday > 0;
 
         if (!sameDay) {
-            // 新的一天尚未开练：新学=计划配额与剩余词取小；复习=上一学习日新学数
+            // 新的一天尚未开练：新学=计划配额与剩余词取小；复习=回溯池 ∩ 上限（可软着陆）
             int learnTodo = Math.min(dailyNew, remainWords);
             current.setLearnDone(0);
             current.setLearnTodo(learnTodo);
             current.setReviewDone(0);
-            current.setReviewTodo(prevDayCount);
+            current.setReviewTodo(reviewTarget);
             return current;
         }
 
@@ -356,7 +363,7 @@ public class UserWordLearnRecordServiceImpl
         int planReviewDone = planExt.containsKey("reviewDone")
             ? planExt.getIntValue("reviewDone") : nvl(current.getReviewDone());
         int[] reviewProgress = resolveDailyReviewProgress(
-            prevDayCount, planReviewDone, reviewedToday, countedReview.size(), todayReviewCodes);
+            reviewTarget, planReviewDone, reviewedToday, countedReview.size(), todayReviewCodes);
         current.setReviewDone(reviewProgress[0]);
         current.setReviewTodo(reviewProgress[1]);
 
@@ -1109,6 +1116,85 @@ public class UserWordLearnRecordServiceImpl
             return voiceType;
         }
         return 2;
+    }
+
+    /** 复习回溯：最近 N 个有新学的日历日，默认 3 */
+    private static int readReviewLookbackDays(JSONObject planExt) {
+        if (planExt == null) {
+            return 3;
+        }
+        Integer n = planExt.getInteger("reviewLookbackDays");
+        if (n == null || n < 1 || n > 7) {
+            return 3;
+        }
+        return n;
+    }
+
+    /**
+     * 今日复习目标 = min(计划上限, 候选数)；断签≥2 天且开启软着陆时再压到约「每日新学」量。
+     */
+    private static int resolveReviewTarget(
+        int reviewLimit,
+        int candidateCount,
+        int dailyNew,
+        JSONObject planExt,
+        int learnedToday,
+        int reviewedToday
+    ) {
+        int cap = Math.max(0, reviewLimit);
+        int raw = Math.min(cap, Math.max(0, candidateCount));
+        boolean softLand = planExt == null || !Boolean.FALSE.equals(planExt.getBoolean("softLandEnabled"));
+        if (!softLand) {
+            return raw;
+        }
+        if (learnedToday > 0 || reviewedToday > 0) {
+            return raw;
+        }
+        int gapDays = resolveStudyGapDays(planExt);
+        if (gapDays < 2) {
+            return raw;
+        }
+        int softCap = Math.max(10, dailyNew > 0 ? dailyNew : 10);
+        return Math.min(raw, softCap);
+    }
+
+    private static int resolveStudyGapDays(JSONObject planExt) {
+        if (planExt == null) {
+            return 0;
+        }
+        LocalDate last = null;
+        JSONArray dates = planExt.getJSONArray("studyDates");
+        if (dates != null) {
+            for (int i = 0; i < dates.size(); i++) {
+                String s = dates.getString(i);
+                if (!StringUtils.hasText(s)) {
+                    continue;
+                }
+                try {
+                    LocalDate d = LocalDate.parse(s.trim());
+                    if (last == null || d.isAfter(last)) {
+                        last = d;
+                    }
+                } catch (DateTimeParseException ignored) {
+                    // skip
+                }
+            }
+        }
+        if (last == null) {
+            String studyDate = planExt.getString("studyDate");
+            if (StringUtils.hasText(studyDate)) {
+                try {
+                    last = LocalDate.parse(studyDate.trim());
+                } catch (DateTimeParseException ignored) {
+                    return 0;
+                }
+            }
+        }
+        if (last == null) {
+            return 0;
+        }
+        long gap = ChronoUnit.DAYS.between(last, LocalDate.now());
+        return gap < 0 ? 0 : (int) gap;
     }
 
     private List<String> readStringList(JSONObject ext, String key) {

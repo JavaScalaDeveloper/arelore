@@ -19,7 +19,7 @@ USE arelore_creator;
 -- ---------------------------------------------------------------------------
 -- AI 提示词（个人）
 -- config_tags / manual_tags：JSON 数组，默认 []；勿再用 text+LIKE（无法有效利用索引）
--- publish_status：DRAFT-草稿 PUBLISHED-已发布 OFFLINE-已下架
+-- publish_status：DRAFT-草稿 PRODUCING-制作中 PUBLISHED-已发布 OFFLINE-已下架
 -- status：NORMAL-正常 DELETED-已删除(软删)
 -- ---------------------------------------------------------------------------
 drop table if exists `user_ai_prompt`;
@@ -36,7 +36,7 @@ CREATE TABLE `user_ai_prompt`
     `prompt_text`    mediumtext     not null comment '提示词正文（应用层限长 65535 字符；手机默认复制本字段）',
     `config_tags`    json           not null default (json_array()) comment '配置标签(JSON字符串数组)，可手打也可被CSV导入覆盖，如 ["小红书"] 或 ["抖音","视频号"]',
     `manual_tags`    json           not null default (json_array()) comment '人工标签(JSON字符串数组)，仅页面修改，导入不覆盖',
-    `publish_status` varchar(32)    not null default 'DRAFT' comment '发布状态: DRAFT-草稿 PUBLISHED-已发布 OFFLINE-已下架',
+    `publish_status` varchar(32)    not null default 'DRAFT' comment '发布状态: DRAFT-草稿 PRODUCING-制作中 PUBLISHED-已发布 OFFLINE-已下架',
     `status`         varchar(32)    not null default 'NORMAL' comment '数据状态: NORMAL-正常 DELETED-已删除(软删)',
     `ext_info`       json                    default null comment '拓展信息(JSON)：summary/importBatchId/copyTemplate/source 等',
     primary key (`id`),

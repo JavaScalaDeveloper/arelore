@@ -524,6 +524,50 @@ public class AdminWordBaseInfoServiceImpl
         mapper.updateById(row);
     }
 
+    /** 释义 TTS 失败：写入 meaningAudioError，并打 meaning_audio_error 标签便于筛选重跑 */
+    private void markMeaningAudioError(AdminWordBaseInfo row, String errorMsg) {
+        if (row == null || row.getId() == null) {
+            return;
+        }
+        try {
+            JSONObject ext = parseExt(row.getExtInfo());
+            ext.put("meaningAudioError", shortMeaningAudioError(errorMsg));
+            ext.put("meaningAudioErrorAt", ChinaTime.nowDateTime());
+            refreshMetaTags(ext);
+            row.setExtInfo(ext.toJSONString());
+            mapper.updateById(row);
+        } catch (Exception ex) {
+            log.warn("mark meaning audio error failed id={}: {}", row.getId(), ex.getMessage());
+        }
+    }
+
+    private static void clearMeaningAudioError(JSONObject ext) {
+        if (ext == null) {
+            return;
+        }
+        ext.remove("meaningAudioError");
+        ext.remove("meaningAudioErrorAt");
+    }
+
+    /** 截断 TTS 错误；去掉 curl 重放段，避免把整段朗读稿塞进 ext_info */
+    private static String shortMeaningAudioError(String message) {
+        if (!StringUtils.hasText(message)) {
+            return "TTS失败";
+        }
+        String value = message.trim().replaceAll("\\s+", " ");
+        int curlIdx = value.indexOf("| curl:");
+        if (curlIdx < 0) {
+            curlIdx = value.indexOf(" curl=");
+        }
+        if (curlIdx > 0) {
+            value = value.substring(0, curlIdx).trim();
+        }
+        if (value.length() > 160) {
+            return value.substring(0, 160);
+        }
+        return value;
+    }
+
     @Override
     public AdminWordBaseInfoYoudaoTestResponse testYoudao(String word) {
         AdminWordBaseInfoYoudaoTestResponse resp = new AdminWordBaseInfoYoudaoTestResponse();
@@ -1027,6 +1071,7 @@ public class AdminWordBaseInfoServiceImpl
                             failed.incrementAndGet();
                             log.warn("batch meaning audio failed id={} word={}: {}",
                                 row.getId(), row.getWord(), e.getMessage());
+                            markMeaningAudioError(row, e.getMessage());
                         }
                     }));
                 }
@@ -1070,7 +1115,8 @@ public class AdminWordBaseInfoServiceImpl
             result.setNote("没有需要生成释义语音的单词");
         } else {
             result.setNote("已按当前筛选并行生成释义语音（parallelism=" + parallelism
-                + "）；TTS HTTP 客户端限流 in-flight=1，与写库重叠。释义未变则跳过（force=true 可强制重生成）。");
+                + "）；TTS HTTP 客户端限流 in-flight=1，与写库重叠。释义未变则跳过（force=true 可强制重生成）。"
+                + "失败词已打标签 meaning_audio_error，可筛该标签后重跑。");
         }
         return result;
     }
@@ -1099,8 +1145,9 @@ public class AdminWordBaseInfoServiceImpl
             && oldFileId != null
             && speechHash.equals(existing.getString("speechHash"))
             && pictureBinaryStore.exists(oldFileId)) {
-            // 已有语音：补打 has_meaning_audio 标签后跳过
+            // 已有语音：清失败标、补打 has_meaning_audio 后跳过
             String before = row.getExtInfo();
+            clearMeaningAudioError(ext);
             refreshMetaTags(ext);
             String after = ext.toJSONString();
             if (!after.equals(before == null ? "" : before)) {
@@ -1124,6 +1171,7 @@ public class AdminWordBaseInfoServiceImpl
         meaningAudio.put("contentType", "audio/mpeg");
         meaningAudio.put("updatedAt", ChinaTime.nowDateTime());
         ext.put("meaningAudio", meaningAudio);
+        clearMeaningAudioError(ext);
         refreshMetaTags(ext);
         row.setExtInfo(ext.toJSONString());
         mapper.updateById(row);
@@ -1204,7 +1252,7 @@ public class AdminWordBaseInfoServiceImpl
 
     /**
      * 根据配图/确认/来源/释义/释义语音刷新检索标签（写入 ext_info，无需额外表字段）。
-     * 标签示例：no_picture、has_picture、has_meaning_audio、confirmed、source_pixabay、has_meaning、sync_error
+     * 标签示例：no_picture、has_picture、has_meaning_audio、meaning_audio_error、confirmed、source_pixabay、has_meaning、sync_error
      */
     static void refreshMetaTags(JSONObject ext) {
         if (ext == null) {
@@ -1230,6 +1278,7 @@ public class AdminWordBaseInfoServiceImpl
         boolean hasMeaning = meanings != null && !meanings.isEmpty();
         boolean hasExample = hasExamples(ext);
         boolean syncError = StringUtils.hasText(ext.getString("syncError"));
+        boolean meaningAudioError = StringUtils.hasText(ext.getString("meaningAudioError"));
         JSONObject meaningAudio = ext.getJSONObject("meaningAudio");
         boolean hasMeaningAudio = meaningAudio != null && meaningAudio.getLong("fileId") != null;
 
@@ -1242,6 +1291,9 @@ public class AdminWordBaseInfoServiceImpl
         tags.add(hasMeaningAudio ? "has_meaning_audio" : "no_meaning_audio");
         if (syncError) {
             tags.add("sync_error");
+        }
+        if (meaningAudioError) {
+            tags.add("meaning_audio_error");
         }
         ext.put("tags", new ArrayList<>(tags));
     }

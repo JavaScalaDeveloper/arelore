@@ -3,11 +3,11 @@
 # ==============================================================================
 # Arelore 用户端 Web 启动脚本
 # ==============================================================================
-# 前端端口仍按环境隔离；后端 API 与 mini-cert 对齐：
-#   环境   user-web  user-api
-#   prd    3000      http://www.arelore.com:8081/api
+# 同机可并行 prd + test：前端端口隔离；后端端口对齐 arelore-server-user application-*.yml
+#   环境   user-web  user-api（server.port）
+#   prd    3000      http://www.arelore.com:8081/api   （application-prd.yml → 8081）
 #   pre    3100      http://localhost:8081/api
-#   test   3200      http://www.arelore.com:8281/api
+#   test   3001      http://test.arelore.com:8281/api   （application-test.yml → 8281）
 #   dev    3300      http://localhost:8081/api
 #
 # 使用方法：
@@ -58,16 +58,17 @@ apply_env_ports() {
             API_BASE_URL="http://localhost:8081/api"
             ;;
         test)
-            PORT=3200
-            API_BASE_URL="http://www.arelore.com:8281/api"
+            # 与 application-test.yml server.port=8281 对齐；前端 3001 与 prd:3000 并存
+            PORT=3001
+            API_BASE_URL="http://test.arelore.com:8281/api"
             ;;
         dev)
             PORT=3300
             API_BASE_URL="http://localhost:8081/api"
             ;;
         *)
-            PORT=3200
-            API_BASE_URL="http://www.arelore.com:8281/api"
+            PORT=3001
+            API_BASE_URL="http://test.arelore.com:8281/api"
             ;;
     esac
     LOG_FILE="${LOG_DIR}/${APP_NAME}-${ENVIRONMENT}.log"
@@ -251,10 +252,10 @@ show_help() {
 命令: start | stop | restart | status | logs | help
 环境: prd | pre | test | dev（默认 test）
 
-端口/API 约定（与 mini-cert 对齐）:
+端口/API 约定（user-api 端口 = application-{env}.yml server.port）:
   prd  user-web=3000  api=http://www.arelore.com:8081/api
   pre  user-web=3100  api=http://localhost:8081/api
-  test user-web=3200  api=http://www.arelore.com:8281/api
+  test user-web=3001  api=http://test.arelore.com:8281/api
   dev  user-web=3300  api=http://localhost:8081/api
 
 示例:

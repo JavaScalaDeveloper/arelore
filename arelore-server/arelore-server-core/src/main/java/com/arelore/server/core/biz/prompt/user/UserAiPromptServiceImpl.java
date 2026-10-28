@@ -35,6 +35,7 @@ public class UserAiPromptServiceImpl
     public static final String STATUS_NORMAL = "NORMAL";
     public static final String STATUS_DELETED = "DELETED";
     public static final String PUBLISH_DRAFT = "DRAFT";
+    public static final String PUBLISH_PRODUCING = "PRODUCING";
     public static final String PUBLISH_PUBLISHED = "PUBLISHED";
     public static final String PUBLISH_OFFLINE = "OFFLINE";
     public static final int DAILY_CREATE_LIMIT = 100;
@@ -436,7 +437,10 @@ public class UserAiPromptServiceImpl
             return PUBLISH_DRAFT;
         }
         String status = raw.trim().toUpperCase(Locale.ROOT);
-        if (PUBLISH_DRAFT.equals(status) || PUBLISH_PUBLISHED.equals(status) || PUBLISH_OFFLINE.equals(status)) {
+        if (PUBLISH_DRAFT.equals(status)
+            || PUBLISH_PRODUCING.equals(status)
+            || PUBLISH_PUBLISHED.equals(status)
+            || PUBLISH_OFFLINE.equals(status)) {
             return status;
         }
         throw new IllegalArgumentException("不支持的发布状态: " + raw);

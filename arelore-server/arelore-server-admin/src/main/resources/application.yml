@@ -74,7 +74,7 @@ arelore:
       # 单次 HTTP 读超时（仅覆盖实际合成，不含客户端排队）；默认 30 分钟
       timeout-seconds: ${ARELORE_TTS_QWEN_TIMEOUT_SECONDS:1800}
       # 读超时 / 连接重置等瞬时失败时的总尝试次数（含首次）
-      max-attempts: ${ARELORE_TTS_QWEN_MAX_ATTEMPTS:1}
+      max-attempts: ${ARELORE_TTS_QWEN_MAX_ATTEMPTS:2}
       retry-delay-ms: ${ARELORE_TTS_QWEN_RETRY_DELAY_MS:3000}
       # 同时对 TTS 发 HTTP 的上限，应对齐服务端 TTS_MAX_CONCURRENT（默认 1）
       in-flight: ${ARELORE_TTS_QWEN_IN_FLIGHT:1}
