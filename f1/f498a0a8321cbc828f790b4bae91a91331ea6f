@@ -1,0 +1,74 @@
+arelore-client/arelore-client-mini/arelore-client-mini-cert/README.md
+  551bca709d578fc4 23-25
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/support/EdgeTtsClient.java
+  551bca709d578fc4 1-246
+arelore-client/arelore-client-web/src/utils/pdfToWord.ts
+  551bca709d578fc4 26,61-62
+arelore-client/arelore-client-web-admin/src/pages/WordBaseInfoManagement.tsx
+  551bca709d578fc4 53-54,57,60-61,65,75,78-80,84-91,99-110,112-116,267,273,298-305,330,343,349-354,641,656
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/dto/AdminWordBaseInfoBatchMeaningAudioRequest.java
+  551bca709d578fc4 8-9,33-34
+arelore-client/arelore-client-web/src/types/shims-pdf-docx.d.ts
+  551bca709d578fc4 1-2
+arelore-client/arelore-client-web/start.sh
+  551bca709d578fc4 28-30,35-36,133-135,140-142
+arelore-client/arelore-client-web-admin/start.sh
+  551bca709d578fc4 29-31,36-37,129-135,139-140
+arelore-client/arelore-client-web/.env
+  551bca709d578fc4 7-10
+arelore-client/arelore-client-mini/arelore-client-mini-cert/start.sh
+  551bca709d578fc4 12-14,17-18,38-39
+arelore-server/arelore-server-admin/start.sh
+  551bca709d578fc4 9-12,25,27-28,31,37-38,60,149-151,282
+arelore-server/arelore-server-user/src/main/resources/application-dev.yml
+  551bca709d578fc4 1-81
+arelore-server/arelore-server-admin/src/main/resources/application-dev.yml
+  551bca709d578fc4 1-52
+arelore-client/arelore-client-web-admin/src/api/admin.tsx
+  551bca709d578fc4 152,169,171
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/AdminWordBaseInfoServiceImpl.java
+  551bca709d578fc4 26,70,79-80,87,866,878-887,898,908-923,933,1015-1017,1028-1029,1144-1145,1187-1197,1204-1207
+arelore-client/arelore-client-web-admin/src/pages/CommonBinaryFileManagement.tsx
+  551bca709d578fc4 225,227,317,319
+arelore-client/arelore-client-mini/README.md
+  551bca709d578fc4 12,14-26,31-32,36-164,168-171,174-176,178,183,186-198
+arelore-server/arelore-server-admin/src/main/resources/application.yml
+  551bca709d578fc4 57,65-81,83,90,92-93
+arelore-server/arelore-server-user/start.sh
+  551bca709d578fc4 9-12,25,27-28,31,37-38,60,149-151,282
+arelore-client/arelore-client-web-admin/src/utils/request.tsx
+  551bca709d578fc4 52-60,95-99,109-110
+arelore-client/arelore-client-web-admin/config-overrides.js
+  551bca709d578fc4 1-23,26,28,32-33,35,41-42,45-64
+.gitignore
+  551bca709d578fc4 1,4,6-8
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/support/WordPictureBinaryStore.java
+  551bca709d578fc4 28-29,55,73-80,89,96-98,193-199,206,209,225,240,246-261,270,272-277,280-299
+arelore-client/arelore-client-web/config-overrides.js
+  551bca709d578fc4 1-19,22-25,28,30,34-35,37,43-44,47-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "f1f498a0a8321cbc828f790b4bae91a91331ea6f",
+  "prompts": {
+    "551bca709d578fc4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cursor-bridge-synthetic",
+        "model": "unknown"
+      },
+      "human_author": "huang.huang1 <huang.huang1@jtexpress.com>",
+      "messages": [],
+      "total_additions": 1797,
+      "total_deletions": 529,
+      "accepted_lines": 3396,
+      "overriden_lines": 4
+    }
+  },
+  "humans": {
+    "h_d9aa333b75b3c1": {
+      "author": "huang.huang1"
+    }
+  }
+}
