@@ -1,31 +1,69 @@
-module.exports = function override(config, env) {
-  // 开发环境保留 CRA 默认配置，否则会破坏 HMR（出现 hot-update.json 循环请求）。
-  if (env !== 'production') {
-    return config;
+/**
+ * 开发态：绝不把编译/类型错误画到页面上（仅终端可见）。
+ * 生产态：保留 contenthash 输出策略。
+ */
+function softenDevDiagnostics(config) {
+  // 关掉 ForkTsChecker 往 webpack overlay 灌错误（页面「Compiled with problems」）
+  config.plugins = (config.plugins || []).filter((plugin) => {
+    const name = plugin && plugin.constructor && plugin.constructor.name;
+    return name !== 'ForkTsCheckerWebpackPlugin';
+  });
+
+  // ESLintWebpackPlugin：有则改为不 fail / 不弹层
+  const eslintPlugin = (config.plugins || []).find(
+    (plugin) => plugin && plugin.constructor && plugin.constructor.name === 'ESLintWebpackPlugin'
+  );
+  if (eslintPlugin && eslintPlugin.options) {
+    eslintPlugin.options.failOnError = false;
+    eslintPlugin.options.failOnWarning = false;
+    eslintPlugin.options.quiet = true;
   }
 
-  // 输出文件名添加内容哈希，确保每次构建都是唯一的
+  return config;
+}
+
+function applyProdHashes(config) {
   config.output.filename = 'static/js/[name].[contenthash:8].js';
   config.output.chunkFilename = 'static/js/[name].[contenthash:8].chunk.js';
-  
-  // CSS 文件也添加哈希
+
   const miniCssExtractPlugin = config.plugins.find(
-    plugin => plugin.constructor.name === 'MiniCssExtractPlugin'
+    (plugin) => plugin.constructor.name === 'MiniCssExtractPlugin'
   );
   if (miniCssExtractPlugin) {
     miniCssExtractPlugin.options.filename = 'static/css/[name].[contenthash:8].css';
-    miniCssExtractPlugin.options.chunkFilename = 'static/css/[name].[contenthash:8].chunk.css';
+    miniCssExtractPlugin.options.chunkFilename =
+      'static/css/[name].[contenthash:8].chunk.css';
   }
-  
-  // 禁用缓存优化，确保每次都生成新文件
+
   config.optimization.runtimeChunk = false;
   config.optimization.splitChunks = {
     chunks: 'all',
     cacheGroups: {
       default: false,
-      vendors: false
-    }
+      vendors: false,
+    },
   };
-  
   return config;
+}
+
+module.exports = {
+  webpack: function override(config, env) {
+    if (env !== 'production') {
+      return softenDevDiagnostics(config);
+    }
+    return applyProdHashes(config);
+  },
+  devServer: function (configFunction) {
+    return function (proxy, allowedHost) {
+      const config = configFunction(proxy, allowedHost);
+      // webpack-dev-server v4+
+      config.client = {
+        ...(config.client || {}),
+        overlay: false,
+      };
+      // 兼容旧字段
+      config.overlay = false;
+      return config;
+    };
+  },
 };

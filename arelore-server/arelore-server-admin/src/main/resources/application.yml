@@ -54,7 +54,7 @@ mybatis-plus:
 
 # 单词配图图库（仅 Pixabay）
 # 文档：https://pixabay.com/api/docs/
-# 本地释义 TTS：OpenAI 兼容 /v1/audio/speech（默认本机 Qwen3-TTS）
+# 释义 TTS：Edge TTS（微软在线神经音色 + speak.py 再压 32k/16kHz）
 arelore:
   word:
     image:
@@ -62,24 +62,35 @@ arelore:
       min-count: 4
       search-count: 12
   tts:
+    edge:
+      enabled: ${ARELORE_TTS_EDGE_ENABLED:true}
+      python: ${ARELORE_TTS_EDGE_PYTHON:python}
+      # al-basic-components/local/edge-tts/speak.py（会 ffmpeg 再压成小体积 mp3）
+      script: ${ARELORE_TTS_EDGE_SCRIPT:C:/Workspaces/person/al-basic-components/local/edge-tts/speak.py}
+      # 中文释义朗读：晓晓（温柔女声）
+      voice: ${ARELORE_TTS_EDGE_VOICE:zh-CN-XiaoxiaoNeural}
+      bitrate: ${ARELORE_TTS_EDGE_BITRATE:32k}
+      sample-rate: ${ARELORE_TTS_EDGE_SAMPLE_RATE:16000}
+      timeout-seconds: ${ARELORE_TTS_EDGE_TIMEOUT_SECONDS:120}
+      max-attempts: ${ARELORE_TTS_EDGE_MAX_ATTEMPTS:3}
+      retry-delay-ms: ${ARELORE_TTS_EDGE_RETRY_DELAY_MS:1500}
+      # 同时跑 speak.py 的上限（在线接口可高于本机 Qwen）
+      in-flight: ${ARELORE_TTS_EDGE_IN_FLIGHT:8}
+      # 批量任务线程数
+      parallelism: ${ARELORE_TTS_EDGE_PARALLELISM:8}
+    # 保留本机 Qwen3 配置（当前释义语音已改走 edge，不再生效）
     qwen:
-      enabled: ${ARELORE_TTS_QWEN_ENABLED:true}
-      # 用 127.0.0.1，避免 localhost→IPv6 与 uvicorn 不一致
+      enabled: ${ARELORE_TTS_QWEN_ENABLED:false}
       base-url: ${ARELORE_TTS_QWEN_BASE_URL:http://127.0.0.1:8880}
       model: ${ARELORE_TTS_QWEN_MODEL:qwen3-tts}
-      # Serena 音色；speed 建议 1.0（>1 易引入加速伪影/底噪）
       voice: ${ARELORE_TTS_QWEN_VOICE:Serena}
       speed: ${ARELORE_TTS_QWEN_SPEED:1.0}
       response-format: mp3
-      # 单次 HTTP 读超时（仅覆盖实际合成，不含客户端排队）；默认 30 分钟
       timeout-seconds: ${ARELORE_TTS_QWEN_TIMEOUT_SECONDS:1800}
-      # 读超时 / 连接重置等瞬时失败时的总尝试次数（含首次）
-      max-attempts: ${ARELORE_TTS_QWEN_MAX_ATTEMPTS:2}
+      max-attempts: ${ARELORE_TTS_QWEN_MAX_ATTEMPTS:1}
       retry-delay-ms: ${ARELORE_TTS_QWEN_RETRY_DELAY_MS:3000}
-      # 同时对 TTS 发 HTTP 的上限，应对齐服务端 TTS_MAX_CONCURRENT（默认 1）
-      in-flight: ${ARELORE_TTS_QWEN_IN_FLIGHT:1}
-      # 批量任务线程数：>1 时可在「写库」与「下一词排队等 TTS」之间重叠
-      parallelism: ${ARELORE_TTS_QWEN_PARALLELISM:1}
+      in-flight: ${ARELORE_TTS_QWEN_IN_FLIGHT:4}
+      parallelism: ${ARELORE_TTS_QWEN_PARALLELISM:4}
 
 logging:
   level:

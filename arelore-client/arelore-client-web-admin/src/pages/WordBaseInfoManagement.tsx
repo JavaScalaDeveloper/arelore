@@ -50,13 +50,19 @@ function pictureUrls(extInfo?: string): string[] {
 
 function StoredPicture({ item, width, height }: { item: PictureRef; width: number; height: number }) {
   const [src, setSrc] = useState(item.fileId ? '' : item.url || '');
+  const [missing, setMissing] = useState(false);
+  const [loading, setLoading] = useState(!!item.fileId);
 
   useEffect(() => {
+    setMissing(false);
     if (!item.fileId) {
       setSrc(item.url || '');
+      setLoading(false);
+      setMissing(!item.url);
       return undefined;
     }
     let cancel = false;
+    setLoading(true);
     adminApi
       .getWordBaseInfoPictureContent({ id: item.fileId })
       .then((res) => {
@@ -66,13 +72,23 @@ function StoredPicture({ item, width, height }: { item: PictureRef; width: numbe
         }
         if (data?.base64Data) {
           setSrc(`data:${data.contentType || 'image/jpeg'};base64,${data.base64Data}`);
+          setMissing(false);
           return;
         }
-        setSrc(item.url || '');
+        const fallback = item.url || '';
+        setSrc(fallback);
+        setMissing(!fallback);
       })
       .catch(() => {
         if (!cancel) {
-          setSrc(item.url || '');
+          const fallback = item.url || '';
+          setSrc(fallback);
+          setMissing(!fallback);
+        }
+      })
+      .finally(() => {
+        if (!cancel) {
+          setLoading(false);
         }
       });
     return () => {
@@ -80,8 +96,24 @@ function StoredPicture({ item, width, height }: { item: PictureRef; width: numbe
     };
   }, [item.fileId, item.url]);
 
+  if (loading && !src) {
+    return (
+      <div
+        style={{
+          width,
+          height,
+          background: '#f5f5f5',
+          borderRadius: 4,
+        }}
+      />
+    );
+  }
   if (!src) {
-    return null;
+    return missing ? (
+      <Tag style={{ margin: 0, fontSize: 11 }} color="default">
+        图缺失
+      </Tag>
+    ) : null;
   }
   return <Image src={src} width={width} height={height} style={{ objectFit: 'cover' }} />;
 }
@@ -232,11 +264,13 @@ function MeaningAudioPreview({
 }) {
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [missing, setMissing] = useState(false);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const urlRef = React.useRef('');
 
   useEffect(() => {
     urlRef.current = '';
+    setMissing(false);
     try {
       audioRef.current?.pause();
     } catch {
@@ -259,6 +293,14 @@ function MeaningAudioPreview({
 
   if (!fileId) {
     return compact ? <Tag>无语音</Tag> : <Tag>尚未生成释义语音</Tag>;
+  }
+
+  if (missing) {
+    return (
+      <Tag color="default" title="二进制已删，可重新生成释义语音">
+        语音失效
+      </Tag>
+    );
   }
 
   const stop = () => {
@@ -285,7 +327,7 @@ function MeaningAudioPreview({
         const res = await adminApi.getWordBaseInfoPictureContent({ id: fileId });
         const data = res?.data;
         if (!data?.base64Data) {
-          message.error('语音文件不存在');
+          setMissing(true);
           return;
         }
         src = `data:${data.contentType || 'audio/mpeg'};base64,${data.base64Data}`;
@@ -298,14 +340,18 @@ function MeaningAudioPreview({
       audio.onended = () => setPlaying(false);
       audio.onerror = () => {
         setPlaying(false);
-        message.error('语音播放失败');
+        setMissing(true);
       };
       audio.src = src;
       await audio.play();
       setPlaying(true);
     } catch (e: any) {
-      if (!e?.notified) {
-        message.error(e?.message || '加载语音失败');
+      const msg = String(e?.message || '');
+      if (msg.includes('文件不存在')) {
+        // 二进制已删：行内标失效，不弹全局 toast（接口已 skipErrorToast）
+        setMissing(true);
+      } else {
+        message.warning(msg || '加载语音失败');
       }
       setPlaying(false);
     } finally {
@@ -592,7 +638,7 @@ const WordBaseInfoManagement: React.FC = () => {
       : '未选标签';
     Modal.confirm({
       title: '批量生成释义语音',
-      content: `按当前筛选（标签：${tagText}）调用本机 Qwen3-TTS（localhost:8880）生成整段释义语音，写入 common_binary_file。已有 fileId 且二进制仍存在、释义未变则跳过；文件已删会重新生成。失败词会打「释义语音失败」标签，可筛该标签后重跑。请先确保本地 TTS 服务已启动。词量大时可能很久。`,
+      content: `按当前筛选（标签：${tagText}）调用 Edge TTS（微软在线 + 本地 32k 压缩）生成整段释义语音，写入 common_binary_file。已有 fileId 且二进制仍存在、释义未变则跳过；文件已删会重新生成。失败词会打「释义语音失败」标签，可筛该标签后重跑。需本机已安装 edge-tts / imageio-ffmpeg，且能访问微软语音服务。`,
       okText: '开始生成',
       cancelText: '取消',
       onOk: async () => {
@@ -607,7 +653,7 @@ const WordBaseInfoManagement: React.FC = () => {
           });
           const d = res.data || {};
           message.success(
-            `释义语音完成（${d.voice || 'Qwen3'}）：扫描 ${d.scanned ?? 0}，写入 ${d.filled ?? 0}，失败 ${d.failed ?? 0}，跳过 ${d.skipped ?? 0}`
+            `释义语音完成（${d.voice || 'EdgeTTS'}）：扫描 ${d.scanned ?? 0}，写入 ${d.filled ?? 0}，失败 ${d.failed ?? 0}，跳过 ${d.skipped ?? 0}`
           );
           loadData({ pageNum: 1, filters: values });
         } catch (e: any) {

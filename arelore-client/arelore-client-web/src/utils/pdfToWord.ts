@@ -23,7 +23,7 @@ export async function extractTextFromPdf(data: ArrayBuffer): Promise<string> {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
     const line = content.items
-      .map((item) => ('str' in item && typeof item.str === 'string' ? item.str : ''))
+      .map((item: { str?: unknown }) => (typeof item.str === 'string' ? item.str : ''))
       .join(' ')
       .replace(/\s+/g, ' ')
       .trim();
@@ -58,7 +58,8 @@ export async function buildDocxBlobFromPlainText(
   title?: string
 ): Promise<Blob> {
   const blocks = splitBlocks(text);
-  const children: Paragraph[] = [];
+  // docx 的 Paragraph 在部分声明下是值/命名空间，不能直接当类型用
+  const children: InstanceType<typeof Paragraph>[] = [];
 
   if (title?.trim()) {
     children.push(

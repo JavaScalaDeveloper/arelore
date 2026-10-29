@@ -222,7 +222,9 @@ const CommonBinaryFileManagement: React.FC = () => {
             options={[
               { value: 'PIXABAY', label: 'PIXABAY' },
               { value: 'YOUDAO', label: 'YOUDAO' },
+              { value: 'EDGE_TTS', label: 'EDGE_TTS' },
               { value: 'QWEN3_TTS', label: 'QWEN3_TTS' },
+
             ]}
           />
         </Form.Item>
@@ -312,8 +314,9 @@ const CommonBinaryFileManagement: React.FC = () => {
           pageSize,
           total,
           showSizeChanger: true,
+          pageSizeOptions: ['20', '50', '100', '200', '500', '1000'],
           showTotal: (t) => `共 ${t} 条`,
-          onChange: (p, ps) => loadData({ pageNum: p, pageSize: ps }),
+          onChange: (p, ps) => loadData({ pageNum: p, pageSize: ps || DEFAULT_PAGE_SIZE }),
         }}
         columns={[
           { title: 'ID', dataIndex: 'id', width: 90 },

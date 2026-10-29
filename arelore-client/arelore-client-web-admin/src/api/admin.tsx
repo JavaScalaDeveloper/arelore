@@ -149,7 +149,7 @@ export const adminApi = {
     picturesPerWord?: number;
   }): Promise<ApiResponse<any>> =>
     request.post('/admin/word/base-info/batch-search-pictures', data || {}, { timeout: 60 * 60 * 1000 }),
-  /** 批量用本地 Qwen3-TTS 生成释义语音；force=true 强制重生成 */
+  /** 批量用 Edge TTS 生成释义语音；force=true 强制重生成 */
   batchGenerateWordBaseInfoMeaningAudio: (data?: {
     languageCode?: string;
     word?: string;
@@ -166,8 +166,9 @@ export const adminApi = {
     pictureUrls: string[];
     pictureSource?: string;
   }): Promise<ApiResponse<any>> => request.post('/admin/word/base-info/adopt-pictures', data),
+  /** 拉取已落库配图/语音；缺文件属常见情况，默认不弹全局「文件不存在」toast */
   getWordBaseInfoPictureContent: (data: { id: number }): Promise<ApiResponse<any>> =>
-    request.post('/admin/word/base-info/picture-content', data),
+    request.post('/admin/word/base-info/picture-content', data, { skipErrorToast: true } as any),
   /** 从词条同步语种+词形（不查有道） */
   syncWordBaseInfo: (data?: any): Promise<ApiResponse<any>> =>
     // 含有道补释义，词量大时可能超过半小时

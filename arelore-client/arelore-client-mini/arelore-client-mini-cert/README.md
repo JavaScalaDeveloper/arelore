@@ -20,7 +20,9 @@
 |------|-----|
 | `dev` / `pre` | `http://localhost:8081/api` |
 | `test` | `http://test.arelore.com:8281/api` |
-| `prd` | `http://www.arelore.com:8081/api` |
+| `prd`（正式提审/上线） | `https://www.arelore.com/api`（HTTPS，无端口） |
+
+多环境原理与发布检查清单见上级 [README.md](../README.md)。
 
 推荐用 `start.sh`（会 `npm install`、构建，并后台跑 `dev:weapp`）：
 

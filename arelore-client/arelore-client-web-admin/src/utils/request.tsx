@@ -49,6 +49,15 @@ function rejectWithToast(error: any): Promise<never> {
   return Promise.reject(new ApiRequestError(msg));
 }
 
+/** 业务可预期失败（如二进制已删）不弹全局 toast，仍抛 ApiRequestError */
+function rejectSilent(msg: string): Promise<never> {
+  return Promise.reject(new ApiRequestError(msg || '请求失败'));
+}
+
+function shouldSkipErrorToast(config: any): boolean {
+  return !!(config?.skipErrorToast || config?.headers?.['X-Skip-Error-Toast']);
+}
+
 const request: AxiosInstance = axios.create({
   baseURL: process.env.REACT_APP_API_BASE_URL,
   timeout: 60000,
@@ -83,7 +92,11 @@ request.interceptors.response.use(
         localStorage.removeItem('adminToken');
         redirectLogin();
       }
-      return rejectWithToast(new Error(res.message || '请求失败'));
+      const msg = res.message || '请求失败';
+      if (shouldSkipErrorToast(response.config)) {
+        return rejectSilent(msg);
+      }
+      return rejectWithToast(new Error(msg));
     }
 
     return res;
@@ -92,6 +105,9 @@ request.interceptors.response.use(
     if (error?.response?.status === 401) {
       localStorage.removeItem('adminToken');
       redirectLogin();
+    }
+    if (shouldSkipErrorToast(error?.config)) {
+      return rejectSilent(extractErrorMessage(error));
     }
     return rejectWithToast(error);
   }

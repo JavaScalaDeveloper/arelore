@@ -1,12 +1,14 @@
-/.idea/
+.idea/
 .DS_Store
 **/.DS_Store
+# 仓库统一日志目录（前后端 start.sh / logback 均写入此处）
 /logs/
+# 历史分散日志目录（兼容旧部署残留）
+/arelore-client/logs/
+**/arelore-server-*/logs/
 # 本地 SMTP/密钥，勿提交
 **/application-local.yml
 **/application-secret.yml
-# 客户端各模块 start.sh 统一输出目录
-/arelore-client/logs/
 # 历史遗留：模块根目录下的 app.log / app.pid
 **/arelore-client/**/app.log
 **/arelore-client/**/app.pid

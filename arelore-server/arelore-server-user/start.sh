@@ -6,10 +6,10 @@
 # 同机多环境端口约定（无网络隔离时靠端口隔离）：
 #
 #   环境   user-api  user-web  admin-api  admin-web
-#   prd    8081      3000      8082       3001
-#   pre    8181      3100      8182       3101
-#   test   8281      3200      8282       3201
-#   dev    8381      3300      8382       3301
+#   prd    8081      3000      8082       3101
+#   pre    8181      3100      8182       3111
+#   test   8281      3001      8282       3201
+#   dev    8081      3300      8082       3301   （配置同 test，端口同 prd 便于本地联调）
 #
 # 使用方法：
 #   ./start.sh [环境]              # 启动，环境：dev/test/pre/prd（默认 test）
@@ -22,16 +22,20 @@
 # ==============================================================================
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${APP_DIR}/../.." && pwd)"
 APP_NAME="arelore-server-user"
-LOG_DIR="${APP_DIR}/logs"
+LOG_DIR="${REPO_ROOT}/logs"
+LOG_RETENTION_DAYS="${LOG_RETENTION_DAYS:-30}"
 ENVIRONMENT="test"
 
-APPLICATION_DEV="application.yml"
+APPLICATION_DEV="application-dev.yml"
 APPLICATION_TEST="application-test.yml"
 APPLICATION_PRE="application-pre.yml"
 APPLICATION_PRD="application-prd.yml"
 
 mkdir -p "$LOG_DIR"
+# 清理超过保留天数的日志文件（保留 .pid）；logback 本身也有 maxHistory=30
+find "$LOG_DIR" -type f \( -name '*.log' -o -name '*.log-*' \) -mtime +"${LOG_RETENTION_DAYS}" -delete 2>/dev/null || true
 
 resolve_env() {
     local env_param="$1"
@@ -53,7 +57,7 @@ apply_env_ports() {
         prd) PORT=8081 ;;
         pre) PORT=8181 ;;
         test) PORT=8281 ;;
-        dev) PORT=8381 ;;
+        dev) PORT=8081 ;;
         *) PORT=8281 ;;
     esac
     LOG_FILE="${LOG_DIR}/${APP_NAME}-${ENVIRONMENT}.log"
@@ -142,7 +146,9 @@ start_app() {
     echo "Profile: $ACTIVE_PROFILE"
     echo "日志: $LOG_FILE"
 
-    nohup java -jar "$JAR_FILE" \
+    # 导出 LOG_DIR 供 logback-spring.xml 写入仓库根 logs/
+    export LOG_DIR
+    nohup java -DLOG_DIR="$LOG_DIR" -jar "$JAR_FILE" \
         --spring.profiles.active="$ACTIVE_PROFILE" \
         --server.port="$PORT" \
         > "$LOG_FILE" 2>&1 &
@@ -273,7 +279,7 @@ show_help() {
 命令: start | stop | restart | status | logs | help
 环境: prd | pre | test | dev（默认 test）
 
-端口: prd=8081 pre=8181 test=8281 dev=8381
+端口: prd=8081 pre=8181 test=8281 dev=8081（application-dev.yml，配置同 test）
 
 示例:
   $0 test

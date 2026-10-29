@@ -9,10 +9,13 @@ set -euo pipefail
 ENV_NAME="${1:-dev}"
 
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
-CLIENT_ROOT="$(cd "${APP_DIR}/../.." && pwd)"
-LOG_DIR="${CLIENT_ROOT}/logs"
+REPO_ROOT="$(cd "${APP_DIR}/../../.." && pwd)"
+LOG_DIR="${REPO_ROOT}/logs"
+LOG_RETENTION_DAYS="${LOG_RETENTION_DAYS:-30}"
 APP_NAME="arelore-client-mini-cert"
 mkdir -p "$LOG_DIR"
+# 清理超过保留天数的日志文件（保留 .pid）
+find "$LOG_DIR" -type f \( -name '*.log' -o -name '*.log-*' \) -mtime +"${LOG_RETENTION_DAYS}" -delete 2>/dev/null || true
 
 LOG_FILE="${LOG_DIR}/${APP_NAME}-${ENV_NAME}.log"
 PID_FILE="${LOG_DIR}/${APP_NAME}-${ENV_NAME}.pid"
@@ -32,7 +35,8 @@ case "$ENV_NAME" in
     API_BASE_URL="http://localhost:8081/api"
     ;;
   prd)
-    API_BASE_URL="http://www.arelore.com:8081/api"
+    # 正式版：微信 request 合法域名须 HTTPS，且不能带端口
+    API_BASE_URL="https://www.arelore.com/api"
     ;;
   *)
     # 允许直接传入自定义 baseUrl，如：./start.sh "http://1.2.3.4:8081/api"

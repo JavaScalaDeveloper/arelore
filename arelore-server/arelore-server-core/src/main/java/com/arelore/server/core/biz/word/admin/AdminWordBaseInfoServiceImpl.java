@@ -23,7 +23,7 @@ import com.arelore.server.core.biz.word.admin.mapper.AdminWordBaseInfoMapper;
 import com.arelore.server.core.biz.word.admin.mapper.AdminWordEntryMapper;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordPictureContentResponse;
 import com.arelore.server.core.biz.word.admin.support.MeaningSpeechTextBuilder;
-import com.arelore.server.core.biz.word.admin.support.Qwen3TtsClient;
+import com.arelore.server.core.biz.word.admin.support.EdgeTtsClient;
 import com.arelore.server.core.biz.word.admin.support.StockImageClient;
 import com.arelore.server.core.biz.word.admin.support.WordPictureBinaryStore;
 import com.arelore.server.core.biz.word.admin.support.YoudaoDictClient;
@@ -67,7 +67,7 @@ public class AdminWordBaseInfoServiceImpl
     private final AdminWordBookService bookService;
     private final StockImageClient stockImageClient;
     private final WordPictureBinaryStore pictureBinaryStore;
-    private final Qwen3TtsClient qwen3TtsClient;
+    private final EdgeTtsClient edgeTtsClient;
     private final int ttsParallelism;
 
     public AdminWordBaseInfoServiceImpl(
@@ -76,15 +76,15 @@ public class AdminWordBaseInfoServiceImpl
         AdminWordBookService bookService,
         StockImageClient stockImageClient,
         WordPictureBinaryStore pictureBinaryStore,
-        Qwen3TtsClient qwen3TtsClient,
-        @Value("${arelore.tts.qwen.parallelism:2}") int ttsParallelism
+        EdgeTtsClient edgeTtsClient,
+        @Value("${arelore.tts.edge.parallelism:4}") int ttsParallelism
     ) {
         this.mapper = mapper;
         this.entryMapper = entryMapper;
         this.bookService = bookService;
         this.stockImageClient = stockImageClient;
         this.pictureBinaryStore = pictureBinaryStore;
-        this.qwen3TtsClient = qwen3TtsClient;
+        this.edgeTtsClient = edgeTtsClient;
         this.ttsParallelism = ttsParallelism > 0 ? Math.min(8, ttsParallelism) : DEFAULT_TTS_PARALLELISM;
     }
 
@@ -863,7 +863,7 @@ public class AdminWordBaseInfoServiceImpl
         }
     }
 
-    /** 有道：有图则写入并直接确认；释义/音标等一并落库；无图但有释义仍保存，计 failed */
+    /** 有道：有图则写入并直接确认；释义/音标/例句/词组等一并落库；无图但有词典内容仍保存，计 failed */
     private boolean fillPicturesFromYoudao(
         AdminWordBaseInfo row,
         JSONObject ext,
@@ -875,7 +875,16 @@ public class AdminWordBaseInfoServiceImpl
         boolean hasMeaning = meanings != null && !meanings.isEmpty();
         boolean hasPhone = StringUtils.hasText(slim.getString("ukphone"))
             || StringUtils.hasText(slim.getString("usphone"));
-        if (!hasPic && !hasMeaning && !hasPhone) {
+        boolean slimHasExample = slim.getJSONObject("sentence") != null
+            && slim.getJSONObject("sentence").getJSONArray("sentences") != null
+            && !slim.getJSONObject("sentence").getJSONArray("sentences").isEmpty();
+        boolean slimHasPhrase = slim.getJSONArray("phrases") != null && !slim.getJSONArray("phrases").isEmpty();
+        boolean slimHasSynonym = slim.getJSONArray("synonyms") != null && !slim.getJSONArray("synonyms").isEmpty();
+        boolean slimHasRelated = slim.getJSONArray("relatedWords") != null
+            && !slim.getJSONArray("relatedWords").isEmpty();
+        boolean slimHasEtym = StringUtils.hasText(slim.getString("etym"));
+        if (!hasPic && !hasMeaning && !hasPhone && !slimHasExample && !slimHasPhrase
+            && !slimHasSynonym && !slimHasRelated && !slimHasEtym) {
             result.setFailed(result.getFailed() + 1);
             return false;
         }
@@ -886,6 +895,7 @@ public class AdminWordBaseInfoServiceImpl
             ext.put("pictureConfirmedAt", ChinaTime.nowDateTime());
         }
         ext.put("source", "YOUDAO");
+        // 释义/音标：有则覆盖（搜图路径本身就是有道刷新）
         if (hasMeaning) {
             ext.put("meanings", meanings);
         }
@@ -894,6 +904,22 @@ public class AdminWordBaseInfoServiceImpl
         }
         if (StringUtils.hasText(slim.getString("usphone"))) {
             ext.put("usphone", slim.getString("usphone"));
+        }
+        // 例句等：本地为空时补写，避免冲掉已有手工数据
+        if (slimHasExample && !hasExamples(ext)) {
+            ext.put("sentence", slim.getJSONObject("sentence"));
+        }
+        if (slimHasPhrase && !hasPhrases(ext)) {
+            ext.put("phrases", slim.getJSONArray("phrases"));
+        }
+        if (slimHasSynonym && (ext.getJSONArray("synonyms") == null || ext.getJSONArray("synonyms").isEmpty())) {
+            ext.put("synonyms", slim.getJSONArray("synonyms"));
+        }
+        if (slimHasRelated && (ext.getJSONArray("relatedWords") == null || ext.getJSONArray("relatedWords").isEmpty())) {
+            ext.put("relatedWords", slim.getJSONArray("relatedWords"));
+        }
+        if (slimHasEtym && !StringUtils.hasText(ext.getString("etym"))) {
+            ext.put("etym", slim.getString("etym"));
         }
         ext.remove("syncError");
         ext.remove("pictureCandidates");
@@ -904,7 +930,7 @@ public class AdminWordBaseInfoServiceImpl
         if (hasPic) {
             result.setFilled(result.getFilled() + 1);
         } else {
-            // 无图但已写入释义/音标
+            // 无图但已写入释义/音标/例句等
             result.setFailed(result.getFailed() + 1);
         }
         return true;
@@ -986,8 +1012,9 @@ public class AdminWordBaseInfoServiceImpl
     public AdminWordBaseInfoBatchMeaningAudioResponse batchGenerateMeaningAudio(
         AdminWordBaseInfoBatchMeaningAudioRequest request
     ) {
-        if (!qwen3TtsClient.isEnabled()) {
-            throw new IllegalStateException("本地 Qwen3-TTS 未启用，请配置 arelore.tts.qwen.base-url 并启动服务");
+        if (!edgeTtsClient.isEnabled()) {
+            throw new IllegalStateException(
+                "Edge TTS 未启用：请安装 edge-tts/imageio-ffmpeg，并配置 arelore.tts.edge.script 指向 speak.py");
         }
         AdminWordBaseInfoBatchMeaningAudioRequest req =
             request == null ? new AdminWordBaseInfoBatchMeaningAudioRequest() : request;
@@ -998,8 +1025,8 @@ public class AdminWordBaseInfoServiceImpl
         int parallelism = resolveTtsParallelism(req.getParallelism());
 
         AdminWordBaseInfoBatchMeaningAudioResponse result = new AdminWordBaseInfoBatchMeaningAudioResponse();
-        result.setSource("QWEN3_TTS");
-        result.setVoice(qwen3TtsClient.getVoice());
+        result.setSource("EDGE_TTS");
+        result.setVoice(edgeTtsClient.getVoice());
         result.setParallelism(parallelism);
 
         AtomicInteger scanned = new AtomicInteger();
@@ -1114,8 +1141,8 @@ public class AdminWordBaseInfoServiceImpl
         if (result.getScanned() == 0) {
             result.setNote("没有需要生成释义语音的单词");
         } else {
-            result.setNote("已按当前筛选并行生成释义语音（parallelism=" + parallelism
-                + "）；TTS HTTP 客户端限流 in-flight=1，与写库重叠。释义未变则跳过（force=true 可强制重生成）。"
+            result.setNote("已按当前筛选用 Edge TTS 并行生成释义语音（parallelism=" + parallelism
+                + "，32k/16kHz 压缩）。释义未变则跳过（force=true 可强制重生成）。"
                 + "失败词已打标签 meaning_audio_error，可筛该标签后重跑。");
         }
         return result;
@@ -1157,17 +1184,27 @@ public class AdminWordBaseInfoServiceImpl
             return false;
         }
 
-        byte[] mp3 = qwen3TtsClient.synthesize(speechText);
-        JSONObject saved = pictureBinaryStore.saveBytes(mp3, "audio/mpeg", "QWEN3_TTS");
+        byte[] mp3 = edgeTtsClient.synthesize(speechText);
+        // 溯源：把 base_info.id（及词形）写入 common_binary_file.ext_json，便于按 id 反查
+        JSONObject binaryExt = new JSONObject();
+        binaryExt.put("wordBaseInfoId", row.getId());
+        if (StringUtils.hasText(row.getWord())) {
+            binaryExt.put("word", row.getWord().trim());
+        }
+        if (StringUtils.hasText(row.getLanguageCode())) {
+            binaryExt.put("languageCode", row.getLanguageCode().trim());
+        }
+        JSONObject saved = pictureBinaryStore.saveBytes(mp3, "audio/mpeg", "EDGE_TTS", binaryExt);
         Long newFileId = saved.getLong("fileId");
 
         JSONObject meaningAudio = new JSONObject();
         meaningAudio.put("fileId", newFileId);
         meaningAudio.put("fileHash", saved.getString("fileHash"));
         meaningAudio.put("speechHash", speechHash);
-        meaningAudio.put("source", "QWEN3_TTS");
-        meaningAudio.put("voice", qwen3TtsClient.getVoice());
-        meaningAudio.put("speed", qwen3TtsClient.getSpeed());
+        meaningAudio.put("source", "EDGE_TTS");
+        meaningAudio.put("voice", edgeTtsClient.getVoice());
+        meaningAudio.put("bitrate", edgeTtsClient.getBitrate());
+        meaningAudio.put("sampleRate", edgeTtsClient.getSampleRate());
         meaningAudio.put("contentType", "audio/mpeg");
         meaningAudio.put("updatedAt", ChinaTime.nowDateTime());
         ext.put("meaningAudio", meaningAudio);

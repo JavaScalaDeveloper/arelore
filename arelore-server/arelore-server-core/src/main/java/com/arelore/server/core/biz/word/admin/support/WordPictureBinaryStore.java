@@ -25,7 +25,8 @@ import java.util.Set;
 
 /**
  * 单词配图/语音二进制：按内容哈希去重写入 common_binary_file。
- * ext_json 含 contentType、source、fileSize（字节）、refCount；引用减到 0 则物理删除，不改表结构。
+ * ext_json 含 contentType、source、fileSize、refCount，以及可选溯源字段（如 wordBaseInfoId）；
+ * 引用减到 0 则物理删除，不改表结构。
  */
 @Component
 public class WordPictureBinaryStore {
@@ -51,7 +52,7 @@ public class WordPictureBinaryStore {
         byte[] data = download(url.trim());
         String contentType = detectContentType(data);
         byte[] hash = sha256(data);
-        Long fileId = insertOrIncrease(hash, data, contentType, source);
+        Long fileId = insertOrIncrease(hash, data, contentType, source, null);
         JSONObject item = new JSONObject();
         item.put("fileId", fileId);
         item.put("fileHash", toHex(hash));
@@ -69,6 +70,14 @@ public class WordPictureBinaryStore {
      * 返回含 fileId、fileHash、fileSize、contentType、source 的对象。
      */
     public JSONObject saveBytes(byte[] data, String contentType, String source) throws Exception {
+        return saveBytes(data, contentType, source, null);
+    }
+
+    /**
+     * @param extraExt 合并进 common_binary_file.ext_json（如 wordBaseInfoId 溯源），可为 null
+     */
+    public JSONObject saveBytes(byte[] data, String contentType, String source, JSONObject extraExt)
+        throws Exception {
         if (data == null || data.length == 0) {
             throw new IllegalArgumentException("文件内容为空");
         }
@@ -77,13 +86,16 @@ public class WordPictureBinaryStore {
         }
         String type = StringUtils.hasText(contentType) ? contentType.trim() : detectContentType(data);
         byte[] hash = sha256(data);
-        Long fileId = insertOrIncrease(hash, data, type, source);
+        Long fileId = insertOrIncrease(hash, data, type, source, extraExt);
         JSONObject item = new JSONObject();
         item.put("fileId", fileId);
         item.put("fileHash", toHex(hash));
         item.put("fileSize", data.length);
         item.put("contentType", type);
         item.put("source", StringUtils.hasText(source) ? source.trim().toUpperCase() : "BINARY");
+        if (extraExt != null && extraExt.getLong("wordBaseInfoId") != null) {
+            item.put("wordBaseInfoId", extraExt.getLong("wordBaseInfoId"));
+        }
         return item;
     }
 
@@ -178,17 +190,23 @@ public class WordPictureBinaryStore {
         return ids;
     }
 
-    private Long insertOrIncrease(byte[] hash, byte[] data, String contentType, String source) {
+    private Long insertOrIncrease(
+        byte[] hash,
+        byte[] data,
+        String contentType,
+        String source,
+        JSONObject extraExt
+    ) {
         int fileSize = data == null ? 0 : data.length;
         CommonBinaryFile existing = fileMapper.selectOne(new LambdaQueryWrapper<CommonBinaryFile>()
             .select(CommonBinaryFile::getId)
             .eq(CommonBinaryFile::getHashValue, hash)
             .last("limit 1"));
         if (existing != null) {
-            // 引用 +1，并补写/刷新 fileSize、contentType（兼容历史缺 size 的行）
+            // 引用 +1，并补写/刷新 fileSize、contentType、溯源 id（兼容历史缺 size 的行）
             fileMapper.update(null, new LambdaUpdateWrapper<CommonBinaryFile>()
                 .eq(CommonBinaryFile::getId, existing.getId())
-                .setSql(bumpRefAndMetaSql(fileSize, contentType, source))
+                .setSql(bumpRefAndMetaSql(fileSize, contentType, source, extraExt))
                 .set(CommonBinaryFile::getStatus, 1));
             return existing.getId();
         }
@@ -204,6 +222,7 @@ public class WordPictureBinaryStore {
         ext.put("source", StringUtils.hasText(source) ? source.trim().toUpperCase() : "PIXABAY");
         ext.put("fileSize", fileSize);
         ext.put("refCount", 1);
+        mergeExtraExt(ext, extraExt);
         row.setExtJson(ext.toJSONString());
         try {
             fileMapper.insert(row);
@@ -218,9 +237,25 @@ public class WordPictureBinaryStore {
             }
             fileMapper.update(null, new LambdaUpdateWrapper<CommonBinaryFile>()
                 .eq(CommonBinaryFile::getId, again.getId())
-                .setSql(bumpRefAndMetaSql(fileSize, contentType, source))
+                .setSql(bumpRefAndMetaSql(fileSize, contentType, source, extraExt))
                 .set(CommonBinaryFile::getStatus, 1));
             return again.getId();
+        }
+    }
+
+    private static void mergeExtraExt(JSONObject target, JSONObject extraExt) {
+        if (target == null || extraExt == null || extraExt.isEmpty()) {
+            return;
+        }
+        for (String key : extraExt.keySet()) {
+            if (!StringUtils.hasText(key) || extraExt.get(key) == null) {
+                continue;
+            }
+            // 保留内部计数/元数据键不被覆盖
+            if ("refCount".equals(key) || "fileSize".equals(key) || "contentType".equals(key) || "source".equals(key)) {
+                continue;
+            }
+            target.put(key, extraExt.get(key));
         }
     }
 
@@ -232,16 +267,36 @@ public class WordPictureBinaryStore {
     }
 
     /**
-     * 引用 +1，并写入 fileSize / contentType / source（字节数便于按大小排查占库）。
+     * 引用 +1，并写入 fileSize / contentType / source / 可选溯源字段。
      */
-    private static String bumpRefAndMetaSql(int fileSize, String contentType, String source) {
+    private static String bumpRefAndMetaSql(
+        int fileSize,
+        String contentType,
+        String source,
+        JSONObject extraExt
+    ) {
         String type = StringUtils.hasText(contentType) ? contentType.trim().replace("'", "''") : "application/octet-stream";
         String src = StringUtils.hasText(source) ? source.trim().toUpperCase().replace("'", "''") : "BINARY";
-        return "ext_json = JSON_SET(IFNULL(ext_json, '{}'), "
-            + "'$.refCount', CAST(IFNULL(JSON_EXTRACT(ext_json, '$.refCount'), 1) AS SIGNED) + 1, "
-            + "'$.fileSize', " + Math.max(0, fileSize) + ", "
-            + "'$.contentType', '" + type + "', "
-            + "'$.source', '" + src + "')";
+        StringBuilder sql = new StringBuilder();
+        sql.append("ext_json = JSON_SET(IFNULL(ext_json, '{}'), ")
+            .append("'$.refCount', CAST(IFNULL(JSON_EXTRACT(ext_json, '$.refCount'), 1) AS SIGNED) + 1, ")
+            .append("'$.fileSize', ").append(Math.max(0, fileSize)).append(", ")
+            .append("'$.contentType', '").append(type).append("', ")
+            .append("'$.source', '").append(src).append("'");
+        Long wordBaseInfoId = extraExt == null ? null : extraExt.getLong("wordBaseInfoId");
+        if (wordBaseInfoId != null) {
+            sql.append(", '$.wordBaseInfoId', ").append(wordBaseInfoId);
+        }
+        String word = extraExt == null ? null : extraExt.getString("word");
+        if (StringUtils.hasText(word)) {
+            String safe = word.trim().replace("\\", "\\\\").replace("'", "''");
+            if (safe.length() > 128) {
+                safe = safe.substring(0, 128);
+            }
+            sql.append(", '$.word', '").append(safe).append("'");
+        }
+        sql.append(")");
+        return sql.toString();
     }
 
     private static byte[] download(String url) throws Exception {

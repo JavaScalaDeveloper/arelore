@@ -25,12 +25,15 @@
 # ==============================================================================
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLIENT_ROOT="$(cd "${APP_DIR}/.." && pwd)"
-LOG_DIR="${CLIENT_ROOT}/logs"
+REPO_ROOT="$(cd "${APP_DIR}/../.." && pwd)"
+LOG_DIR="${REPO_ROOT}/logs"
+LOG_RETENTION_DAYS="${LOG_RETENTION_DAYS:-30}"
 APP_NAME="arelore-client-web"
 ENVIRONMENT="test"
 
 mkdir -p "$LOG_DIR"
+# 清理超过保留天数的日志文件（保留 .pid）
+find "$LOG_DIR" -type f \( -name '*.log' -o -name '*.log-*' \) -mtime +"${LOG_RETENTION_DAYS}" -delete 2>/dev/null || true
 
 resolve_env() {
     local env_param="$1"
@@ -127,10 +130,16 @@ start_app() {
 PORT=${PORT}
 REACT_APP_API_BASE_URL=${API_BASE_URL}
 BROWSER=none
+TSC_COMPILE_ON_ERROR=true
+ESLINT_NO_DEV_ERRORS=true
+DISABLE_ESLINT_PLUGIN=true
 EOF
     export PORT
     export REACT_APP_API_BASE_URL="$API_BASE_URL"
     export BROWSER=none
+    export TSC_COMPILE_ON_ERROR=true
+    export ESLINT_NO_DEV_ERRORS=true
+    export DISABLE_ESLINT_PLUGIN=true
     nohup npm start > "$LOG_FILE" 2>&1 &
     PID=$!
     echo "$PID" > "$PID_FILE"

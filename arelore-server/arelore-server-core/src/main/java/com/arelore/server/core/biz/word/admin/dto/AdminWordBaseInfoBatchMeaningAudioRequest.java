@@ -5,7 +5,8 @@ import lombok.Data;
 import java.util.List;
 
 /**
- * 批量用本地 Qwen3-TTS 生成释义语音，写入 common_binary_file，并回写 base_info.ext_info.meaningAudio。
+ * 批量用 Edge TTS（微软在线 + 本地压缩）生成释义语音，
+ * 写入 common_binary_file，并回写 base_info.ext_info.meaningAudio。
  */
 @Data
 public class AdminWordBaseInfoBatchMeaningAudioRequest {
@@ -29,9 +30,8 @@ public class AdminWordBaseInfoBatchMeaningAudioRequest {
     /** true=即使已有语音也按当前释义重生成 */
     private Boolean force;
     /**
-     * 客户端并发调用 TTS 的线程数；null 用服务端配置 arelore.tts.qwen.parallelism。
-     * Qwen3-TTS 默认 TTS_MAX_CONCURRENT=1，多请求会在服务端排队，一般不致失败。
-     * 建议 2～4；上限 8。
+     * 客户端并发调用 TTS 的线程数；null 用服务端配置 arelore.tts.edge.parallelism。
+     * Edge 为在线接口，建议 4～8；上限 8。
      */
     private Integer parallelism;
 }
