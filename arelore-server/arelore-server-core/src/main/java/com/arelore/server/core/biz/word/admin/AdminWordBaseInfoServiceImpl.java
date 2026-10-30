@@ -1142,7 +1142,9 @@ public class AdminWordBaseInfoServiceImpl
             result.setNote("没有需要生成释义语音的单词");
         } else {
             result.setNote("已按当前筛选用 Edge TTS 并行生成释义语音（parallelism=" + parallelism
-                + "，32k/16kHz 压缩）。释义未变则跳过（force=true 可强制重生成）。"
+                + "，32k/16kHz 压缩）。已有 fileId 则覆盖 common_binary_file，否则新增；"
+                + "meaningAudio 写入 hashValue（=表 hash_value hex）。"
+                + "释义未变则跳过（force=true 可强制重生成）。"
                 + "失败词已打标签 meaning_audio_error，可筛该标签后重跑。");
         }
         return result;
@@ -1179,6 +1181,8 @@ public class AdminWordBaseInfoServiceImpl
             String after = ext.toJSONString();
             if (!after.equals(before == null ? "" : before)) {
                 row.setExtInfo(after);
+                // MP updateById 会带上内存里的旧 modifyTime；显式刷新，避免 ON UPDATE 被覆盖
+                row.setModifyTime(ChinaTime.now());
                 mapper.updateById(row);
             }
             return false;
@@ -1194,23 +1198,36 @@ public class AdminWordBaseInfoServiceImpl
         if (StringUtils.hasText(row.getLanguageCode())) {
             binaryExt.put("languageCode", row.getLanguageCode().trim());
         }
-        JSONObject saved = pictureBinaryStore.saveBytes(mp3, "audio/mpeg", "EDGE_TTS", binaryExt);
+        // 已有 fileId → 原地覆盖；无则新增；同内容哈希已存在则复用
+        JSONObject saved = pictureBinaryStore.saveOrOverwriteBytes(
+            oldFileId, mp3, "audio/mpeg", "EDGE_TTS", binaryExt
+        );
         Long newFileId = saved.getLong("fileId");
+        String hashHex = saved.getString("hashValue");
+        if (!StringUtils.hasText(hashHex)) {
+            hashHex = saved.getString("fileHash");
+        }
 
         JSONObject meaningAudio = new JSONObject();
         meaningAudio.put("fileId", newFileId);
-        meaningAudio.put("fileHash", saved.getString("fileHash"));
+        meaningAudio.put("fileHash", hashHex);
+        // hashValue/fileHash = 文件内容 SHA-256 的 hex；表里是 BINARY(32)，对账 SQL：
+        // WHERE hash_value = UNHEX('<hashValue>')  或  WHERE id = <fileId>
+        // speechHash 是释义文本 hash，不在 common_binary_file 里
+        meaningAudio.put("hashValue", hashHex);
         meaningAudio.put("speechHash", speechHash);
         meaningAudio.put("source", "EDGE_TTS");
         meaningAudio.put("voice", edgeTtsClient.getVoice());
         meaningAudio.put("bitrate", edgeTtsClient.getBitrate());
         meaningAudio.put("sampleRate", edgeTtsClient.getSampleRate());
         meaningAudio.put("contentType", "audio/mpeg");
+        meaningAudio.put("fileSize", saved.getInteger("fileSize"));
         meaningAudio.put("updatedAt", ChinaTime.nowDateTime());
         ext.put("meaningAudio", meaningAudio);
         clearMeaningAudioError(ext);
         refreshMetaTags(ext);
         row.setExtInfo(ext.toJSONString());
+        row.setModifyTime(ChinaTime.now());
         mapper.updateById(row);
 
         if (oldFileId != null && !oldFileId.equals(newFileId)) {

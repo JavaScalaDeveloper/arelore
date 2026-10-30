@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button, Card, Slider, Space, Tag, Typography, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import {  } from 'react-router-dom';
 import { useLocaleNavigate } from '../../../locale';
 import { LETTER_VOICES, normalizeLetterVoice } from '../utils/letterVoices';
 import { modeLabel } from '../utils/preference';
@@ -85,6 +84,7 @@ export default function SettingsPage() {
         spellSpeed: res.data?.spellSpeed,
         wordRepeatCount: res.data?.wordRepeatCount,
         letterVoice: next.letterVoice,
+        playbackVolume: next.playbackVolume,
       });
       setPref(saved);
       if (!opts?.silent) message.success('已保存');
@@ -209,6 +209,27 @@ export default function SettingsPage() {
           </div>
         </Card>
       )}
+
+      <Card title="播放音量" style={{ marginTop: 16, marginBottom: 16 }}>
+        <div className="field">
+          <div className="field-head">
+            <Text>音量</Text>
+            <Text>{pref.playbackVolume}%</Text>
+          </div>
+          <Paragraph type="secondary">仅保存在本机浏览器，不同步云端；松手后用 hello 试听</Paragraph>
+          {previewing && <Paragraph type="secondary">试听中：hello → 拼读…</Paragraph>}
+          <Slider
+            min={0}
+            max={100}
+            value={pref.playbackVolume}
+            onChange={(v) => setPref((p) => ({ ...p, playbackVolume: v }))}
+            onAfterChange={(v) => {
+              persist({ playbackVolume: v }, { skipRemote: true, silent: true });
+              preview();
+            }}
+          />
+        </div>
+      </Card>
 
       {saving && <Paragraph type="secondary">保存中…</Paragraph>}
     </div>

@@ -21,13 +21,14 @@ type MenuItem = Required<MenuProps>['items'][number];
 
 const { Header, Sider, Content, Footer } = AntLayout;
 
-const PRODUCT_KEYS = ['cert', 'word', 'common'] as const;
+const PRODUCT_KEYS = ['cert', 'word', 'common', 'prompt'] as const;
 type ProductKey = (typeof PRODUCT_KEYS)[number];
 
 const PRODUCT_LABEL: Record<ProductKey, string> = {
   cert: '考证宝',
   word: '背单词',
   common: '公共基础',
+  prompt: 'AI提示词',
 };
 
 const CERT_MENUS: MenuItem[] = [
@@ -52,10 +53,17 @@ const COMMON_MENUS: MenuItem[] = [
   { key: '/common/user-daily-visits', icon: <BarChartOutlined />, label: 'C端日访问' },
 ];
 
+const PROMPT_MENUS: MenuItem[] = [
+  { key: '/prompt/prefs', icon: <SettingOutlined />, label: '用户偏好' },
+  { key: '/prompt/visits', icon: <BarChartOutlined />, label: '访问 PV/UV' },
+  { key: '/prompt/user-prompts', icon: <FileTextOutlined />, label: '用户提示词' },
+];
+
 const MENUS_BY_PRODUCT: Record<ProductKey, MenuItem[]> = {
   cert: CERT_MENUS,
   word: WORD_MENUS,
   common: COMMON_MENUS,
+  prompt: PROMPT_MENUS,
 };
 
 function isProductKey(value: string | undefined): value is ProductKey {

@@ -22,6 +22,7 @@ import {
   ExportOutlined,
   ImportOutlined,
   SearchOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import {
   AiPromptItem,
@@ -105,6 +106,9 @@ const PromptListPage: React.FC = () => {
   const [mdContent, setMdContent] = useState('');
   const [mdExporting, setMdExporting] = useState(false);
   const [savingRowIds, setSavingRowIds] = useState<Record<string, boolean>>({});
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailItem, setDetailItem] = useState<AiPromptItem | null>(null);
 
   const loadTags = useCallback(async () => {
     try {
@@ -326,6 +330,24 @@ const PromptListPage: React.FC = () => {
     }
   };
 
+  const statusLabel = (code?: string) =>
+    PUBLISH_OPTIONS.find((o) => o.value === code)?.label || code || '未知';
+
+  const openDetail = async (row: AiPromptItem) => {
+    setDetailOpen(true);
+    setDetailItem(row);
+    if (!row.id) return;
+    setDetailLoading(true);
+    try {
+      const res = await promptApi.detail({ id: row.id });
+      setDetailItem(res.data || row);
+    } catch (e: any) {
+      message.error(e?.message || '加载详情失败');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   const onCopyPrompt = async (row: AiPromptItem) => {
     try {
       await copyText(row.promptText || '');
@@ -339,6 +361,7 @@ const PromptListPage: React.FC = () => {
     const text = [
       `标题：${row.title || ''}`,
       `描述：${row.summary || ''}`,
+      `状态：${statusLabel(row.publishStatus)}`,
       `配置标签：${(row.configTagList || []).join('、')}`,
       `人工标签：${(row.manualTagList || []).join('、')}`,
       `提示词：`,
@@ -585,12 +608,15 @@ const PromptListPage: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 280,
+      width: 320,
       fixed: 'right' as const,
       render: (_: unknown, row: AiPromptItem) => (
         <Space wrap>
+          <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => openDetail(row)}>
+            详情
+          </Button>
           <Button type="link" size="small" icon={<CopyOutlined />} onClick={() => onCopyPrompt(row)}>
-            复制提示词
+            复制
           </Button>
           <Button type="link" size="small" onClick={() => onCopyAll(row)}>
             复制全部
@@ -614,9 +640,9 @@ const PromptListPage: React.FC = () => {
         提示词列表
       </Typography.Title>
       <Typography.Paragraph type="secondary" style={{ marginTop: -8 }}>
-        配置标签可手打，也可被 CSV 覆盖（如小红书、抖音）；人工标签仅在本页修改，导入不会改动。鼠标悬停标题或描述可预览完整提示词。
+        支持按标题 / 状态 / 标签筛选；列表内可打标、改状态；点「详情」查看全文。配置标签可被 CSV 覆盖，人工标签仅本页修改。
       </Typography.Paragraph>
-      <Space style={{ marginBottom: 16 }} wrap>
+      <Space style={{ marginBottom: 12 }} wrap>
         <Input
           placeholder="按标题搜索"
           allowClear
@@ -631,15 +657,33 @@ const PromptListPage: React.FC = () => {
           style={{ width: 140 }}
           options={PUBLISH_OPTIONS}
           value={publishStatus}
-          onChange={(v) => setPublishStatus(v)}
+          onChange={(v) => {
+            setPublishStatus(v);
+            setPageNum(1);
+            setQuery({
+              titleKeyword: titleKeyword.trim() || undefined,
+              publishStatus: v || undefined,
+              tagName: tagName || undefined,
+            });
+          }}
         />
         <Select
           allowClear
+          showSearch
+          optionFilterProp="label"
           placeholder="任意标签"
-          style={{ width: 160 }}
+          style={{ width: 180 }}
           options={allTagOptions}
           value={tagName}
-          onChange={(v) => setTagName(v)}
+          onChange={(v) => {
+            setTagName(v);
+            setPageNum(1);
+            setQuery({
+              titleKeyword: titleKeyword.trim() || undefined,
+              publishStatus: publishStatus || undefined,
+              tagName: v || undefined,
+            });
+          }}
         />
         <Button type="primary" icon={<SearchOutlined />} onClick={onSearch}>
           查询
@@ -701,6 +745,93 @@ const PromptListPage: React.FC = () => {
           autoSize={{ minRows: 16, maxRows: 28 }}
           style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}
         />
+      </Modal>
+
+      <Modal
+        title={detailItem?.title || '提示词详情'}
+        open={detailOpen}
+        onCancel={() => {
+          setDetailOpen(false);
+          setDetailItem(null);
+        }}
+        width={760}
+        destroyOnClose
+        confirmLoading={detailLoading}
+        footer={[
+          <Button
+            key="copy"
+            icon={<CopyOutlined />}
+            onClick={() => detailItem && onCopyPrompt(detailItem)}
+          >
+            复制提示词
+          </Button>,
+          <Button
+            key="edit"
+            type="primary"
+            icon={<EditOutlined />}
+            onClick={() => {
+              if (!detailItem) return;
+              setDetailOpen(false);
+              openEdit(detailItem);
+            }}
+          >
+            编辑
+          </Button>,
+          <Button
+            key="close"
+            onClick={() => {
+              setDetailOpen(false);
+              setDetailItem(null);
+            }}
+          >
+            关闭
+          </Button>,
+        ]}
+      >
+        {detailItem ? (
+          <div style={{ maxHeight: '70vh', overflow: 'auto' }}>
+            <Space wrap style={{ marginBottom: 12 }}>
+              <Tag color="processing">{statusLabel(detailItem.publishStatus)}</Tag>
+              {(detailItem.configTagList || []).map((t) => (
+                <Tag key={`c-${t}`} color="blue">
+                  {t}
+                </Tag>
+              ))}
+              {(detailItem.manualTagList || []).map((t) => (
+                <Tag key={`m-${t}`} color={manualTagColorMap.get(t)}>
+                  {t}
+                </Tag>
+              ))}
+            </Space>
+            {detailItem.promptUuid ? (
+              <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
+                UUID：{detailItem.promptUuid}
+              </Typography.Paragraph>
+            ) : null}
+            <Typography.Title level={5} style={{ marginTop: 0 }}>
+              描述
+            </Typography.Title>
+            <Typography.Paragraph style={{ whiteSpace: 'pre-wrap' }}>
+              {(detailItem.summary || '').trim() || '（无）'}
+            </Typography.Paragraph>
+            <Typography.Title level={5}>提示词</Typography.Title>
+            <pre
+              style={{
+                margin: 0,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                fontSize: 13,
+                lineHeight: 1.6,
+                fontFamily: 'inherit',
+                background: '#fafafa',
+                padding: 12,
+                borderRadius: 6,
+              }}
+            >
+              {(detailItem.promptText || '').trim() || '（无）'}
+            </pre>
+          </div>
+        ) : null}
       </Modal>
 
       <Modal

@@ -87,11 +87,107 @@ public class WordPictureBinaryStore {
         String type = StringUtils.hasText(contentType) ? contentType.trim() : detectContentType(data);
         byte[] hash = sha256(data);
         Long fileId = insertOrIncrease(hash, data, type, source, extraExt);
+        return toSavedItem(fileId, hash, data.length, type, source, extraExt);
+    }
+
+    /**
+     * 释义语音等场景：若 {@code existingFileId} 对应行仍有效则原地覆盖 file_data/hash_value；
+     * 若同内容哈希已存在其它行则复用该行；否则新增。
+     * 返回含 fileId、fileHash、hashValue（均为 SHA-256 hex，与表 hash_value 一致）。
+     */
+    public JSONObject saveOrOverwriteBytes(
+        Long existingFileId,
+        byte[] data,
+        String contentType,
+        String source,
+        JSONObject extraExt
+    ) throws Exception {
+        if (data == null || data.length == 0) {
+            throw new IllegalArgumentException("文件内容为空");
+        }
+        if (data.length > MAX_BYTES) {
+            throw new IllegalArgumentException("文件超过 5MB");
+        }
+        String type = StringUtils.hasText(contentType) ? contentType.trim() : detectContentType(data);
+        byte[] hash = sha256(data);
+        String src = StringUtils.hasText(source) ? source.trim().toUpperCase() : "BINARY";
+
+        // 1) 同内容已存在：复用，避免 uk_hash_value 冲突
+        CommonBinaryFile byHash = findByHash(hash);
+        if (byHash != null && byHash.getId() != null) {
+            fileMapper.update(null, new LambdaUpdateWrapper<CommonBinaryFile>()
+                .eq(CommonBinaryFile::getId, byHash.getId())
+                .setSql(bumpRefAndMetaSql(data.length, type, src, extraExt))
+                .set(CommonBinaryFile::getStatus, 1)
+                .set(CommonBinaryFile::getModifyTime, ChinaTime.now()));
+            return toSavedItem(byHash.getId(), hash, data.length, type, src, extraExt);
+        }
+
+        // 2) 指定 fileId 仍有效：原地覆盖二进制与 hash
+        if (existingFileId != null) {
+            CommonBinaryFile existing = fileMapper.selectById(existingFileId);
+            if (existing != null && (existing.getStatus() == null || existing.getStatus() != 0)) {
+                existing.setHashValue(hash);
+                existing.setFileData(data);
+                existing.setStatus(1);
+                existing.setModifyTime(ChinaTime.now());
+                JSONObject ext = parseExtObject(existing.getExtJson());
+                ext.put("contentType", type);
+                ext.put("source", src);
+                ext.put("fileSize", data.length);
+                if (ext.get("refCount") == null) {
+                    ext.put("refCount", 1);
+                }
+                mergeExtraExt(ext, extraExt);
+                existing.setExtJson(ext.toJSONString());
+                fileMapper.updateById(existing);
+                return toSavedItem(existingFileId, hash, data.length, type, src, extraExt);
+            }
+        }
+
+        // 3) 新增
+        Long fileId = insertOrIncrease(hash, data, type, src, extraExt);
+        return toSavedItem(fileId, hash, data.length, type, src, extraExt);
+    }
+
+    private CommonBinaryFile findByHash(byte[] hash) {
+        if (hash == null || hash.length == 0) {
+            return null;
+        }
+        return fileMapper.selectOne(new LambdaQueryWrapper<CommonBinaryFile>()
+            .select(CommonBinaryFile::getId, CommonBinaryFile::getStatus)
+            .eq(CommonBinaryFile::getHashValue, hash)
+            .last("limit 1"));
+    }
+
+    private static JSONObject parseExtObject(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return new JSONObject();
+        }
+        try {
+            JSONObject obj = JSONObject.parseObject(raw);
+            return obj == null ? new JSONObject() : obj;
+        } catch (Exception e) {
+            return new JSONObject();
+        }
+    }
+
+    private static JSONObject toSavedItem(
+        Long fileId,
+        byte[] hash,
+        int fileSize,
+        String contentType,
+        String source,
+        JSONObject extraExt
+    ) {
+        String hashHex = toHex(hash);
         JSONObject item = new JSONObject();
         item.put("fileId", fileId);
-        item.put("fileHash", toHex(hash));
-        item.put("fileSize", data.length);
-        item.put("contentType", type);
+        item.put("fileHash", hashHex);
+        // 与 common_binary_file.hash_value 一致的 hex，便于 base_info.meaningAudio 对照
+        item.put("hashValue", hashHex);
+        item.put("fileSize", fileSize);
+        item.put("contentType", contentType);
         item.put("source", StringUtils.hasText(source) ? source.trim().toUpperCase() : "BINARY");
         if (extraExt != null && extraExt.getLong("wordBaseInfoId") != null) {
             item.put("wordBaseInfoId", extraExt.getLong("wordBaseInfoId"));

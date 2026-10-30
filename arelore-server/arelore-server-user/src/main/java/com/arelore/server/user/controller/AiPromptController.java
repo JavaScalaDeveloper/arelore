@@ -1,8 +1,14 @@
 package com.arelore.server.user.controller;
 
+import com.arelore.server.core.biz.prompt.user.UserAiPromptDailyVisitService;
+import com.arelore.server.core.biz.prompt.user.UserAiPromptDailyVisitServiceImpl;
+import com.arelore.server.core.biz.prompt.user.UserAiPromptPrefService;
 import com.arelore.server.core.biz.prompt.user.UserAiPromptService;
 import com.arelore.server.core.biz.prompt.user.UserAiPromptTagService;
+import com.arelore.server.core.biz.prompt.user.dto.UserAiPromptDailyVisitRequest;
 import com.arelore.server.core.biz.prompt.user.dto.UserAiPromptImportResult;
+import com.arelore.server.core.biz.prompt.user.dto.UserAiPromptPrefRequest;
+import com.arelore.server.core.biz.prompt.user.dto.UserAiPromptPrefResponse;
 import com.arelore.server.core.biz.prompt.user.dto.UserAiPromptRequest;
 import com.arelore.server.core.biz.prompt.user.dto.UserAiPromptResponse;
 import com.arelore.server.core.biz.prompt.user.dto.UserAiPromptTagRequest;
@@ -31,17 +37,23 @@ public class AiPromptController {
 
     private final UserAiPromptService promptService;
     private final UserAiPromptTagService tagService;
+    private final UserAiPromptPrefService prefService;
+    private final UserAiPromptDailyVisitService visitService;
     private final AuthService authService;
     private final UserRegistrationResultMapper registrationResultMapper;
 
     public AiPromptController(
         UserAiPromptService promptService,
         UserAiPromptTagService tagService,
+        UserAiPromptPrefService prefService,
+        UserAiPromptDailyVisitService visitService,
         AuthService authService,
         UserRegistrationResultMapper registrationResultMapper
     ) {
         this.promptService = promptService;
         this.tagService = tagService;
+        this.prefService = prefService;
+        this.visitService = visitService;
         this.authService = authService;
         this.registrationResultMapper = registrationResultMapper;
     }
@@ -172,6 +184,42 @@ public class AiPromptController {
                 return Result.error("id不能为空");
             }
             tagService.softDelete(requireUserId(token), request.getId());
+            return Result.success();
+        });
+    }
+
+    @PostMapping("/pref/get")
+    public Result<UserAiPromptPrefResponse> prefGet(
+        @RequestHeader(value = "Authorization", required = false) String token,
+        @RequestBody(required = false) UserAiPromptPrefRequest request
+    ) {
+        return run(() -> Result.success(prefService.getOrDefault(requireUserId(token))));
+    }
+
+    @PostMapping("/pref/save")
+    public Result<UserAiPromptPrefResponse> prefSave(
+        @RequestHeader(value = "Authorization", required = false) String token,
+        @RequestBody UserAiPromptPrefRequest request
+    ) {
+        return run(() -> {
+            UserAiPromptPrefRequest body = request == null ? new UserAiPromptPrefRequest() : request;
+            body.setUserId(requireUserId(token));
+            return Result.success(prefService.savePref(body));
+        });
+    }
+
+    @PostMapping("/visit/report")
+    public Result<Void> visitReport(
+        @RequestHeader(value = "Authorization", required = false) String token,
+        @RequestBody(required = false) UserAiPromptDailyVisitRequest request
+    ) {
+        return run(() -> {
+            BigDecimal userId = requireUserId(token);
+            String client = request == null ? null : request.getClient();
+            if (!StringUtils.hasText(client)) {
+                client = UserAiPromptDailyVisitServiceImpl.CLIENT_ANDROID;
+            }
+            visitService.recordVisit(userId, client);
             return Result.success();
         });
     }

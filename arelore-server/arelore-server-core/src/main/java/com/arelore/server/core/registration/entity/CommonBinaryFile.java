@@ -20,6 +20,11 @@ public class CommonBinaryFile {
     @TableField("modify_time")
     private LocalDateTime modifyTime;
 
+    /**
+     * 对应列 {@code hash_value BINARY(32)}：SHA-256 原始字节，不是 hex 字符串。
+     * 业务 JSON（如 meaningAudio.hashValue）存的是 64 位 hex；SQL 按内容查须：
+     * {@code WHERE hash_value = UNHEX('…hex…')}，或 {@code WHERE id = fileId}。
+     */
     @TableField("hash_value")
     private byte[] hashValue;
 

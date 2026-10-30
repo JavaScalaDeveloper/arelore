@@ -16,7 +16,13 @@ import {
   nextLetterSlotIndex,
   type DictationSlot,
 } from '../utils/dictation';
-import { playWordOnly, playWordThenSpell, type TtsSession } from '../utils/tts';
+import {
+  isProgrammaticAudioControl,
+  markProgrammaticAudioControl,
+  playWordOnly,
+  playWordThenSpell,
+  type TtsSession,
+} from '../utils/tts';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -106,6 +112,7 @@ export default function StudyPage() {
   }, []);
 
   const stopAudio = useCallback(() => {
+    markProgrammaticAudioControl(audioRef.current);
     sessionRef.current?.stop();
     sessionRef.current = null;
     if (failsafeTimer.current) {
@@ -374,6 +381,26 @@ export default function StudyPage() {
     [ensureMeaningAudioUrl, isListenMode, pref, stopAudio]
   );
 
+  const toggleListenPause = useCallback(() => {
+    if (!isListenMode || !card || submitting) {
+      return;
+    }
+    if (listenPaused) {
+      listenPausedRef.current = false;
+      setListenPaused(false);
+      if (listenHoldAdvance.current) {
+        listenHoldAdvance.current = false;
+        void answerAndReveal(true, true);
+      } else {
+        playWord(card, voiceType);
+      }
+    } else {
+      listenPausedRef.current = true;
+      setListenPaused(true);
+      stopAudio();
+    }
+  }, [answerAndReveal, card, isListenMode, listenPaused, playWord, stopAudio, submitting, voiceType]);
+
   const applyDictationLetter = useCallback(
     (rawKey: string) => {
       if (!isDictationMode || revealed || submitting || dictationLock.current) {
@@ -512,6 +539,29 @@ export default function StudyPage() {
         return;
       }
       if (isListenMode) {
+        // 线控/多媒体键：多数 Windows 线控会发 MediaPlayPause，不一定走 Media Session
+        if (
+          e.key === 'MediaPlayPause'
+          || e.key === 'MediaPlay'
+          || e.key === 'MediaPause'
+          || e.code === 'MediaPlayPause'
+          || e.code === 'MediaPlay'
+          || e.code === 'MediaPause'
+        ) {
+          e.preventDefault();
+          if (e.key === 'MediaPause' || e.code === 'MediaPause') {
+            if (!listenPausedRef.current) {
+              toggleListenPause();
+            }
+          } else if (e.key === 'MediaPlay' || e.code === 'MediaPlay') {
+            if (listenPausedRef.current) {
+              toggleListenPause();
+            }
+          } else {
+            toggleListenPause();
+          }
+          return;
+        }
         if (e.key === ' ' || e.key === 'Enter') {
           e.preventDefault();
           listenPausedRef.current = false;
@@ -519,20 +569,7 @@ export default function StudyPage() {
           void answerAndReveal(true, true);
         } else if (e.key === 'p' || e.key === 'P') {
           e.preventDefault();
-          if (listenPaused) {
-            listenPausedRef.current = false;
-            setListenPaused(false);
-            if (listenHoldAdvance.current) {
-              listenHoldAdvance.current = false;
-              void answerAndReveal(true, true);
-            } else {
-              playWord(card, voiceType);
-            }
-          } else {
-            listenPausedRef.current = true;
-            setListenPaused(true);
-            stopAudio();
-          }
+          toggleListenPause();
         } else if (e.key === 'r' || e.key === 'R') {
           e.preventDefault();
           playWord(card, voiceType);
@@ -577,7 +614,88 @@ export default function StudyPage() {
     goNext,
     playWord,
     stopAudio,
+    toggleListenPause,
   ]);
+
+  // 听词模式：耳机线控 / 系统媒体键 → Media Session play/pause
+  useEffect(() => {
+    if (!isListenMode || typeof navigator === 'undefined' || !('mediaSession' in navigator)) {
+      return undefined;
+    }
+    const ms = navigator.mediaSession;
+    const clearHandlers = () => {
+      try {
+        ms.setActionHandler('play', null);
+        ms.setActionHandler('pause', null);
+      } catch {
+        /* ignore */
+      }
+    };
+    if (status !== 'ready' || !card) {
+      clearHandlers();
+      return clearHandlers;
+    }
+    try {
+      // Chrome「媒体控制中心」：大字 = title（单词），灰字 = artist（释义）
+      const meaningLine = String(card.meaning || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 120);
+      ms.metadata = new MediaMetadata({
+        title: card.word || '听词',
+        artist: meaningLine || '暂无释义',
+        album: 'Arelore · 听词（摸鱼）',
+      });
+      ms.playbackState = listenPaused ? 'paused' : 'playing';
+      ms.setActionHandler('play', () => {
+        if (listenPausedRef.current) {
+          toggleListenPause();
+        }
+      });
+      ms.setActionHandler('pause', () => {
+        if (!listenPausedRef.current) {
+          toggleListenPause();
+        }
+      });
+    } catch {
+      /* ignore */
+    }
+    return clearHandlers;
+  }, [card, isListenMode, listenPaused, status, toggleListenPause]);
+
+  // 听词模式：部分浏览器线控直接 pause/play HTMLAudioElement
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !isListenMode) {
+      return undefined;
+    }
+    const onPause = () => {
+      if (isProgrammaticAudioControl(audio) || audio.ended) {
+        return;
+      }
+      if (listenPausedRef.current) {
+        return;
+      }
+      listenPausedRef.current = true;
+      setListenPaused(true);
+      stopAudio();
+    };
+    const onPlay = () => {
+      if (isProgrammaticAudioControl(audio)) {
+        return;
+      }
+      if (!listenPausedRef.current) {
+        return;
+      }
+      toggleListenPause();
+    };
+    audio.addEventListener('pause', onPause);
+    audio.addEventListener('play', onPlay);
+    return () => {
+      audio.removeEventListener('pause', onPause);
+      audio.removeEventListener('play', onPlay);
+    };
+  }, [isListenMode, stopAudio, toggleListenPause]);
 
   if (status === 'loading') {
     return (
@@ -808,24 +926,7 @@ export default function StudyPage() {
       ) : isListenMode ? (
         <>
           <Space className="study-actions" wrap size={12}>
-            <Button
-              onClick={() => {
-                if (listenPaused) {
-                  listenPausedRef.current = false;
-                  setListenPaused(false);
-                  if (listenHoldAdvance.current) {
-                    listenHoldAdvance.current = false;
-                    void answerAndReveal(true, true);
-                  } else {
-                    playWord(card, voiceType);
-                  }
-                } else {
-                  listenPausedRef.current = true;
-                  setListenPaused(true);
-                  stopAudio();
-                }
-              }}
-            >
+            <Button onClick={() => toggleListenPause()}>
               {listenPaused ? '继续 (P)' : '暂停 (P)'}
             </Button>
             <Button onClick={() => playWord(card, voiceType)}>重听 (R)</Button>
@@ -849,7 +950,9 @@ export default function StudyPage() {
               下一词 (Space)
             </Button>
           </Space>
-          <div className="study-hint">键盘：P 暂停/继续 · R 重听 · ← 稍后复习 · Space/Enter 下一词</div>
+          <div className="study-hint">
+            键盘：P 暂停/继续 · R 重听 · ← 稍后复习 · Space/Enter 下一词 · 线控/多媒体键（若系统会发给浏览器）也可暂停/继续
+          </div>
         </>
       ) : (
         <>

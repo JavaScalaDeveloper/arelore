@@ -53,9 +53,11 @@ mvn clean install
 java -jar target/arelore-server-user-1.0.0-SNAPSHOT.jar
 ```
 
-3. 或使用启动脚本：
+3. 或使用启动脚本（默认不 Maven，直接起已有 JAR；轻量云主机避免每次 `mvn clean package` 打满磁盘 IO）：
 ```bash
-./start.sh
+./start.sh test                 # 仅启动
+./start.sh rebuild              # 改代码后增量构建
+./start.sh start test --rebuild # 构建并启动
 ```
 
 ## OCR环境配置（可选）

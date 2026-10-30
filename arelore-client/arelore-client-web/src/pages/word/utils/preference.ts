@@ -37,6 +37,7 @@ export async function syncPreference(): Promise<WordPreference> {
       spellSpeed: res.data.spellSpeed,
       wordRepeatCount: res.data.wordRepeatCount,
       letterVoice: local.letterVoice,
+      playbackVolume: local.playbackVolume,
     });
   } catch {
     return local;
@@ -62,6 +63,7 @@ export async function pushLocalPreference(): Promise<WordPreference> {
       spellSpeed: res.data.spellSpeed,
       wordRepeatCount: res.data.wordRepeatCount,
       letterVoice: local.letterVoice,
+      playbackVolume: local.playbackVolume,
     });
   } catch {
     return local;

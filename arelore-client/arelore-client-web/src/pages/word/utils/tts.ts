@@ -1,4 +1,5 @@
 import { localLetterSrc, resolveLetterPackId } from './letterVoices';
+import { getPreference } from './storage';
 
 const AFTER_WORD_PAUSE_MS = 400;
 const AFTER_SPELL_PAUSE_MS = 280;
@@ -21,6 +22,44 @@ function clamp(n: unknown, min: number, max: number, fallback: number): number {
 function sleep(ms: number): Promise<void> {
   if (ms <= 0) return Promise.resolve();
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+/** 标记程序主动 pause/换源，避免被当成耳机线控暂停 */
+export function markProgrammaticAudioControl(audio: HTMLAudioElement | null | undefined): void {
+  if (!audio) return;
+  const a = audio as HTMLAudioElement & {
+    __areloreProgrammatic?: boolean;
+    __areloreProgrammaticTimer?: number;
+  };
+  a.__areloreProgrammatic = true;
+  if (a.__areloreProgrammaticTimer) {
+    window.clearTimeout(a.__areloreProgrammaticTimer);
+  }
+  a.__areloreProgrammaticTimer = window.setTimeout(() => {
+    a.__areloreProgrammatic = false;
+  }, 150);
+}
+
+export function isProgrammaticAudioControl(audio: HTMLAudioElement | null | undefined): boolean {
+  return !!(audio as { __areloreProgrammatic?: boolean } | null | undefined)?.__areloreProgrammatic;
+}
+
+function applyPlaybackVolume(audio: HTMLAudioElement): void {
+  const vol = clamp(getPreference().playbackVolume, 0, 100, 100) / 100;
+  try {
+    audio.volume = vol;
+  } catch {
+    /* ignore */
+  }
+}
+
+function softPause(audio: HTMLAudioElement): void {
+  markProgrammaticAudioControl(audio);
+  try {
+    audio.pause();
+  } catch {
+    /* ignore */
+  }
 }
 
 function dictVoiceUrl(text: string, type: number): string {
@@ -224,6 +263,8 @@ function playSrcOnce(
     audio.addEventListener('error', onError);
     audio.addEventListener('canplay', applyRate);
     try {
+      markProgrammaticAudioControl(audio);
+      applyPlaybackVolume(audio);
       audio.src = src;
       applyRate();
       const played = audio.play();
@@ -266,7 +307,7 @@ async function dictionaryAudioUrl(word: string, type: number): Promise<string> {
 async function playWordAudio(audio: HTMLAudioElement, word: string, type: number, signal: { stopped: boolean }) {
   const reason = await playSrcOnce(audio, dictVoiceUrl(word.trim(), type), REMOTE_AUDIO_TIMEOUT_MS, 1, signal);
   if (reason === 'end' || signal.stopped) return;
-  try { audio.pause(); } catch { /* ignore */ }
+  softPause(audio);
   const src = await dictionaryAudioUrl(word, type);
   if (src && !signal.stopped) {
     await playSrcOnce(audio, src, REMOTE_AUDIO_TIMEOUT_MS, 1, signal);
@@ -282,7 +323,7 @@ async function playZhChunk(audio: HTMLAudioElement, text: string, signal: { stop
   if (!value || signal.stopped) return;
   const youdao = await playSrcOnce(audio, dictVoiceZhUrl(value), ZH_AUDIO_TIMEOUT_MS, 1, signal);
   if (youdao === 'end' || signal.stopped) return;
-  try { audio.pause(); } catch { /* ignore */ }
+  softPause(audio);
   const baidu = await playSrcOnce(audio, baiduZhUrl(value), ZH_AUDIO_TIMEOUT_MS, 1, signal);
   if (baidu === 'end' || signal.stopped || value.length <= 1) return;
   for (const ch of value.split('')) {
@@ -305,7 +346,7 @@ async function playPosLabel(audio: HTMLAudioElement, file: string, label: string
   if (src) {
     const reason = await playSrcOnce(audio, src, 4000, 1, signal);
     if (reason === 'end' || signal.stopped) return;
-    try { audio.pause(); } catch { /* ignore */ }
+    softPause(audio);
   }
   if (label) {
     await playSrcOnce(audio, dictVoiceZhUrl(label), ZH_AUDIO_TIMEOUT_MS, 1, signal);
@@ -316,12 +357,12 @@ async function playMeaningLine(audio: HTMLAudioElement, line: MeaningLine, signa
   const count = Math.max(line.files.length, line.labels.length);
   for (let i = 0; i < count; i += 1) {
     if (signal.stopped) return;
-    try { audio.pause(); } catch { /* ignore */ }
+    softPause(audio);
     await playPosLabel(audio, line.files[i], line.labels[i], signal);
     await sleep(BETWEEN_CLIP_GAP_MS);
   }
   if (line.gloss && !signal.stopped) {
-    try { audio.pause(); } catch { /* ignore */ }
+    softPause(audio);
     await playZhLine(audio, line.gloss, signal);
   }
 }
@@ -368,7 +409,7 @@ export function playWordThenSpell(
     }
     for (let i = 0; i < wordRepeatCount; i += 1) {
       if (signal.stopped) return;
-      try { audio.pause(); } catch { /* ignore */ }
+      softPause(audio);
       await sleep(BETWEEN_CLIP_GAP_MS);
       if (signal.stopped) return;
       await playWordAudio(audio, String(word).trim(), type, signal);
@@ -380,11 +421,11 @@ export function playWordThenSpell(
       if (signal.stopped) return;
       const src = localLetterSrc(packId, letters[i]);
       if (src) {
-        try { audio.pause(); } catch { /* ignore */ }
+        softPause(audio);
         await sleep(letterGapMs);
         if (signal.stopped) return;
         await playSrcOnce(audio, src, Math.min(LETTER_AUDIO_TIMEOUT_MS, letterMaxMs), letterRate, signal);
-        try { audio.pause(); } catch { /* ignore */ }
+        softPause(audio);
       }
       if (i + 1 < letters.length) await sleep(pauseMs);
     }
@@ -393,7 +434,7 @@ export function playWordThenSpell(
 
     const storedMeaning = String(opts.meaningAudioUrl || '').trim();
     if (storedMeaning) {
-      try { audio.pause(); } catch { /* ignore */ }
+      softPause(audio);
       await sleep(BETWEEN_CLIP_GAP_MS);
       if (!signal.stopped) {
         const reason = await playSrcOnce(
@@ -413,7 +454,7 @@ export function playWordThenSpell(
     const lines = meaningsForSpeech(opts.meaning || '');
     for (const line of lines) {
       if (signal.stopped) return;
-      try { audio.pause(); } catch { /* ignore */ }
+      softPause(audio);
       await sleep(BETWEEN_CLIP_GAP_MS);
       await playMeaningLine(audio, line, signal);
     }
@@ -428,6 +469,7 @@ export function playWordThenSpell(
     stop: () => {
       signal.stopped = true;
       try {
+        markProgrammaticAudioControl(audio);
         audio.pause();
         audio.removeAttribute('src');
         audio.load();
@@ -443,6 +485,7 @@ export function playWordOnly(audio: HTMLAudioElement, word: string, type: number
     stop: () => {
       signal.stopped = true;
       try {
+        markProgrammaticAudioControl(audio);
         audio.pause();
         audio.removeAttribute('src');
       } catch { /* ignore */ }

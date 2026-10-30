@@ -26,10 +26,13 @@ export interface WordPreference {
   spellSpeed: number;
   wordRepeatCount: number;
   letterVoice: LetterVoiceId;
+  /** 播放音量 0–100，仅本机，不同步服务端 */
+  playbackVolume: number;
 }
 
 const DEFAULT_SPELL_SPEED = 5;
 const DEFAULT_WORD_REPEAT_COUNT = 1;
+const DEFAULT_PLAYBACK_VOLUME = 100;
 
 function clampInt(n: unknown, min: number, max: number, fallback: number): number {
   const v = Number(n);
@@ -56,6 +59,7 @@ export function normalizePreference(raw: any): WordPreference {
     letterVoice: normalizeLetterVoice(
       src.letterVoice != null ? src.letterVoice : LETTER_VOICE_RANDOM
     ),
+    playbackVolume: clampInt(src.playbackVolume, 0, 100, DEFAULT_PLAYBACK_VOLUME),
   };
 }
 

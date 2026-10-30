@@ -192,4 +192,16 @@ export const adminApi = {
     request.post('/admin/common/user-daily-visit/delete', data),
   batchDeleteCommonUserDailyVisits: (data: { ids: number[] }): Promise<ApiResponse<any>> =>
     request.post('/admin/common/user-daily-visit/batch-delete', data),
+
+  /** 提示词产品：用户偏好 / 访问 / 用户提示词 */
+  getPromptPrefPage: (data: any): Promise<ApiResponse<any>> =>
+    request.post('/admin/prompt/pref/page', data),
+  getPromptPrefDetail: (data: any): Promise<ApiResponse<any>> =>
+    request.post('/admin/prompt/pref/detail', data),
+  getPromptVisitPage: (data: any): Promise<ApiResponse<any>> =>
+    request.post('/admin/prompt/visit/page', data),
+  getPromptVisitStats: (data: any): Promise<ApiResponse<any>> =>
+    request.post('/admin/prompt/visit/stats', data),
+  getPromptUserPromptPage: (data: any): Promise<ApiResponse<any>> =>
+    request.post('/admin/prompt/user-prompt/page', data),
 };
