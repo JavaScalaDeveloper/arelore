@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Space, message } from 'antd';
+import { Layout, Menu, message } from 'antd';
 import { 
   HomeOutlined,
   BookOutlined,
@@ -29,6 +29,9 @@ import ColorPersonalityTestPage from './pages/mobile/color/ColorPersonalityTestP
 import ColorHistoryPage from './pages/mobile/color/ColorHistoryPage';
 import ColorResultPage from './pages/mobile/color/ColorResultPage';
 import MbtiQuestionBankPage from './pages/MbtiQuestionBankPage';
+import SiteHomePage from './pages/SiteHomePage';
+import ProductsPage from './pages/ProductsPage';
+import ProductSearch from './components/ProductSearch';
 import { UserInfo } from './types';
 import {
   LocaleGate,
@@ -307,6 +310,9 @@ function MainApp() {
 
           {/* 右侧功能区 */}
           <div className="header-right">
+            <div className="header-product-search">
+              <ProductSearch size="middle" placeholder="搜索产品…" />
+            </div>
             <RegionSwitcher size="middle" />
           </div>
         </div>
@@ -338,44 +344,8 @@ function MainApp() {
             <Route path="profile" element={<MobileProfilePage />} />
             <Route path="*" element={<LocaleNavigate to="/mobile/home" replace />} />
           </Route>
-          <Route path="/home" element={
-            <div className="app-content-wrapper">
-              <div className="hero-section">
-                <h1 className="hero-title">欢迎来到 Arelore</h1>
-                <p className="hero-subtitle">
-                  创新技术，引领未来<br/>
-                  为您提供最优质的产品和服务
-                </p>
-                <Space size="large" className="hero-buttons">
-                  <Button type="primary" size="large" onClick={() => navigate('/home/products')}>
-                    探索产品
-                  </Button>
-                  <Button size="large" onClick={() => navigate('/home/contact')}>
-                    联系我们
-                  </Button>
-                </Space>
-              </div>
-
-              {/* 特性展示区 */}
-              <div className="features-section">
-                <div className="feature-card">
-                  <SolutionOutlined className="feature-icon" />
-                  <h3>丰富的产品线</h3>
-                  <p>提供多样化的产品选择，满足不同需求</p>
-                </div>
-                <div className="feature-card">
-                  <CustomerServiceOutlined className="feature-icon" />
-                  <h3>专业的服务</h3>
-                  <p>7x24 小时专业技术支持与服务</p>
-                </div>
-                <div className="feature-card">
-                  <PhoneOutlined className="feature-icon" />
-                  <h3>便捷的联系</h3>
-                  <p>多渠道沟通，快速响应您的需求</p>
-                </div>
-              </div>
-            </div>
-          } />
+          <Route path="/home" element={<SiteHomePage />} />
+          <Route path="/home/products" element={<ProductsPage />} />
           <Route path="/home/tools/text-masking" element={<TextMaskingPage />} />
           <Route path="/home/tools/file-detection" element={<FileDetectionPage />} />
           <Route path="/home/tools/pdf-to-word" element={<PdfToWordPage />} />

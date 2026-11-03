@@ -56,13 +56,12 @@ module.exports = {
   devServer: function (configFunction) {
     return function (proxy, allowedHost) {
       const config = configFunction(proxy, allowedHost);
-      // webpack-dev-server v4+
+      // webpack-dev-server v4+：overlay 只能写在 client 下，顶层 overlay 会直接启动失败
       config.client = {
         ...(config.client || {}),
         overlay: false,
       };
-      // 兼容旧字段
-      config.overlay = false;
+      delete config.overlay;
       return config;
     };
   },

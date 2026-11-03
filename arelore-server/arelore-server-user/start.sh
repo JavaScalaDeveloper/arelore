@@ -12,17 +12,15 @@
 #   dev    8081      3300      8082       3301   （配置同 test，端口同 prd 便于本地联调）
 #
 # 使用方法：
-#   ./start.sh [环境]              # 启动已有 JAR（默认不 Maven，避免打满轻量机磁盘 IO）
-#   ./start.sh start [环境] [--rebuild|--clean-rebuild]
-#   ./start.sh rebuild [环境]      # 仅构建（nice+ionice 降 IO 优先级；默认不 clean）
-#   ./start.sh stop [环境]         # 不传环境则停止本应用全部实例
-#   ./start.sh restart [环境] [--rebuild|--clean-rebuild]
-#   ./start.sh status [环境]
-#   ./start.sh logs [环境]
-#   ./start.sh help
+#   ./start.sh [环境]              # 启动已有 JAR（默认不 Maven）
+#   ./start.sh start [环境] [--rebuild|--incremental]
+#   ./start.sh rebuild             # mvn -pl user -am clean package（连带重编 core）
+#   ./start.sh stop [环境]
+#   ./start.sh restart [环境] [--rebuild]
+#   ./start.sh status / logs / help
 #
-# 说明：阿里云轻量机系统盘 IOPS 很低；每次 mvn clean package 会大量读 .m2 / 写 target，
-# 易把磁盘读 IO 打满导致 SSH 卡死。日常启动请用已有 JAR；改代码后再 rebuild。
+# 说明：rebuild 与线上可用命令一致，避免只编 user 导致 core 类找不到。
+# 日常无代码变更请直接 start，少打磁盘 IO。
 # ==============================================================================
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -68,12 +66,23 @@ apply_env_ports() {
     PID_FILE="${LOG_DIR}/${APP_NAME}-${ENVIRONMENT}.pid"
 }
 
-# 降低构建时磁盘/CPU 抢占，减轻对 SSH 的影响（best-effort）
+# 2c2g：限制堆/线程 + nice/ionice；构建必须 -pl … -am，避免只编 user 吃到旧 core
+setup_mvn_env() {
+    # 给 OS/SSH 留内存；SerialGC 适合小堆单线程构建
+    export MAVEN_OPTS="${MAVEN_OPTS:--Xms64m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC -XX:TieredStopAtLevel=1}"
+}
+
 run_mvn() {
+    setup_mvn_env
+    # -T1 单线程；默认在线（MVN_OFFLINE=1 才加 -o），避免解析到陈旧依赖行为
+    local args=(-T1 --batch-mode -DskipTests -Dmaven.test.skip=true)
+    if [ "${MVN_OFFLINE:-0}" = "1" ] && [ -d "${HOME}/.m2/repository" ]; then
+        args+=(-o)
+    fi
     if command -v ionice >/dev/null 2>&1; then
-        nice -n 19 ionice -c2 -n7 mvn "$@"
+        nice -n 19 ionice -c2 -n7 mvn "${args[@]}" "$@"
     else
-        nice -n 19 mvn "$@"
+        nice -n 19 mvn "${args[@]}" "$@"
     fi
 }
 
@@ -81,26 +90,45 @@ find_jar() {
     find target -name "${APP_NAME}-*.jar" -type f ! -name "*-sources.jar" 2>/dev/null | head -n 1
 }
 
-# do_clean=1 时 mvn clean；否则增量 package，少打磁盘
+# 构建前尽量停掉本应用 Java，避免 2G 上边跑边编把内存打穿触发疯狂换页
+stop_java_before_build() {
+    if [ "${MVN_KEEP_RUNNING:-0}" = "1" ]; then
+        return 0
+    fi
+    for env_name in prd pre test dev; do
+        local pf="${LOG_DIR}/${APP_NAME}-${env_name}.pid"
+        if [ -f "$pf" ] && ps -p "$(cat "$pf")" > /dev/null 2>&1; then
+            echo "构建前停止运行中的 ${APP_NAME}[$env_name]，释放内存/IO..."
+            stop_one "$env_name" || true
+        fi
+    done
+}
+
+# 等价于：MVN_OFFLINE=0 mvn -pl arelore-server-user -am clean package -DskipTests
+# do_clean=0 时仅增量 package（需显式 --incremental）；默认 clean，防止 core 产物落后于源码
 build_app() {
-    local do_clean="${1:-0}"
+    local do_clean="${1:-1}"
     cd "$APP_DIR" || { echo "无法进入目录: $APP_DIR"; return 1; }
+    stop_java_before_build
 
-    if [ ! -d "../arelore-server-core/target" ] && [ ! -d "../target" ]; then
-        echo "首次运行，安装父模块和依赖（耗磁盘 IO，请耐心等待）..."
-        cd ..
-        run_mvn install -DskipTests || { echo "父模块安装失败"; return 1; }
-        cd arelore-server-user
-    fi
-
+    local server_root
+    server_root="$(cd "${APP_DIR}/.." && pwd)"
+    # 必须从父 POM reactor 构建，并 -am 连带 core（切勿在 user 目录单独 mvn package）
+    local module_args=(-f "${server_root}/pom.xml" -pl "arelore-server-user" -am)
+    local goals=(package)
     if [ "$do_clean" = "1" ]; then
-        echo "Maven clean package（全量，IO 很重）..."
-        run_mvn clean package -DskipTests || { echo "Maven 构建失败"; return 1; }
+        goals=(clean package)
+        echo "Maven clean package -pl arelore-server-user -am（连带重编 core）..."
     else
-        echo "Maven package（增量，无 clean）..."
-        run_mvn package -DskipTests || { echo "Maven 构建失败"; return 1; }
+        echo "Maven package -pl arelore-server-user -am（增量）..."
     fi
 
+    if ! (cd "$server_root" && run_mvn "${module_args[@]}" "${goals[@]}"); then
+        echo "Maven 构建失败"
+        return 1
+    fi
+
+    cd "$APP_DIR" || return 1
     JAR_FILE=$(find_jar)
     if [ -z "$JAR_FILE" ]; then
         echo "构建完成但未找到 JAR"
@@ -110,15 +138,15 @@ build_app() {
     return 0
 }
 
-# args: env [--rebuild|--clean-rebuild]
+# args: env [--rebuild|--clean-rebuild|--incremental]
 start_app() {
     local rebuild=0
-    local clean_rebuild=0
+    local do_clean=1
     local env_arg=""
     for arg in "$@"; do
         case "$arg" in
-            --rebuild|-r) rebuild=1 ;;
-            --clean-rebuild) clean_rebuild=1; rebuild=1 ;;
+            --rebuild|-r|--clean-rebuild) rebuild=1; do_clean=1 ;;
+            --incremental) rebuild=1; do_clean=0 ;;
             "") ;;
             *)
                 if [ -z "$env_arg" ]; then
@@ -138,9 +166,9 @@ start_app() {
     JAR_FILE=$(find_jar)
     if [ "$rebuild" = "1" ] || [ -z "$JAR_FILE" ]; then
         if [ -z "$JAR_FILE" ] && [ "$rebuild" != "1" ]; then
-            echo "未找到 JAR，自动构建一次..."
+            echo "未找到 JAR，自动构建一次（clean package -am）..."
         fi
-        build_app "$clean_rebuild" || return 1
+        build_app "$do_clean" || return 1
         JAR_FILE=$(find_jar)
     else
         echo "复用已有 JAR（跳过 Maven，避免磁盘 IO 打满）: $JAR_FILE"
@@ -329,12 +357,12 @@ logs_app() {
 }
 
 restart_app() {
-    # 透传环境与 --rebuild / --clean-rebuild
+    # 透传环境与 --rebuild / --clean-rebuild / --incremental
     local env_arg=""
     local flags=()
     for arg in "$@"; do
         case "$arg" in
-            --rebuild|-r|--clean-rebuild) flags+=("$arg") ;;
+            --rebuild|-r|--clean-rebuild|--incremental) flags+=("$arg") ;;
             *)
                 if [ -z "$env_arg" ]; then
                     env_arg="$arg"
@@ -354,18 +382,22 @@ show_help() {
 
 命令: start | stop | restart | rebuild | status | logs | help
 环境: prd | pre | test | dev（默认 test）
-选项: --rebuild / -r（增量 package）  --clean-rebuild（clean package，IO 最重）
+选项:
+  --rebuild / -r / --clean-rebuild  构建后再启动（默认 clean package -am）
+  --incremental                     仅增量 package -am（更快，但可能漏编 core）
 
 端口: prd=8081 pre=8181 test=8281 dev=8081
 
-注意: 默认启动不跑 Maven，直接用 target 下已有 JAR。
-轻量云主机上反复 mvn clean package 易打满磁盘读 IO，导致 SSH 卡住。
+注意:
+  - 默认 start 不跑 Maven，直接用已有 JAR
+  - rebuild 固定：mvn -pl arelore-server-user -am clean package（与线上可用命令一致）
+  - 切勿在 arelore-server-user 目录单独 mvn package（会用到旧的 core）
 
 示例:
   $0 test                         # 仅启动已有 JAR
-  $0 start prd
-  $0 start test --rebuild         # 改代码后增量构建再启动
-  $0 rebuild                      # 只构建不启动
+  $0 rebuild                      # clean + -am 重编 user 与 core
+  $0 start test --rebuild         # 重编后启动
+  $0 rebuild --incremental        # 仅增量（不推荐上线）
   $0 restart test
   $0 stop test
   $0 status
@@ -391,11 +423,12 @@ main() {
         rebuild|build)
             shift
             env_arg=""
-            do_clean=0
+            # 默认 clean，避免 core 落后导致 cannot find symbol
+            do_clean=1
             for arg in "$@"; do
                 case "$arg" in
-                    --clean-rebuild|--clean) do_clean=1 ;;
-                    --rebuild|-r) ;;
+                    --incremental) do_clean=0 ;;
+                    --clean-rebuild|--clean|--rebuild|-r) do_clean=1 ;;
                     *)
                         if [ -z "$env_arg" ]; then
                             env_arg="$arg"

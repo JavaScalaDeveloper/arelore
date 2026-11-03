@@ -12,9 +12,39 @@ import { shortErrorMessage } from '../utils/request';
 
 const { Title, Paragraph, Text, Link } = Typography;
 
-const CODE_COOLDOWN_SEC = 90;
+const CODE_COOLDOWN_SEC = 60;
+const CODE_COOLDOWN_STORAGE_PREFIX = 'word_email_code_cd:';
 
 type Mode = 'password' | 'code' | 'register' | 'reset';
+
+function cooldownStorageKey(mode: Mode, email: string): string {
+  return `${CODE_COOLDOWN_STORAGE_PREFIX}${mode}:${email.trim().toLowerCase()}`;
+}
+
+function readCooldownLeft(mode: Mode, email: string): number {
+  if (!email.trim()) {
+    return 0;
+  }
+  try {
+    const raw = sessionStorage.getItem(cooldownStorageKey(mode, email));
+    const until = Number(raw);
+    if (!Number.isFinite(until)) {
+      return 0;
+    }
+    return Math.max(0, Math.ceil((until - Date.now()) / 1000));
+  } catch {
+    return 0;
+  }
+}
+
+function writeCooldown(mode: Mode, email: string, seconds: number): void {
+  try {
+    const until = Date.now() + seconds * 1000;
+    sessionStorage.setItem(cooldownStorageKey(mode, email), String(until));
+  } catch {
+    /* ignore */
+  }
+}
 
 export interface LoginPageProps {
   /** 无 redirect 参数时的登录成功落点；站点 /login 传 /home，背词默认 /word */
@@ -115,14 +145,17 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
   useEffect(() => {
     form.resetFields(['code', 'password', 'newPassword', 'confirmPassword']);
     setPasswordDraft('');
-    setCountdown(0);
     if (mode === 'reset') {
       const u: any = getUser();
       const email = (u?.username || u?.email || '').trim();
       if (email.includes('@')) {
         form.setFieldsValue({ email });
+        setCountdown(readCooldownLeft(mode, email));
+        return;
       }
     }
+    const email = String(form.getFieldValue('email') || '').trim();
+    setCountdown(readCooldownLeft(mode, email));
   }, [mode, form]);
 
   const renderPasswordStrength = () => {
@@ -149,9 +182,18 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
   };
 
   const onSendCode = async () => {
+    if (countdown > 0 || sending) {
+      return;
+    }
     try {
       await form.validateFields(['email']);
       const email = String(form.getFieldValue('email') || '').trim();
+      const left = readCooldownLeft(mode, email);
+      if (left > 0) {
+        setCountdown(left);
+        message.warning(`请 ${left} 秒后再获取验证码`);
+        return;
+      }
       setSending(true);
       if (mode === 'register') {
         await authApi.applyEmailRegisterCode(email);
@@ -161,6 +203,7 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
         await authApi.applyEmailCode(email);
       }
       message.success('验证码已发送，请查收邮件（含垃圾箱）');
+      writeCooldown(mode, email, CODE_COOLDOWN_SEC);
       setCountdown(CODE_COOLDOWN_SEC);
     } catch (e: any) {
       if (e?.errorFields) {
@@ -303,7 +346,16 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
               { type: 'email', message: '邮箱格式不正确' },
             ]}
           >
-            <Input prefix={<MailOutlined />} placeholder="name@example.com" size="large" autoComplete="email" />
+            <Input
+              prefix={<MailOutlined />}
+              placeholder="name@example.com"
+              size="large"
+              autoComplete="email"
+              onBlur={() => {
+                const email = String(form.getFieldValue('email') || '').trim();
+                setCountdown(readCooldownLeft(mode, email));
+              }}
+            />
           </Form.Item>
 
           {mode === 'password' && (
@@ -337,8 +389,8 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
                 >
                   <Input placeholder="邮件中的验证码" size="large" maxLength={8} autoComplete="one-time-code" />
                 </Form.Item>
-                <Button size="large" loading={sending} disabled={countdown > 0} onClick={onSendCode}>
-                  {countdown > 0 ? `${countdown}s` : '获取验证码'}
+                <Button size="large" loading={sending} disabled={countdown > 0 || sending} onClick={onSendCode}>
+                  {countdown > 0 ? `${countdown}s 后重试` : '获取验证码'}
                 </Button>
               </Space.Compact>
             </Form.Item>
@@ -423,7 +475,7 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
         </div>
 
         <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
-          验证码 5 分钟内有效；未收到请检查垃圾邮件。
+          验证码 5 分钟内有效；发送成功后 60 秒内不可重复获取；未收到请检查垃圾邮件。
         </Text>
       </div>
     </div>
