@@ -193,6 +193,26 @@ export const adminApi = {
   batchDeleteCommonUserDailyVisits: (data: { ids: number[] }): Promise<ApiResponse<any>> =>
     request.post('/admin/common/user-daily-visit/batch-delete', data),
 
+  /** 意见反馈工单 */
+  getFeedbackTicketPage: (data: any): Promise<ApiResponse<any>> =>
+    request.post('/admin/common/feedback/ticket/page', data),
+  getFeedbackTicketDetail: (data: { id: number }): Promise<ApiResponse<any>> =>
+    request.post('/admin/common/feedback/ticket/detail', data),
+  replyFeedbackTicket: (data: any): Promise<ApiResponse<any>> =>
+    request.post('/admin/common/feedback/ticket/reply', data),
+  closeFeedbackTicket: (data: { id: number }): Promise<ApiResponse<any>> =>
+    request.post('/admin/common/feedback/ticket/close', data),
+  updateFeedbackTicketStatus: (data: { id: number; status: number }): Promise<ApiResponse<any>> =>
+    request.post('/admin/common/feedback/ticket/update-status', data),
+  uploadFeedbackFile: (data: {
+    contentBase64: string;
+    fileName?: string;
+    contentType?: string;
+  }): Promise<ApiResponse<any>> => request.post('/admin/common/feedback/file/upload', data, { timeout: 120000 }),
+  getFeedbackFileContent: (data: { fileId: number }): Promise<ApiResponse<any>> =>
+    request.post('/admin/common/feedback/file/content', data, { timeout: 120000 }),
+
+
   /** 提示词产品：用户偏好 / 访问 / 用户提示词 */
   getPromptPrefPage: (data: any): Promise<ApiResponse<any>> =>
     request.post('/admin/prompt/pref/page', data),

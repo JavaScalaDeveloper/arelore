@@ -113,6 +113,7 @@ export default function ProfilePage() {
       <div className="home-actions" style={{ marginTop: 20 }}>
         <Button onClick={() => navigate('/word/settings')}>学习设置</Button>
         <Button onClick={() => navigate('/word/books')}>选择单词书</Button>
+        {user && <Button onClick={() => navigate('/word/feedback')}>意见反馈</Button>}
         {user && (
           <Button onClick={() => navigate('/word/login?mode=reset')}>设置 / 修改密码</Button>
         )}

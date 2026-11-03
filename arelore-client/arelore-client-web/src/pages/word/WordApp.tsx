@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import StudyPage from './pages/StudyPage';
+import FeedbackPage from './pages/FeedbackPage';
 import WordDocumentSeo from './seo/WordDocumentSeo';
 import { LocaleNavigate, useStrippedLocation } from '../../locale';
 import './word.css';
@@ -45,6 +46,14 @@ export default function WordApp() {
             element={
               <AuthGuard>
                 <SettingsPage />
+              </AuthGuard>
+            }
+          />
+          <Route
+            path="feedback"
+            element={
+              <AuthGuard>
+                <FeedbackPage />
               </AuthGuard>
             }
           />

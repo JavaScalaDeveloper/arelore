@@ -25,6 +25,7 @@ const WordEntryManagement = lazy(() => import('./pages/WordEntryManagement'));
 const WordBaseInfoManagement = lazy(() => import('./pages/WordBaseInfoManagement'));
 const CommonBinaryFileManagement = lazy(() => import('./pages/CommonBinaryFileManagement'));
 const CommonUserDailyVisitManagement = lazy(() => import('./pages/CommonUserDailyVisitManagement'));
+const FeedbackManagement = lazy(() => import('./pages/FeedbackManagement'));
 const WordUserManagement = lazy(() => import('./pages/WordUserManagement'));
 const PromptPrefManagement = lazy(() => import('./pages/PromptPrefManagement'));
 const PromptVisitManagement = lazy(() => import('./pages/PromptVisitManagement'));
@@ -88,6 +89,7 @@ function AdminRoutes() {
             <Route path="base-info" element={<WordBaseInfoManagement />} />
             <Route path="binary-files" element={<CommonBinaryFileManagement />} />
             <Route path="user-daily-visits" element={<CommonUserDailyVisitManagement />} />
+            <Route path="feedback" element={<FeedbackManagement />} />
             <Route path="prefs" element={<PromptPrefManagement />} />
             <Route path="visits" element={<PromptVisitManagement />} />
             <Route path="user-prompts" element={<PromptUserPromptManagement />} />

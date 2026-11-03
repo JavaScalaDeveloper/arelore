@@ -14,6 +14,7 @@ import {
   BookOutlined,
   DatabaseOutlined,
   BarChartOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import { RegionSwitcher, stripLocalePrefix, useLocaleNavigate } from '../locale';
 
@@ -51,6 +52,7 @@ const WORD_MENUS: MenuItem[] = [
 const COMMON_MENUS: MenuItem[] = [
   { key: '/common/binary-files', icon: <DatabaseOutlined />, label: '二进制文件' },
   { key: '/common/user-daily-visits', icon: <BarChartOutlined />, label: 'C端日访问' },
+  { key: '/common/feedback', icon: <MessageOutlined />, label: '意见反馈' },
 ];
 
 const PROMPT_MENUS: MenuItem[] = [
