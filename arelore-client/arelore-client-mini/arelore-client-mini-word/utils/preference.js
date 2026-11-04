@@ -4,6 +4,7 @@ const { postWithAuth } = require('./request');
 const MODE_LABELS = {
   [storage.STUDY_MODE_LISTEN_SPELL]: '听词（摸鱼）',
   [storage.STUDY_MODE_SEE_MEANING]: '看词识意',
+  [storage.STUDY_MODE_DICTATION]: '听写',
   [storage.STUDY_MODE_SEE_PICK_IMAGE]: '看词选图'
 };
 
@@ -29,12 +30,13 @@ function syncPreference() {
     if (res.code !== 200 || !res.data) {
       return local;
     }
-    // letterVoice 仅本机，同步云端偏好时保留本地值
+    // letterVoice / playbackVolume 仅本机，同步云端偏好时保留本地值
     return storage.setPreference({
       studyMode: res.data.studyMode,
       spellSpeed: res.data.spellSpeed,
       wordRepeatCount: res.data.wordRepeatCount,
-      letterVoice: local.letterVoice
+      letterVoice: local.letterVoice,
+      playbackVolume: local.playbackVolume
     });
   }).catch(() => local);
 }
@@ -65,7 +67,8 @@ function pushLocalPreference() {
       studyMode: res.data.studyMode,
       spellSpeed: res.data.spellSpeed,
       wordRepeatCount: res.data.wordRepeatCount,
-      letterVoice: local.letterVoice
+      letterVoice: local.letterVoice,
+      playbackVolume: local.playbackVolume
     });
   }).catch(() => local);
 }

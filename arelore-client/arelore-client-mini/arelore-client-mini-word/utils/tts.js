@@ -7,6 +7,7 @@
  */
 
 const letterVoices = require('./letterVoices');
+const storage = require('./storage');
 
 const AFTER_WORD_PAUSE_MS = 400;
 const AFTER_SPELL_PAUSE_MS = 280;
@@ -27,6 +28,41 @@ function clamp(n, min, max, fallback) {
     return fallback;
   }
   return Math.max(min, Math.min(max, Math.round(v)));
+}
+
+/** 标记程序主动 stop/换源，避免被当成耳机线控暂停 */
+function markProgrammaticAudioControl(audio) {
+  if (!audio) {
+    return;
+  }
+  audio.__areloreProgrammatic = true;
+  if (audio.__areloreProgrammaticTimer) {
+    clearTimeout(audio.__areloreProgrammaticTimer);
+  }
+  audio.__areloreProgrammaticTimer = setTimeout(() => {
+    audio.__areloreProgrammatic = false;
+  }, 150);
+}
+
+function isProgrammaticAudioControl(audio) {
+  return !!(audio && audio.__areloreProgrammatic);
+}
+
+function applyPlaybackVolume(audio) {
+  if (!audio) {
+    return;
+  }
+  const vol = clamp(storage.getPreference().playbackVolume, 0, 100, 100) / 100;
+  try {
+    audio.volume = vol;
+  } catch (e) {}
+}
+
+function softStop(audio) {
+  markProgrammaticAudioControl(audio);
+  try {
+    audio.stop();
+  } catch (e) {}
 }
 
 function dictVoiceUrl(text, type) {
@@ -113,9 +149,7 @@ function playWordAudio(audio, word, type) {
       if (reason === 'end') {
         return reason;
       }
-      try {
-        audio.stop();
-      } catch (e) {}
+      softStop(audio);
       return dictionaryAudioUrl(word, type).then((src) => {
         if (!src) {
           return reason;
@@ -412,6 +446,9 @@ function playSrcOnce(audio, src, timeoutMs, playbackRate) {
         return;
       }
       settled = true;
+      try {
+        audio.__areloreClipActive = false;
+      } catch (e) {}
       if (watchdog) {
         clearTimeout(watchdog);
         watchdog = null;
@@ -451,8 +488,11 @@ function playSrcOnce(audio, src, timeoutMs, playbackRate) {
     } catch (e) {}
 
     try {
+      markProgrammaticAudioControl(audio);
+      applyPlaybackVolume(audio);
       audio.src = src;
       applyRate();
+      audio.__areloreClipActive = true;
       audio.play();
       applyRate();
     } catch (e) {
@@ -488,16 +528,12 @@ async function playZhChunk(audio, text) {
   if (youdaoReason === 'end') {
     return;
   }
-  try {
-    audio.stop();
-  } catch (e) {}
+  softStop(audio);
   const baiduReason = await playSrcOnce(audio, baiduZhUrl(value), ZH_AUDIO_TIMEOUT_MS);
   if (baiduReason === 'end') {
     return;
   }
-  try {
-    audio.stop();
-  } catch (e) {}
+  softStop(audio);
   if (value.length <= 1) {
     return;
   }
@@ -531,9 +567,7 @@ async function playPosLabel(audio, file, label) {
     if (reason === 'end') {
       return;
     }
-    try {
-      audio.stop();
-    } catch (e) {}
+    softStop(audio);
   }
   const value = String(label || '').trim();
   if (!value) {
@@ -547,16 +581,12 @@ async function playMeaningLine(audio, line) {
   const files = item.files || [];
   const labels = item.labels || [];
   for (let i = 0; i < Math.max(files.length, labels.length); i += 1) {
-    try {
-      audio.stop();
-    } catch (e) {}
+    softStop(audio);
     await playPosLabel(audio, files[i], labels[i]);
     await sleep(BETWEEN_CLIP_GAP_MS);
   }
   if (item.gloss) {
-    try {
-      audio.stop();
-    } catch (e) {}
+    softStop(audio);
     await playZhLine(audio, item.gloss);
   }
 }
@@ -595,9 +625,7 @@ function playText(audio, text, type, hooks) {
   return {
     stop() {
       stopped = true;
-      try {
-        audio.stop();
-      } catch (e) {}
+      softStop(audio);
     }
   };
 }
@@ -605,11 +633,14 @@ function playText(audio, text, type, hooks) {
 /**
  * 听词摸鱼：单词连读 → 字母拼读 → 中文释义（有则等播完）→ onEnd。
  */
+const STORED_MEANING_AUDIO_TIMEOUT_MS = 90000;
+
 function playWordThenSpell(audio, word, type, options) {
   const opts = options || {};
   const wordRepeatCount = clamp(opts.wordRepeatCount, 1, 3, 1);
   const spellSpeed = clamp(opts.spellSpeed, 0, 10, 5);
   const meaning = opts.meaning || '';
+  const meaningAudioUrl = opts.meaningAudioUrl || '';
   const letters = extractLetters(word);
   // 语速只影响字母间隔；每个字母等播完再下一个，全部拼完才 onEnd 切词
   const pauseMs = letterPauseMs(spellSpeed);
@@ -637,9 +668,7 @@ function playWordThenSpell(audio, word, type, options) {
   const stopAll = () => {
     stopped = true;
     finished = true;
-    try {
-      audio.stop();
-    } catch (e) {}
+    softStop(audio);
   };
 
   const run = async () => {
@@ -654,9 +683,7 @@ function playWordThenSpell(audio, word, type, options) {
       if (stopped) {
         return;
       }
-      try {
-        audio.stop();
-      } catch (e) {}
+      softStop(audio);
       await sleep(BETWEEN_CLIP_GAP_MS);
       if (stopped) {
         return;
@@ -682,9 +709,7 @@ function playWordThenSpell(audio, word, type, options) {
       }
       const src = letterVoiceUrl(letters[i], letterPackId);
       if (src) {
-        try {
-          audio.stop();
-        } catch (e) {}
+        softStop(audio);
         await sleep(letterGapMs);
         if (stopped) {
           return;
@@ -693,9 +718,7 @@ function playWordThenSpell(audio, word, type, options) {
         await playSrcOnce(audio, src, playBudget, letterRate);
         // 超时截尾后立刻停，避免与下一字母叠音
         if (!stopped) {
-          try {
-            audio.stop();
-          } catch (e) {}
+          softStop(audio);
         }
       }
       if (stopped) {
@@ -710,15 +733,27 @@ function playWordThenSpell(audio, word, type, options) {
     }
     await sleep(AFTER_SPELL_PAUSE_MS);
 
-    // 3) 逐条朗读全部释义（词性 + 释义），全部结束再切词
+    // 3) 优先播库内预生成释义；失败再逐条在线 TTS
+    if (meaningAudioUrl) {
+      softStop(audio);
+      await sleep(BETWEEN_CLIP_GAP_MS);
+      if (!stopped) {
+        const reason = await playSrcOnce(audio, meaningAudioUrl, STORED_MEANING_AUDIO_TIMEOUT_MS, 1);
+        if (reason === 'end' || stopped) {
+          if (!stopped) {
+            finish('after_meaning');
+          }
+          return;
+        }
+      }
+    }
+
     const lines = meaningsForSpeech(meaning);
     for (let i = 0; i < lines.length; i += 1) {
       if (stopped) {
         return;
       }
-      try {
-        audio.stop();
-      } catch (e) {}
+      softStop(audio);
       await sleep(BETWEEN_CLIP_GAP_MS);
       if (stopped) {
         return;
@@ -749,6 +784,9 @@ module.exports = {
   meaningsForSpeech,
   letterPauseMs,
   estimateListenDurationMs,
+  markProgrammaticAudioControl,
+  isProgrammaticAudioControl,
+  softStop,
   playText,
   playWordThenSpell
 };

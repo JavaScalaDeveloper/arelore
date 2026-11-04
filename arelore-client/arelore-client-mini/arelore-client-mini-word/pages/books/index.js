@@ -9,6 +9,7 @@ const RATIO_OPTIONS = [
 ];
 
 const NEW_COUNT_OPTIONS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+const LOOKBACK_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
 
 // 有道 dictvoice type：1 英音，2 美音
 const VOICE_OPTIONS = [
@@ -83,6 +84,9 @@ Page({
     ratioIndex: 0,
     newCountOptions: NEW_COUNT_OPTIONS,
     newCountIndex: 0,
+    lookbackOptions: LOOKBACK_OPTIONS,
+    lookbackIndex: 2,
+    softLandEnabled: true,
     voiceOptions: VOICE_OPTIONS,
     voiceIndex: 0,
     showVoiceOption: false,
@@ -221,6 +225,8 @@ Page({
       loading: false,
       ratioIndex: 0,
       newCountIndex: 0,
+      lookbackIndex: 2,
+      softLandEnabled: true,
       voiceIndex: 0,
       showVoiceOption,
       dailyNewCount: 10
@@ -240,19 +246,33 @@ Page({
       const ratioIndex = Math.max(0, RATIO_OPTIONS.findIndex((item) => item.value === plan.newReviewRatio));
       const newCountIndex = Math.max(0, NEW_COUNT_OPTIONS.findIndex((item) => item === plan.dailyNewCount));
       let voiceIndex = 0;
-      if (showVoiceOption && plan.extInfo) {
+      let lookbackIndex = 2;
+      let softLandEnabled = true;
+      if (plan.extInfo) {
         try {
           const ext = typeof plan.extInfo === 'string' ? JSON.parse(plan.extInfo) : plan.extInfo;
-          const voiceType = ext && ext.voiceType;
-          const found = VOICE_OPTIONS.findIndex((item) => item.value === voiceType);
-          if (found >= 0) {
-            voiceIndex = found;
+          if (showVoiceOption) {
+            const voiceType = ext && ext.voiceType;
+            const found = VOICE_OPTIONS.findIndex((item) => item.value === voiceType);
+            if (found >= 0) {
+              voiceIndex = found;
+            }
+          }
+          const lookback = Number(ext && ext.reviewLookbackDays);
+          const lbFound = LOOKBACK_OPTIONS.findIndex((item) => item === lookback);
+          if (lbFound >= 0) {
+            lookbackIndex = lbFound;
+          }
+          if (ext && Object.prototype.hasOwnProperty.call(ext, 'softLandEnabled')) {
+            softLandEnabled = ext.softLandEnabled !== false;
           }
         } catch (e) {}
       }
       this.setData({
         ratioIndex: ratioIndex < 0 ? 0 : ratioIndex,
         newCountIndex: newCountIndex < 0 ? 0 : newCountIndex,
+        lookbackIndex,
+        softLandEnabled,
         voiceIndex
       });
       this.refreshPlanDerived();
@@ -321,6 +341,14 @@ Page({
     this.setData({ voiceIndex: Number(e.detail.value) || 0 });
   },
 
+  onLookbackChange(e) {
+    this.setData({ lookbackIndex: Number(e.detail.value) || 0 });
+  },
+
+  onSoftLandChange(e) {
+    this.setData({ softLandEnabled: !!(e.detail && e.detail.value) });
+  },
+
   onConfirmPlan() {
     const book = this.data.selectedBook;
     if (!book || !book.code) {
@@ -331,15 +359,20 @@ Page({
     }
     const ratioValue = this.data.ratioOptions[this.data.ratioIndex].value;
     const dailyNewCount = this.data.newCountOptions[this.data.newCountIndex];
+    const reviewLookbackDays = this.data.lookbackOptions[this.data.lookbackIndex];
+    const ext = {
+      reviewLookbackDays,
+      softLandEnabled: !!this.data.softLandEnabled
+    };
+    if (this.data.showVoiceOption) {
+      ext.voiceType = this.data.voiceOptions[this.data.voiceIndex].value;
+    }
     const payload = {
       bookCode: book.code,
       newReviewRatio: ratioValue,
-      dailyNewCount
+      dailyNewCount,
+      extInfo: JSON.stringify(ext)
     };
-    if (this.data.showVoiceOption) {
-      const voiceType = this.data.voiceOptions[this.data.voiceIndex].value;
-      payload.extInfo = JSON.stringify({ voiceType });
-    }
     const finishLocal = () => {
       storage.setBookId(book.code);
       this.setData({ currentCode: book.code, saving: false });
@@ -350,12 +383,28 @@ Page({
     };
     const token = storage.getToken();
     if (!token) {
-      wx.showToast({ title: '请先登录后再保存计划', icon: 'none' });
-      storage.setBookId(book.code);
-      this.setData({ currentCode: book.code });
-      setTimeout(() => {
-        wx.navigateBack();
-      }, 500);
+      // 游客：本机记下词书，可继续浏览；登录后再云端保存计划
+      storage.setGuestBook({
+        code: book.code,
+        name: book.name || book.code,
+        wordCount: book.wordCount || 0
+      });
+      this.setData({ currentCode: book.code, saving: false });
+      wx.showModal({
+        title: '已选定词书',
+        content: '游客模式下已记下本词书，可继续浏览。登录后可保存学习计划并开始背词。',
+        confirmText: '去登录',
+        cancelText: '先看看',
+        success: (res) => {
+          if (res.confirm) {
+            wx.navigateTo({ url: '/pages/login/index' });
+            return;
+          }
+          wx.navigateBack({
+            fail: () => wx.switchTab({ url: '/pages/words/index' })
+          });
+        }
+      });
       return;
     }
     this.setData({ saving: true });

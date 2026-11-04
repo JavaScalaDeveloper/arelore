@@ -14,6 +14,7 @@ Page({
     letterVoice: storage.DEFAULT_LETTER_VOICE,
     letterVoiceLabel: letterVoices.letterVoiceLabel(storage.DEFAULT_LETTER_VOICE),
     letterVoiceOptions: letterVoices.LETTER_VOICES,
+    playbackVolume: storage.DEFAULT_PLAYBACK_VOLUME,
     saving: false,
     previewing: false
   },
@@ -23,6 +24,24 @@ Page({
   },
 
   onShow() {
+    if (!storage.getToken()) {
+      wx.showModal({
+        title: '需要登录',
+        content: '设置背词模式需要登录后使用',
+        confirmText: '去登录',
+        cancelText: '返回',
+        success: (res) => {
+          if (res.confirm) {
+            wx.redirectTo({ url: '/pages/login/index' });
+            return;
+          }
+          wx.navigateBack({
+            fail: () => wx.switchTab({ url: '/pages/words/index' })
+          });
+        }
+      });
+      return;
+    }
     this.loadPreference();
   },
 
@@ -97,7 +116,8 @@ Page({
       spellSpeed: p.spellSpeed,
       wordRepeatCount: p.wordRepeatCount,
       letterVoice: p.letterVoice,
-      letterVoiceLabel: letterVoices.letterVoiceLabel(p.letterVoice)
+      letterVoiceLabel: letterVoices.letterVoiceLabel(p.letterVoice),
+      playbackVolume: p.playbackVolume
     });
   },
 
@@ -147,7 +167,8 @@ Page({
         studyMode: res.data && res.data.studyMode,
         spellSpeed: res.data && res.data.spellSpeed,
         wordRepeatCount: res.data && res.data.wordRepeatCount,
-        letterVoice: next.letterVoice
+        letterVoice: next.letterVoice,
+        playbackVolume: next.playbackVolume
       });
       this.applyLocal(saved);
       if (!opts.silent) {
@@ -175,7 +196,11 @@ Page({
       wx.showToast({ title: '看词选图暂未开放', icon: 'none' });
       return;
     }
-    if (mode !== storage.STUDY_MODE_SEE_MEANING && mode !== storage.STUDY_MODE_LISTEN_SPELL) {
+    if (
+      mode !== storage.STUDY_MODE_SEE_MEANING
+      && mode !== storage.STUDY_MODE_LISTEN_SPELL
+      && mode !== storage.STUDY_MODE_DICTATION
+    ) {
       return;
     }
     if (mode === this.data.studyMode || this.data.saving) {
@@ -222,5 +247,17 @@ Page({
       return;
     }
     this.persist({ wordRepeatCount }, { silent: true });
+  },
+
+  onPlaybackVolumeChanging(e) {
+    this.setData({ playbackVolume: Number(e.detail.value) });
+  },
+
+  onPlaybackVolumeChange(e) {
+    const playbackVolume = Number(e.detail.value);
+    this.setData({ playbackVolume });
+    // 仅本机 wx storage，不写 DB；下次启动仍生效
+    this.persist({ playbackVolume }, { silent: true, skipRemote: true });
+    this.previewSpellSpeed(this.data.spellSpeed, this.data.letterVoice);
   }
 });

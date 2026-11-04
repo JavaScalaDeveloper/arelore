@@ -1,8 +1,8 @@
 /**
  * 与 mini-cert / user 服务环境约定对齐：
- *   dev/pre → http://localhost:8081/api
- *   test    → http://www.arelore.com:8281/api
- *   prd     → http://www.arelore.com:8081/api
+ *   dev/pre → http://localhost:8081/api（本机联调）
+ *   test    → http://test.arelore.com:8281/api（测试机，开发者工具可关域名校验）
+ *   prd     → https://www.arelore.com/api（正式版；微信合法域名须 HTTPS 且不能带端口）
  *
  * 解析优先级（高 → 低）：
  *   1. Storage miniApiBaseUrl（完整地址）
@@ -11,9 +11,9 @@
  *   4. 默认 test
  */
 const API_BY_ENV = {
-  prd: 'http://www.arelore.com:8081/api',
+  prd: 'https://www.arelore.com/api',
   pre: 'http://localhost:8081/api',
-  test: 'http://www.arelore.com:8281/api',
+  test: 'http://test.arelore.com:8281/api',
   dev: 'http://localhost:8081/api'
 };
 

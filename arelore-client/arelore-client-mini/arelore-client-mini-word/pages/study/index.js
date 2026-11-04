@@ -2,6 +2,14 @@ const { postWithAuth, shortErrorMessage } = require('../../utils/request');
 const storage = require('../../utils/storage');
 const preference = require('../../utils/preference');
 const tts = require('../../utils/tts');
+const dictationUtil = require('../../utils/dictation');
+
+/** 标准 QWERTY 三行布局 */
+const LETTER_PAD_ROWS = [
+  'qwertyuiop'.split(''),
+  'asdfghjkl'.split(''),
+  'zxcvbnm'.split('')
+];
 
 function pad2(n) {
   return n < 10 ? `0${n}` : `${n}`;
@@ -20,6 +28,7 @@ Page({
     status: 'loading',
     errorTitle: '无法开始',
     errorMessage: '',
+    needLogin: false,
     bookCode: '',
     cards: [],
     index: 0,
@@ -27,6 +36,9 @@ Page({
     revealed: false,
     hintShown: false,
     pendingRemember: null,
+    answered: false,
+    /** 自动下一词倒计时（秒）；0 表示未在倒计时。靠耗时 1s 心跳驱动，不依赖 setTimeout */
+    autoNextSec: 0,
     learnTotal: 0,
     reviewTotal: 0,
     learnDone: 0,
@@ -34,6 +46,7 @@ Page({
     voiceType: 2,
     studyMode: storage.STUDY_MODE_SEE_MEANING,
     isListenMode: false,
+    isDictationMode: false,
     spellSpeed: storage.DEFAULT_SPELL_SPEED,
     wordRepeatCount: storage.DEFAULT_WORD_REPEAT_COUNT,
     letterVoice: storage.DEFAULT_LETTER_VOICE,
@@ -44,44 +57,72 @@ Page({
     playing: false,
     pictureError: false,
     /** 听词暂停：不自动切下一词 */
-    listenPaused: false
+    listenPaused: false,
+    dictationSlots: [],
+    dictationFilled: [],
+    dictationViewSlots: [],
+    dictationShake: false,
+    letterPadRows: LETTER_PAD_ROWS
   },
 
-  timer: null,
-  autoNextTimer: null,
-  /** 同步锁：防止连点「认识/不认识」在 setData 生效前重复提交 */
-  answeringLock: false,
-  /** 当前卡片世代，用于作废过期的自动下一词定时器 */
-  cardEpoch: 0,
-  startedAt: 0,
-  audio: null,
-  ttsSession: null,
-  /** 听词 failsafe 切词定时器 */
-  listenAdvanceTimer: null,
-  /** 暂停期间整段已播完，继续时立刻切下一词 */
-  listenHoldAdvance: false,
-
   onLoad() {
+    this.dictationLock = false;
+    this.timer = null;
+    this.answeringLock = false;
+    this.cardEpoch = 0;
+    this.startedAt = 0;
+    this.audio = null;
+    this.ttsSession = null;
+    this.listenAdvanceTimer = null;
+    this.listenHoldAdvance = false;
     this.initAudio();
     this.refreshPreference();
     this.loadSession();
   },
 
-  onShow() {
-    this.refreshPreference();
-    this.startTimer();
-  },
-
   applyPreference(pref) {
     const p = pref || storage.getPreference();
     const isListenMode = p.studyMode === storage.STUDY_MODE_LISTEN_SPELL;
+    const isDictationMode = p.studyMode === storage.STUDY_MODE_DICTATION;
     this.setData({
       studyMode: p.studyMode,
       isListenMode,
+      isDictationMode,
       spellSpeed: p.spellSpeed,
       wordRepeatCount: p.wordRepeatCount,
       letterVoice: p.letterVoice
     });
+  },
+
+  resetDictation(word) {
+    const slots = dictationUtil.buildDictationSlots(word || '');
+    const filled = dictationUtil.emptyDictationFilled(slots);
+    const currentIndex = dictationUtil.nextLetterSlotIndex(slots, filled);
+    this.dictationLock = false;
+    this.setData({
+      dictationSlots: slots,
+      dictationFilled: filled,
+      dictationViewSlots: dictationUtil.buildDictationViewSlots(slots, filled, currentIndex),
+      dictationShake: false
+    });
+  },
+
+  refreshDictationView(filled) {
+    const slots = this.data.dictationSlots || [];
+    const nextFilled = filled || this.data.dictationFilled || [];
+    const currentIndex = dictationUtil.nextLetterSlotIndex(slots, nextFilled);
+    this.setData({
+      dictationFilled: nextFilled,
+      dictationViewSlots: dictationUtil.buildDictationViewSlots(slots, nextFilled, currentIndex)
+    });
+  },
+
+  triggerDictationShake() {
+    this.setData({ dictationShake: false });
+    setTimeout(() => {
+      this.setData({ dictationShake: true });
+      setTimeout(() => this.setData({ dictationShake: false }), 360);
+    }, 16);
   },
 
   refreshPreference() {
@@ -92,14 +133,17 @@ Page({
   },
 
   onHide() {
-    this.stopTimer();
-    this.clearAutoNext();
+    // 不停耗时心跳：自动下一词靠 1s interval 递减 autoNextSec；hide 时停掉会失效。
     this.stopAudio();
+  },
+
+  onShow() {
+    this.refreshPreference();
+    this.startTimer();
   },
 
   onUnload() {
     this.stopTimer();
-    this.clearAutoNext();
     this.destroyAudio();
   },
 
@@ -108,6 +152,30 @@ Page({
     audio.obeyMuteSwitch = false;
     // 听词队列的错误由 tts.playSrcOnce 自行消化；这里不再挂全局 onError，
     // 避免与逐段 offError 冲突，以及 EncodingError 打断链路。
+    // 耳机线控：系统 pause/play 映射到听词暂停/继续（程序主动 stop 会打标记忽略）
+    audio.onPause(() => {
+      if (tts.isProgrammaticAudioControl(audio)) {
+        return;
+      }
+      if (!audio.__areloreClipActive) {
+        return;
+      }
+      if (!this.isListenMode() || this.data.listenPaused || this.data.submitting) {
+        return;
+      }
+      this.onListenPause();
+    });
+    audio.onPlay(() => {
+      if (tts.isProgrammaticAudioControl(audio)) {
+        return;
+      }
+      if (!this.isListenMode() || !this.data.listenPaused || this.data.submitting) {
+        return;
+      }
+      // 系统恢复的是被暂停的片段；听词语义是整词重播/切词
+      tts.softStop(audio);
+      this.onListenResume();
+    });
     this.audio = audio;
   },
 
@@ -128,9 +196,7 @@ Page({
       this.ttsSession = null;
     }
     if (this.audio) {
-      try {
-        this.audio.stop();
-      } catch (e) {}
+      tts.softStop(this.audio);
     }
   },
 
@@ -144,19 +210,18 @@ Page({
   /**
    * 听词 failsafe：即使 onEnd 丢失，到期也自动「认识」并切词。
    */
-  armListenAdvanceFailsafe(expectEpoch, expectWordCode, word, meaning) {
+  armListenAdvanceFailsafe(expectEpoch, expectWordCode, word, meaning, hasStoredMeaningAudio) {
     this.clearListenAdvanceTimer();
     if (this.data.listenPaused) {
       return;
     }
-    const waitMs = Math.max(
-      10000,
-      tts.estimateListenDurationMs(word, {
-        wordRepeatCount: this.data.wordRepeatCount,
-        spellSpeed: this.data.spellSpeed,
-        meaning: meaning || ''
-      })
-    );
+    const estimated = tts.estimateListenDurationMs(word, {
+      wordRepeatCount: this.data.wordRepeatCount,
+      spellSpeed: this.data.spellSpeed,
+      meaning: meaning || ''
+    });
+    // 预生成整段释义可能比逐条在线 TTS 更长
+    const waitMs = Math.max(10000, hasStoredMeaningAudio ? Math.max(estimated, 120000) : estimated);
     this.listenAdvanceTimer = setTimeout(() => {
       this.listenAdvanceTimer = null;
       this.onListenSequenceFinished(expectEpoch, expectWordCode);
@@ -209,7 +274,26 @@ Page({
       this.startedAt = Date.now();
     }
     this.timer = setInterval(() => {
-      this.setData({ elapsedText: formatElapsed(Date.now() - this.startedAt) });
+      const patch = {
+        elapsedText: formatElapsed(Date.now() - this.startedAt)
+      };
+      // 自动下一词：每秒减 1，到 0 切词（不依赖 setTimeout）
+      const sec = Number(this.data.autoNextSec) || 0;
+      if (sec > 1) {
+        patch.autoNextSec = sec - 1;
+        this.setData(patch);
+        return;
+      }
+      if (sec === 1) {
+        patch.autoNextSec = 0;
+        const shouldGo = !!(this.data.revealed || this.data.answered);
+        this.setData(patch);
+        if (shouldGo) {
+          this.goNext();
+        }
+        return;
+      }
+      this.setData(patch);
     }, 1000);
   },
 
@@ -223,7 +307,12 @@ Page({
   loadSession() {
     const token = storage.getToken();
     if (!token) {
-      this.setData({ status: 'error', errorMessage: '请先登录后再学习' });
+      this.setData({
+        status: 'error',
+        errorTitle: '需要登录',
+        errorMessage: '学习进度需登录后同步。可返回首页先浏览单词书。',
+        needLogin: true
+      });
       return;
     }
     this.setData({ status: 'loading' });
@@ -276,8 +365,10 @@ Page({
         reviewDone,
         voiceType,
         elapsedText: '00:00',
-        pictureError: false
+        pictureError: false,
+        autoNextSec: 0
       });
+      this.resetDictation(cards[0] && cards[0].word);
       this.startTimer();
       this.autoPlayCurrent();
       this.bindStoredPictures(cards[0]);
@@ -294,6 +385,11 @@ Page({
   isListenMode() {
     return this.data.studyMode === storage.STUDY_MODE_LISTEN_SPELL
       || storage.getStudyMode() === storage.STUDY_MODE_LISTEN_SPELL;
+  },
+
+  isDictationMode() {
+    return this.data.studyMode === storage.STUDY_MODE_DICTATION
+      || storage.getStudyMode() === storage.STUDY_MODE_DICTATION;
   },
 
   autoPlayCurrent() {
@@ -335,19 +431,43 @@ Page({
     if (listenMode) {
       const card = this.data.card;
       const meaning = card && card.meaning ? card.meaning : '';
-      // failsafe 须覆盖「中文释义播完」；正常路径仍以 onEnd（等中文结束）切词
-      this.armListenAdvanceFailsafe(playEpoch, playWordCode, word, meaning);
-      this.ttsSession = tts.playWordThenSpell(this.audio, word, voiceType, {
-        onStart: () => this.setData({ playing: true }),
-        onEnd: () => {
-          this.setData({ playing: false, playingExampleKey: '' });
-          triggerListenAdvance();
-        },
-        wordRepeatCount: this.data.wordRepeatCount,
-        spellSpeed: this.data.spellSpeed,
-        letterVoice: this.data.letterVoice,
-        meaning
-      });
+      const startListen = (meaningAudioUrl) => {
+        if (this.cardEpoch !== playEpoch) {
+          return;
+        }
+        this.armListenAdvanceFailsafe(playEpoch, playWordCode, word, meaning, !!meaningAudioUrl);
+        this.ttsSession = tts.playWordThenSpell(this.audio, word, voiceType, {
+          onStart: () => this.setData({ playing: true }),
+          onEnd: () => {
+            this.setData({ playing: false, playingExampleKey: '' });
+            triggerListenAdvance();
+          },
+          wordRepeatCount: this.data.wordRepeatCount,
+          spellSpeed: this.data.spellSpeed,
+          letterVoice: this.data.letterVoice,
+          meaning,
+          meaningAudioUrl: meaningAudioUrl || ''
+        });
+      };
+      const existingUrl = card && card.meaningAudioUrl ? card.meaningAudioUrl : '';
+      if (existingUrl) {
+        startListen(existingUrl);
+        return;
+      }
+      const audioFileId = card && card.meaningAudioFileId;
+      if (audioFileId) {
+        this.loadStoredBinary(audioFileId, 'audio').then((path) => {
+          if (this.cardEpoch !== playEpoch) {
+            return;
+          }
+          if (path) {
+            this.setData({ 'card.meaningAudioUrl': path });
+          }
+          startListen(path || '');
+        });
+        return;
+      }
+      startListen('');
       return;
     }
 
@@ -404,34 +524,60 @@ Page({
   },
 
   bindStoredPictures(card) {
-    const ids = card && Array.isArray(card.pictureFileIds) ? card.pictureFileIds.filter(Boolean) : [];
-    if (!ids.length || !card) {
+    if (!card) {
       return;
     }
     const wordCode = card.wordCode;
-    Promise.all(ids.map((id) => this.loadStoredPicture(id))).then((paths) => {
-      const urls = paths.filter(Boolean);
+    const ids = Array.isArray(card.pictureFileIds) ? card.pictureFileIds.filter(Boolean) : [];
+    const meaningAudioFileId = card.meaningAudioFileId;
+    Promise.all([
+      ids.length
+        ? Promise.all(ids.map((id) => this.loadStoredBinary(id, 'pic')))
+        : Promise.resolve([]),
+      meaningAudioFileId
+        ? this.loadStoredBinary(meaningAudioFileId, 'audio')
+        : Promise.resolve('')
+    ]).then(([paths, meaningAudioUrl]) => {
+      const urls = (paths || []).filter(Boolean);
       const current = this.data.card;
-      if (!urls.length || !current || current.wordCode !== wordCode) {
+      if (!current || current.wordCode !== wordCode) {
         return;
       }
-      this.setData({
-        'card.picture': urls[0],
-        'card.pictures': urls,
-        pictureError: false
-      });
+      if (!urls.length && !meaningAudioUrl) {
+        return;
+      }
+      const patch = {};
+      if (urls.length) {
+        patch['card.picture'] = urls[0];
+        patch['card.pictures'] = urls;
+        patch.pictureError = false;
+      }
+      if (meaningAudioUrl) {
+        patch['card.meaningAudioUrl'] = meaningAudioUrl;
+      }
+      this.setData(patch);
     });
   },
 
-  loadStoredPicture(fileId) {
+  loadStoredBinary(fileId, kind) {
     return postWithAuth('/user/word/picture-content', { id: fileId }).then((res) => {
       const data = res && res.code === 200 ? res.data : null;
       if (!data || !data.base64Data) {
         return '';
       }
       const type = String(data.contentType || '');
-      const ext = type.indexOf('png') >= 0 ? 'png' : (type.indexOf('webp') >= 0 ? 'webp' : 'jpg');
-      const filePath = `${wx.env.USER_DATA_PATH}/word-pic-${fileId}.${ext}`;
+      let ext = 'bin';
+      if (kind === 'audio' || type.indexOf('audio') >= 0 || type.indexOf('mpeg') >= 0) {
+        ext = 'mp3';
+      } else if (type.indexOf('png') >= 0) {
+        ext = 'png';
+      } else if (type.indexOf('webp') >= 0) {
+        ext = 'webp';
+      } else {
+        ext = 'jpg';
+      }
+      const prefix = kind === 'audio' ? 'word-audio' : 'word-pic';
+      const filePath = `${wx.env.USER_DATA_PATH}/${prefix}-${fileId}.${ext}`;
       return new Promise((resolve) => {
         wx.getFileSystemManager().writeFile({
           filePath,
@@ -526,27 +672,16 @@ Page({
   },
 
   clearAutoNext() {
-    if (this.autoNextTimer) {
-      clearTimeout(this.autoNextTimer);
-      this.autoNextTimer = null;
+    if (this.data.autoNextSec) {
+      this.setData({ autoNextSec: 0 });
     }
   },
 
-  scheduleAutoNext(expectEpoch, expectWordCode, delayMs) {
-    this.clearAutoNext();
-    const delay = delayMs == null ? 1000 : delayMs;
-    this.autoNextTimer = setTimeout(() => {
-      this.autoNextTimer = null;
-      // 已切到别的词 / 用户已手动下一词：丢弃过期定时器
-      if (this.cardEpoch !== expectEpoch) {
-        return;
-      }
-      const card = this.data.card;
-      if (!card || card.wordCode !== expectWordCode || !this.data.revealed) {
-        return;
-      }
-      this.goNext();
-    }, delay);
+  /** @param {number} sec 倒计时秒数，由 startTimer 的 1s 心跳递减 */
+  scheduleAutoNext(sec) {
+    const n = Math.max(1, Math.floor(sec == null ? 3 : sec));
+    this.setData({ autoNextSec: n });
+    this.startTimer();
   },
 
   answerAndReveal(rememberFlag, options) {
@@ -556,17 +691,23 @@ Page({
       return;
     }
     this.answeringLock = true;
-    this.clearAutoNext();
     const answeredWordCode = card.wordCode;
     const answeredEpoch = this.cardEpoch;
+    const inDictation = !!(this.data.isDictationMode || this.isDictationMode());
+    const dictationUnknown = inDictation && !rememberFlag && !opts.goNextImmediately;
     this.setData({
       submitting: true,
       revealed: true,
       hintShown: false,
       pendingRemember: !!rememberFlag,
       answered: true,
-      pictureError: false
+      pictureError: false,
+      // 听写「不认识」：立刻开始 3 秒倒计时（界面可见，靠 1s 心跳驱动）
+      autoNextSec: dictationUnknown ? 3 : 0
     });
+    if (dictationUnknown) {
+      this.startTimer();
+    }
     postWithAuth('/user/word/study/answer', {
       bookCode: this.data.bookCode,
       wordCode: card.wordCode,
@@ -574,29 +715,33 @@ Page({
       rememberFlag
     }).then((res) => {
       this.answeringLock = false;
-      this.setData({ submitting: false });
       // 响应回来时已不在该词：忽略（防重复 answer 的迟到回调）
       if (this.cardEpoch !== answeredEpoch
         || !this.data.card
-        || this.data.card.wordCode !== answeredWordCode) {
+        || String(this.data.card.wordCode) !== String(answeredWordCode)) {
+        this.setData({ submitting: false });
         return;
       }
       if (res.code === 401) {
         storage.clearSession();
+        this.setData({ submitting: false, autoNextSec: 0 });
         wx.showToast({ title: '请重新登录', icon: 'none' });
         return;
       }
       if (res.code !== 200) {
         // 提交失败：收回揭示态，允许重试
+        this.dictationLock = false;
         this.setData({
+          submitting: false,
           revealed: false,
           answered: false,
-          pendingRemember: null
+          pendingRemember: null,
+          autoNextSec: 0
         });
         wx.showToast({ title: res.message || '提交失败', icon: 'none' });
         return;
       }
-      const patch = {};
+      const patch = { submitting: false };
       // 进度以后端为准：只有「认识」才会计入完成
       if (res.data) {
         if (res.data.learnDone != null) {
@@ -607,27 +752,32 @@ Page({
         }
       }
       this.setData(patch);
-      // 听词：认识/稍后复习 提交后都立刻切下一词
-      if (opts.goNextImmediately || (rememberFlag && this.isListenMode())) {
+      // 听词：提交后立刻切下一词；听写「认识」立即切；听写「不认识」倒计时已在揭示时启动
+      if (opts.goNextImmediately || this.isListenMode()) {
         this.goNext();
         return;
       }
+      if (dictationUnknown) {
+        return;
+      }
       if (rememberFlag) {
-        this.scheduleAutoNext(answeredEpoch, answeredWordCode, 1000);
+        this.scheduleAutoNext(1);
       }
     }).catch((err) => {
       this.answeringLock = false;
+      this.dictationLock = false;
       if (this.cardEpoch === answeredEpoch
         && this.data.card
-        && this.data.card.wordCode === answeredWordCode) {
+        && String(this.data.card.wordCode) === String(answeredWordCode)) {
         this.setData({
           submitting: false,
           revealed: false,
           answered: false,
-          pendingRemember: null
+          pendingRemember: null,
+          autoNextSec: 0
         });
       } else {
-        this.setData({ submitting: false });
+        this.setData({ submitting: false, autoNextSec: 0 });
       }
       const msg = shortErrorMessage(err, '网络不通，提交失败');
       wx.showToast({ title: msg.slice(0, 20), icon: 'none' });
@@ -656,7 +806,8 @@ Page({
       answered: false,
       submitting: false,
       listenPaused: false,
-      playing: false
+      playing: false,
+      autoNextSec: 0
     });
   },
 
@@ -703,10 +854,78 @@ Page({
       submitting: false,
       pictureError: false,
       listenPaused: false,
-      playing: false
+      playing: false,
+      autoNextSec: 0
     });
+    this.resetDictation(cards[index] && cards[index].word);
     this.autoPlayCurrent();
     this.bindStoredPictures(cards[index]);
+  },
+
+  onDictationLetter(e) {
+    if (!this.isDictationMode() || this.data.revealed || this.data.submitting || this.dictationLock) {
+      return;
+    }
+    const key = String((e.currentTarget.dataset.letter || '')).toLowerCase();
+    if (!/^[a-z]$/.test(key)) {
+      return;
+    }
+    const slots = this.data.dictationSlots || [];
+    const filled = (this.data.dictationFilled || []).slice();
+    const idx = dictationUtil.nextLetterSlotIndex(slots, filled);
+    if (idx < 0) {
+      return;
+    }
+    if (key !== slots[idx].expected) {
+      this.triggerDictationShake();
+      return;
+    }
+    filled[idx] = key;
+    this.refreshDictationView(filled);
+    if (dictationUtil.isDictationComplete(slots, filled)) {
+      this.dictationLock = true;
+      this.answerAndReveal(true, { goNextImmediately: true });
+    }
+  },
+
+  onDictationBackspace() {
+    if (!this.isDictationMode() || this.data.revealed || this.data.submitting || this.dictationLock) {
+      return;
+    }
+    const slots = this.data.dictationSlots || [];
+    const filled = (this.data.dictationFilled || []).slice();
+    for (let i = filled.length - 1; i >= 0; i--) {
+      if (!slots[i].fixed && filled[i]) {
+        filled[i] = '';
+        this.refreshDictationView(filled);
+        return;
+      }
+    }
+  },
+
+  onDictationUnknown() {
+    if (!this.isDictationMode() || this.answeringLock || this.data.submitting || this.data.revealed) {
+      return;
+    }
+    this.stopAudio();
+    this.setData({ playing: false });
+    // 揭示单词，3 秒自动下一词（也可点「下一个」）
+    this.answerAndReveal(false);
+  },
+
+  onDictationReplay() {
+    if (!this.isDictationMode() || this.data.submitting || this.data.revealed) {
+      return;
+    }
+    const card = this.data.card;
+    if (!card || !card.word) {
+      return;
+    }
+    this.playWord(card.word, this.data.voiceType === 1 ? 1 : 2);
+  },
+
+  onGoLogin() {
+    wx.navigateTo({ url: '/pages/login/index' });
   },
 
   onBack() {
@@ -717,3 +936,4 @@ Page({
     });
   }
 });
+

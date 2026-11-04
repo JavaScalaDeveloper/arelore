@@ -112,13 +112,27 @@ Page({
   },
 
   onSettings() {
+    if (!storage.getToken()) {
+      wx.showModal({
+        title: '需要登录',
+        content: '设置背词模式需要登录后使用',
+        confirmText: '去登录',
+        cancelText: '再看看',
+        success: (res) => {
+          if (res.confirm) {
+            this.onLogin();
+          }
+        }
+      });
+      return;
+    }
     wx.navigateTo({ url: '/pages/settings/index' });
   },
 
   onLogout() {
     wx.showModal({
       title: '退出登录',
-      content: '退出后需重新微信授权登录',
+      content: '退出后将回到游客浏览，可随时再登录同步进度',
       success: (res) => {
         if (!res.confirm) return;
         postWithAuth('/user/auth/logout', {})

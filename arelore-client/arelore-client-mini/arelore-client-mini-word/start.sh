@@ -18,13 +18,14 @@ case "$ENV_NAME" in
     API_BASE_URL="http://localhost:8081/api"
     ;;
   test)
-    API_BASE_URL="http://www.arelore.com:8281/api"
+    API_BASE_URL="http://test.arelore.com:8281/api"
     ;;
   pre)
     API_BASE_URL="http://localhost:8081/api"
     ;;
   prd)
-    API_BASE_URL="http://www.arelore.com:8081/api"
+    # 正式版：微信 request 合法域名须 HTTPS，且不能带端口
+    API_BASE_URL="https://www.arelore.com:8081/api"
     ;;
   *)
     API_BASE_URL="$ENV_NAME"

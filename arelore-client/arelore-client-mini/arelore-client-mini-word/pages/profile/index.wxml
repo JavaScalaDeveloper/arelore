@@ -8,24 +8,24 @@
       <button class="network-retry" size="mini" bindtap="onRetryNetwork">重试</button>
     </view>
 
-    <view class="user-card" wx:if="{{user}}">
+    <view class="user-card logged" wx:if="{{user}}">
       <image class="avatar" wx:if="{{user.avatarUrl}}" src="{{user.avatarUrl}}" mode="aspectFill" />
       <view class="avatar placeholder" wx:else>词</view>
       <view class="user-meta">
         <text class="nickname">{{user.nickName}}</text>
-        <text class="tip">微信用户</text>
+        <text class="tip">学习进度已同步</text>
       </view>
     </view>
 
     <view class="user-card guest" wx:else>
-      <view class="user-row">
-        <view class="avatar placeholder">词</view>
+      <view class="guest-top">
+        <view class="avatar placeholder">游</view>
         <view class="user-meta">
-          <text class="nickname">未登录</text>
-          <text class="tip">登录后展示微信头像与昵称</text>
+          <text class="nickname">游客</text>
+          <text class="tip">可先浏览单词书；登录后同步进度与设置</text>
         </view>
       </view>
-      <button class="login-btn" bindtap="onLogin">微信一键登录</button>
+      <button class="login-btn" bindtap="onLogin">登录同步进度</button>
     </view>
 
     <view class="stats-card" wx:if="{{user}}">
@@ -41,9 +41,11 @@
     </view>
 
     <view class="menu-card" bindtap="onSettings">
+      <view class="menu-icon">设</view>
       <view class="menu-main">
-        <text class="menu-label">设置</text>
-        <text class="menu-sub">背词模式：{{studyModeLabel}}</text>
+        <text class="menu-label">设置背词模式</text>
+        <text class="menu-sub" wx:if="{{user}}">当前：{{studyModeLabel}}</text>
+        <text class="menu-sub" wx:else>登录后可调整听词 / 看词 / 听写</text>
       </view>
       <text class="menu-arrow">›</text>
     </view>

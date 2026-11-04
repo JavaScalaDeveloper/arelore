@@ -21,7 +21,7 @@
   <text class="hint" wx:if="{{step === 'language'}}">请先选择要学习的语种</text>
   <text class="hint" wx:elif="{{step === 'category'}}">请选择该语种下的单词本分类</text>
   <text class="hint" wx:elif="{{step === 'book'}}">请选择一本词书，进入后可配置学习计划</text>
-  <text class="hint" wx:else>配置每日新学与复习比例，确认后保存到云端</text>
+  <text class="hint" wx:else>配置每日新学与复习比例。未登录也可先选定词书；登录后即可保存计划并开始学习。</text>
 
   <view wx:if="{{loading}}" class="empty">加载中…</view>
 
@@ -147,8 +147,24 @@
         </picker>
       </view>
 
+      <view class="form-row">
+        <text class="form-label">复习回溯</text>
+        <picker mode="selector" range="{{lookbackOptions}}" value="{{lookbackIndex}}" bindchange="onLookbackChange">
+          <view class="form-picker">
+            <text>最近 {{lookbackOptions[lookbackIndex]}} 个学习日</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-row">
+        <text class="form-label">断签软着陆</text>
+        <switch checked="{{softLandEnabled}}" bindchange="onSoftLandChange" color="#1677ff" />
+      </view>
+      <text class="form-hint">断签 ≥2 天时，今日复习压到约每日新学量</text>
+
       <view class="form-row readonly">
-        <text class="form-label">每日复习</text>
+        <text class="form-label">每日复习上限</text>
         <text class="form-value">{{dailyReviewCount}} 个</text>
       </view>
 

@@ -94,6 +94,10 @@
   margin-top: 24rpx;
 }
 
+.volume-section {
+  margin-top: 24rpx;
+}
+
 .field {
   margin-top: 28rpx;
 }

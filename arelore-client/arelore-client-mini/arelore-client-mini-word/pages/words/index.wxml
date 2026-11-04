@@ -1,15 +1,45 @@
 <view class="page" wx:if="{{status === 'loading'}}">
   <view class="state-card">
-    <text class="state-title">加载中…</text>
-    <text class="state-desc">正在获取你的单词本与学习进度</text>
+    <view class="pulse-dot"></view>
+    <text class="state-title">加载中</text>
+    <text class="state-desc">正在获取单词本与学习进度</text>
   </view>
 </view>
 
-<view class="page" wx:elif="{{status === 'needLogin'}}">
-  <view class="state-card">
-    <text class="state-title">未登录</text>
-    <text class="state-desc">登录后可查看当前单词本、新学与复习进度</text>
-    <button class="primary-btn" bindtap="onLogin">去登录</button>
+<!-- 游客态：可浏览词书；设置/学习需登录 -->
+<view class="page guest-page" wx:elif="{{status === 'guest'}}">
+  <view class="hero-banner">
+    <view class="hero-badge">游客浏览</view>
+    <text class="hero-title">背单词</text>
+    <text class="hero-desc">先逛逛单词书，喜欢再登录同步进度。浏览无需授权手机号、头像或昵称。</text>
+  </view>
+
+  <view class="panel guest-book-panel" wx:if="{{guestBook}}" bindtap="onTapBook">
+    <view class="panel-icon book-icon">书</view>
+    <view class="panel-body">
+      <text class="panel-label">已选词书</text>
+      <text class="panel-title">{{guestBook.name}}</text>
+      <text class="panel-sub" wx:if="{{guestBook.wordCount}}">约 {{guestBook.wordCount}} 词</text>
+    </view>
+    <view class="panel-action">
+      <text class="panel-action-text">更换</text>
+      <text class="panel-chevron">›</text>
+    </view>
+  </view>
+
+  <view class="action-stack">
+    <button class="btn-primary" bindtap="onTapBook">
+      {{guestBook ? '继续浏览单词书' : '浏览单词书'}}
+    </button>
+    <button class="btn-secondary" bindtap="onOpenSettings">
+      <text class="btn-secondary-main">设置背词模式</text>
+      <text class="btn-secondary-hint">需登录</text>
+    </button>
+  </view>
+
+  <view class="login-nudge" bindtap="onLogin">
+    <text class="login-nudge-text">已有账号？</text>
+    <text class="login-nudge-link">登录同步进度</text>
   </view>
 </view>
 
@@ -19,20 +49,20 @@
     <text class="state-desc">{{networkErrorMessage}}</text>
     <text class="state-meta" wx:if="{{apiEnv}}">当前环境：{{apiEnv}}</text>
     <text class="state-meta" wx:if="{{apiBaseUrl}}">接口：{{apiBaseUrl}}</text>
-    <text class="state-meta">本机联调请执行 bash start.sh dev 后重新编译；并确认 user 服务已启动。</text>
-    <button class="primary-btn" bindtap="onRetryHome">重试</button>
+    <button class="btn-primary" bindtap="onRetryHome">重试</button>
+    <button class="btn-secondary" bindtap="onTapBook">先浏览单词书</button>
   </view>
 </view>
 
 <view class="page" wx:elif="{{status === 'noBook'}}">
-  <view class="state-card">
-    <text class="state-title">还没有单词本</text>
-    <text class="state-desc">选择一本词书并确认学习计划后，进度会同步到这里</text>
-    <button class="primary-btn" bindtap="onTapBook">去选择单词本</button>
+  <view class="hero-banner soft">
+    <text class="hero-title">还没有单词本</text>
+    <text class="hero-desc">选择一本词书并确认学习计划后，进度会同步到这里</text>
   </view>
+  <button class="btn-primary" bindtap="onTapBook">去选择单词本</button>
 </view>
 
-<view class="page" wx:elif="{{status === 'ready' && book}}">
+<view class="page ready-page" wx:elif="{{status === 'ready' && book}}">
   <view class="book-bar" bindtap="onTapBook">
     <view class="book-meta">
       <text class="book-label">当前单词本</text>
@@ -60,8 +90,8 @@
 
   <view class="cards">
     <view class="card learn" bindtap="onStartStudy">
+      <text class="card-eyebrow">今日</text>
       <text class="card-title">新学</text>
-      <text class="card-desc">今日新记</text>
       <view class="stats">
         <view class="stat">
           <text class="stat-num">{{book.learnTodo}}</text>
@@ -75,8 +105,8 @@
     </view>
 
     <view class="card review" bindtap="onStartStudy">
+      <text class="card-eyebrow">巩固</text>
       <text class="card-title">复习</text>
-      <text class="card-desc">上一学习日新学</text>
       <view class="stats">
         <view class="stat">
           <text class="stat-num">{{book.reviewTodo}}</text>
@@ -91,12 +121,14 @@
   </view>
 
   <view class="mode-chip {{isListenMode ? 'listen' : ''}}" bindtap="onOpenSettings">
-    <text class="mode-chip-label">背词模式</text>
-    <text class="mode-chip-value">{{studyModeLabel}}</text>
+    <view class="mode-chip-text">
+      <text class="mode-chip-label">背词模式</text>
+      <text class="mode-chip-value">{{studyModeLabel}}</text>
+    </view>
     <text class="mode-chip-arrow">›</text>
   </view>
 
-  <button class="start-btn" bindtap="onStartStudy">
+  <button class="btn-primary start-btn" bindtap="onStartStudy">
     {{isListenMode ? '开始听词' : '开始学习'}}
   </button>
 </view>

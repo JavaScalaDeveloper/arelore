@@ -28,9 +28,10 @@ function mapCurrent(current) {
 
 Page({
   data: {
-    // loading | needLogin | noBook | networkError | ready
+    // loading | guest | noBook | networkError | ready
     status: 'loading',
     book: null,
+    guestBook: null,
     studyModeLabel: preference.modeLabel(storage.STUDY_MODE_SEE_MEANING),
     isListenMode: false,
     networkErrorMessage: '',
@@ -57,10 +58,21 @@ Page({
     }).catch(() => {});
   },
 
+  /** 游客首页：可浏览词书，不强制登录 */
+  showGuestHome() {
+    const guestBook = storage.getGuestBook();
+    this.setData({
+      status: 'guest',
+      book: null,
+      guestBook,
+      networkErrorMessage: ''
+    });
+  },
+
   refreshHome() {
     const token = storage.getToken();
     if (!token) {
-      this.setData({ status: 'needLogin', book: null, networkErrorMessage: '' });
+      this.showGuestHome();
       return;
     }
 
@@ -74,10 +86,10 @@ Page({
       .then((res) => {
         if (res.code === 401) {
           storage.clearSession();
-          this.setData({ status: 'needLogin', book: null });
+          this.showGuestHome();
           return;
         }
-        if (res.code === -1001 || (res.isNetworkError)) {
+        if (res.code === -1001 || res.isNetworkError) {
           this.setData({
             status: 'networkError',
             book: null,
@@ -89,16 +101,22 @@ Page({
         }
         if (res.code !== 200) {
           wx.showToast({ title: res.message || '加载失败', icon: 'none' });
-          this.setData({ status: 'noBook', book: null });
+          this.setData({ status: 'noBook', book: null, guestBook: null });
           return;
         }
         const book = mapCurrent(res.data);
         if (!book) {
-          this.setData({ status: 'noBook', book: null });
+          // 已登录但未选词书：仍可进词书列表
+          this.setData({
+            status: 'noBook',
+            book: null,
+            guestBook: storage.getGuestBook()
+          });
           return;
         }
         storage.setBookId(book.code);
-        this.setData({ status: 'ready', book });
+        storage.clearGuestBook();
+        this.setData({ status: 'ready', book, guestBook: null });
       })
       .catch((err) => {
         this.setData({
@@ -120,14 +138,14 @@ Page({
   },
 
   onTapBook() {
-    if (this.data.status === 'needLogin') {
-      this.promptLogin();
-      return;
-    }
     wx.navigateTo({ url: '/pages/books/index' });
   },
 
   onStartStudy() {
+    if (!storage.getToken()) {
+      this.promptLogin('登录后可保存进度并开始学习');
+      return;
+    }
     if (!this.ensureReady()) {
       return;
     }
@@ -135,12 +153,16 @@ Page({
   },
 
   onOpenSettings() {
+    if (!storage.getToken()) {
+      this.promptLogin('设置背词模式需要登录后使用');
+      return;
+    }
     wx.navigateTo({ url: '/pages/settings/index' });
   },
 
   ensureReady() {
-    if (this.data.status === 'needLogin') {
-      this.promptLogin();
+    if (!storage.getToken()) {
+      this.promptLogin('登录后可同步单词本与学习进度');
       return false;
     }
     if (this.data.status !== 'ready' || !this.data.book) {
@@ -150,11 +172,12 @@ Page({
     return true;
   },
 
-  promptLogin() {
+  promptLogin(content) {
     wx.showModal({
-      title: '需要登录',
-      content: '登录后可同步单词本与学习进度',
+      title: '登录后继续',
+      content: content || '登录后可同步单词本与学习进度',
       confirmText: '去登录',
+      cancelText: '再看看',
       success: (res) => {
         if (res.confirm) {
           this.onLogin();

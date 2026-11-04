@@ -9,7 +9,8 @@
   <view class="state-card">
     <text class="state-title">{{errorTitle || '无法开始'}}</text>
     <text class="state-desc">{{errorMessage}}</text>
-    <button class="primary-btn" bindtap="onBack">返回</button>
+    <button class="primary-btn" wx:if="{{needLogin}}" bindtap="onGoLogin">去登录</button>
+    <button class="primary-btn" bindtap="onBack">{{needLogin ? '返回浏览' : '返回'}}</button>
   </view>
 </view>
 
@@ -21,7 +22,7 @@
   </view>
 </view>
 
-<view class="page study" wx:elif="{{status === 'ready' && card}}">
+<view class="page study {{isDictationMode ? 'dictation-active' : ''}}" wx:elif="{{status === 'ready' && card}}">
   <view class="top-bar">
     <view class="top-item">
       <text class="top-label">新学</text>
@@ -42,11 +43,21 @@
       {{card.mode === 'review' ? '复习' : '新学'}}
     </view>
     <view class="mode-tag listen" wx:if="{{isListenMode}}">听词摸鱼</view>
+    <view class="mode-tag dictation" wx:if="{{isDictationMode}}">听写</view>
   </view>
 
   <view class="word-card">
-    <text class="word">{{card.word}}</text>
-    <text class="phonetic" wx:if="{{card.phonetic}}">/{{card.phonetic}}/</text>
+    <text class="word" wx:if="{{!isDictationMode || revealed}}">{{card.word}}</text>
+    <text class="phonetic" wx:if="{{(!isDictationMode || revealed) && card.phonetic}}">/{{card.phonetic}}/</text>
+
+    <view class="dictation-slots {{dictationShake ? 'shake' : ''}}" wx:if="{{isDictationMode && !revealed}}">
+      <view
+        wx:for="{{dictationViewSlots}}"
+        wx:key="index"
+        class="dictation-slot {{item.fixed ? 'fixed' : ''}} {{item.filled ? 'filled' : ''}} {{item.current ? 'current' : ''}}"
+      >{{item.display}}</view>
+    </view>
+
     <view class="voice-row">
       <button
         class="voice-btn {{voiceType === 2 ? 'active' : ''}}"
@@ -64,23 +75,74 @@
       >英音</button>
     </view>
 
-    <!-- 听词模式：直接展示释义，跟着音频摸鱼 -->
-    <view class="reveal" wx:if="{{isListenMode}}">
-      <view class="picture-wrap" wx:if="{{card.picture && !pictureError}}" bindtap="onPreviewPictures">
-        <image
-          class="word-picture"
-          src="{{card.picture}}"
-          mode="aspectFit"
-          lazy-load
-          binderror="onPictureError"
-        />
-        <text class="picture-tip" wx:if="{{card.pictures && card.pictures.length > 1}}">
-          点击查看全部 {{card.pictures.length}} 张
-        </text>
-      </view>
-      <text class="meaning" wx:if="{{card.meaning}}">{{card.meaning}}</text>
-      <text class="meaning muted" wx:else>暂无释义</text>
-      <text class="mnemonic" wx:if="{{card.mnemonic}}">记忆：{{card.mnemonic}}</text>
+    <!-- 听词 / 听写：展示释义（听写优先释义，避免大图把释义顶出可视区） -->
+    <view class="reveal {{isDictationMode ? 'dictation-reveal' : ''}}" wx:if="{{isListenMode || isDictationMode}}">
+      <block wx:if="{{isDictationMode}}">
+        <text class="meaning" wx:if="{{card.meaning}}">{{card.meaning}}</text>
+        <text class="meaning muted" wx:else>暂无释义</text>
+        <text class="dictation-tip" wx:if="{{!revealed}}">听语音，点字母拼写；输错会抖动</text>
+        <view class="picture-wrap compact" wx:if="{{card.picture && !pictureError}}" bindtap="onPreviewPictures">
+          <image
+            class="word-picture compact"
+            src="{{card.picture}}"
+            mode="aspectFit"
+            lazy-load
+            binderror="onPictureError"
+          />
+        </view>
+      </block>
+      <block wx:else>
+        <view class="picture-wrap" wx:if="{{card.picture && !pictureError}}" bindtap="onPreviewPictures">
+          <image
+            class="word-picture"
+            src="{{card.picture}}"
+            mode="aspectFit"
+            lazy-load
+            binderror="onPictureError"
+          />
+          <text class="picture-tip" wx:if="{{card.pictures && card.pictures.length > 1}}">
+            点击查看全部 {{card.pictures.length}} 张
+          </text>
+        </view>
+        <text class="meaning" wx:if="{{card.meaning}}">{{card.meaning}}</text>
+        <text class="meaning muted" wx:else>暂无释义</text>
+        <text class="mnemonic" wx:if="{{card.mnemonic}}">记忆：{{card.mnemonic}}</text>
+        <view class="example-list" wx:if="{{card.examples && card.examples.length}}">
+          <text class="enrich-label">例句</text>
+          <view class="example-item" wx:for="{{card.examples}}" wx:key="en">
+            <text class="example-en">{{item.en}}</text>
+            <text class="example-cn" wx:if="{{item.cn}}">{{item.cn}}</text>
+          </view>
+        </view>
+        <view class="enrich-block" wx:if="{{card.phrases && card.phrases.length}}">
+          <text class="enrich-label">词组</text>
+          <text class="enrich-line" wx:for="{{card.phrases}}" wx:key="en">
+            {{item.en}}<text wx:if="{{item.cn}}">（{{item.cn}}）</text>
+          </text>
+        </view>
+        <view class="enrich-block" wx:if="{{card.synonyms && card.synonyms.length}}">
+          <text class="enrich-label">近义</text>
+          <view class="enrich-line" wx:for="{{card.synonyms}}" wx:for-index="sIdx" wx:key="sIdx">
+            <text wx:if="{{item.pos}}">{{item.pos}} </text>
+            <text wx:for="{{item.words}}" wx:for-item="sw" wx:for-index="swIdx" wx:key="*this">
+              {{sw}}<text wx:if="{{swIdx < item.words.length - 1}}">、</text>
+            </text>
+            <text wx:if="{{item.tran}}"> — {{item.tran}}</text>
+          </view>
+        </view>
+        <view class="enrich-block" wx:if="{{card.relatedWords && card.relatedWords.length}}">
+          <text class="enrich-label">派生</text>
+          <block wx:for="{{card.relatedWords}}" wx:for-index="rIdx" wx:key="rIdx">
+            <text class="enrich-line">
+              <text wx:if="{{item.pos}}">{{item.pos}} </text>
+              <text wx:for="{{item.words}}" wx:for-item="rw" wx:for-index="rwIdx" wx:key="word">
+                {{rw.word}}<text wx:if="{{rw.tran}}">（{{rw.tran}}）</text><text wx:if="{{rwIdx < item.words.length - 1}}">、</text>
+              </text>
+            </text>
+          </block>
+        </view>
+        <text class="enrich-etym" wx:if="{{card.etym}}">词源：{{card.etym}}</text>
+      </block>
     </view>
 
     <view class="hint-box" wx:elif="{{hintShown && !revealed}}">
@@ -106,21 +168,83 @@
       <text class="meaning muted" wx:else>暂无释义</text>
       <text class="mnemonic" wx:if="{{card.mnemonic}}">记忆：{{card.mnemonic}}</text>
       <view class="example-list" wx:if="{{card.examples && card.examples.length}}">
+        <text class="enrich-label">例句</text>
         <view class="example-item" wx:for="{{card.examples}}" wx:key="en">
           <text class="example-en">{{item.en}}</text>
           <text class="example-cn" wx:if="{{item.cn}}">{{item.cn}}</text>
         </view>
       </view>
+      <view class="enrich-block" wx:if="{{card.phrases && card.phrases.length}}">
+        <text class="enrich-label">词组</text>
+        <text class="enrich-line" wx:for="{{card.phrases}}" wx:key="en">
+          {{item.en}}<text wx:if="{{item.cn}}">（{{item.cn}}）</text>
+        </text>
+      </view>
+      <view class="enrich-block" wx:if="{{card.synonyms && card.synonyms.length}}">
+        <text class="enrich-label">近义</text>
+        <view class="enrich-line" wx:for="{{card.synonyms}}" wx:for-index="sIdx" wx:key="sIdx">
+          <text wx:if="{{item.pos}}">{{item.pos}} </text>
+          <text wx:for="{{item.words}}" wx:for-item="sw" wx:for-index="swIdx" wx:key="*this">
+            {{sw}}<text wx:if="{{swIdx < item.words.length - 1}}">、</text>
+          </text>
+          <text wx:if="{{item.tran}}"> — {{item.tran}}</text>
+        </view>
+      </view>
+      <view class="enrich-block" wx:if="{{card.relatedWords && card.relatedWords.length}}">
+        <text class="enrich-label">派生</text>
+        <block wx:for="{{card.relatedWords}}" wx:for-index="rIdx" wx:key="rIdx">
+          <text class="enrich-line">
+            <text wx:if="{{item.pos}}">{{item.pos}} </text>
+            <text wx:for="{{item.words}}" wx:for-item="rw" wx:for-index="rwIdx" wx:key="word">
+              {{rw.word}}<text wx:if="{{rw.tran}}">（{{rw.tran}}）</text><text wx:if="{{rwIdx < item.words.length - 1}}">、</text>
+            </text>
+          </text>
+        </block>
+      </view>
+      <text class="enrich-etym" wx:if="{{card.etym}}">词源：{{card.etym}}</text>
     </view>
     <view class="reveal hint" wx:elif="{{!hintShown}}">
       <text class="hint-text">先回想词义；不确定可点「提示」看英文例句</text>
     </view>
   </view>
 
+  <!-- 听写：操作按钮在键盘上方，底部固定避免滚出屏幕 -->
+  <view class="dictation-dock" wx:if="{{isDictationMode}}">
+    <block wx:if="{{!revealed}}">
+      <view class="dictation-actions">
+        <button class="action-btn listen-replay" bindtap="onDictationReplay" disabled="{{submitting}}">重听</button>
+        <button class="action-btn listen-unknown" bindtap="onDictationUnknown" disabled="{{submitting}}">不认识</button>
+      </view>
+      <view class="letter-pad">
+        <view class="letter-row" wx:for="{{letterPadRows}}" wx:for-item="row" wx:for-index="rowIndex" wx:key="rowIndex">
+          <view
+            class="letter-key"
+            wx:for="{{row}}"
+            wx:key="*this"
+            data-letter="{{item}}"
+            bindtap="onDictationLetter"
+          >{{item}}</view>
+          <view
+            wx:if="{{rowIndex === 2}}"
+            class="letter-key backspace"
+            bindtap="onDictationBackspace"
+          >⌫</view>
+        </view>
+      </view>
+    </block>
+    <block wx:else>
+      <text class="auto-tip" wx:if="{{autoNextSec > 0}}">已展示正确答案，{{autoNextSec}} 秒后自动下一词</text>
+      <text class="auto-tip" wx:else>已展示正确答案</text>
+      <view class="dictation-actions">
+        <button class="action-btn next" bindtap="onNextAfterReveal" disabled="{{submitting}}">下一个</button>
+      </view>
+    </block>
+  </view>
+
   <!-- 听词：播完自动下一词；可暂停 / 重听 / 跳过 / 稍后复习 -->
-  <view class="listen-panel" wx:if="{{isListenMode}}">
-    <text class="listen-status-text paused" wx:if="{{listenPaused}}">已暂停：不会自动下一词</text>
-    <text class="listen-status-text" wx:elif="{{playing}}">播放中：单词 → 拼读 → 中文</text>
+  <view class="listen-panel" wx:elif="{{isListenMode}}">
+    <text class="listen-status-text paused" wx:if="{{listenPaused}}">已暂停：不会自动下一词（耳机线控可继续）</text>
+    <text class="listen-status-text" wx:elif="{{playing}}">播放中：单词 → 拼读 → 中文（耳机可暂停）</text>
     <text class="listen-status-text" wx:elif="{{submitting}}">正在记录并切换…</text>
     <text class="listen-status-text" wx:else>结束后将自动下一词</text>
     <view class="listen-actions">

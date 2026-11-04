@@ -76,8 +76,10 @@ arelore-client-mini-word/
 | 环境 | API |
 |------|-----|
 | `dev` / `pre` | `http://localhost:8081/api` |
-| `test`（未配置时的默认） | `http://www.arelore.com:8281/api` |
-| `prd` | `http://www.arelore.com:8081/api` |
+| `test`（未配置时的默认） | `http://test.arelore.com:8281/api` |
+| `prd`（正式提审/上线） | `https://www.arelore.com/api`（HTTPS，无端口） |
+
+多环境怎么切、Storage 优先级、正式版合法域名，见上级 [README.md](../README.md)。
 
 ### 推荐：用 start.sh 切到本地
 
@@ -154,17 +156,16 @@ copy utils\env.local.js.example utils\env.local.js
 
 背词模式（看词选义 / 听词摸鱼）、拼读速度、单词重复次数；已登录时同步到服务端。
 
-### 登录
+### 登录（游客可先浏览）
 
-与考证宝相同的 **微信一键登录**：
+首页支持**游客态**：可浏览语种 / 分类 / 单词书，**不强制**手机号、头像、昵称授权。
 
-1. 用户点击「微信授权登录」
-2. `wx.getUserProfile` 取头像昵称（须在点击手势里调用）
-3. `wx.login` 取 `code`
-4. `POST /api/user/auth/wechat/quick`，body 含 `code` 与 `userInfo`
-5. 本地写入 `token`、`word_current_user`
+1. 用户主动点击「登录」
+2. 仅 `wx.login` 取 `code`（不再调用 `getUserProfile`）
+3. `POST /api/user/auth/wechat/quick`
+4. 本地写入 `token`、`word_current_user`
 
-未接微信开放平台时，openid 使用本机模拟值 `miniOpenid`（与考证宝一致），避免每次登录新建账号。
+未接微信开放平台时，openid 使用本机模拟值 `miniOpenid`，避免每次登录新建账号。
 
 ---
 
@@ -188,6 +189,7 @@ copy utils\env.local.js.example utils\env.local.js
 | Key | 含义 |
 |-----|------|
 | `word_current_book_id` | 当前单词本 **code** |
+| `word_guest_book` | 游客选定的词书摘要 |
 | `word_current_user` | 后端用户信息（`nickname` / `avatar` 等） |
 | `token` | 登录凭证 |
 | `miniOpenid` | 本地模拟 openid |

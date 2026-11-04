@@ -258,6 +258,15 @@
   border-bottom: none;
 }
 
+.form-hint {
+  display: block;
+  margin: -8rpx 0 16rpx;
+  padding: 0 4rpx;
+  font-size: 22rpx;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+
 .form-label {
   font-size: 28rpx;
   color: #374151;

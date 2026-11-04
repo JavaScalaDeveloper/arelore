@@ -1,18 +1,31 @@
 .page {
   min-height: 100vh;
-  padding: 48rpx 40rpx;
+  padding: 64rpx 36rpx;
   box-sizing: border-box;
+  background: linear-gradient(180deg, #dbeafe 0%, #f3f4f6 42%, #f3f4f6 100%);
 }
 
 .card {
   padding: 48rpx 40rpx;
   background: #ffffff;
-  border-radius: 24rpx;
+  border-radius: 28rpx;
+  box-shadow: 0 18rpx 40rpx rgba(37, 99, 235, 0.12);
+}
+
+.badge {
+  display: inline-block;
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 22rpx;
+  font-weight: 500;
 }
 
 .title {
   display: block;
-  font-size: 40rpx;
+  margin-top: 24rpx;
+  font-size: 44rpx;
   font-weight: 700;
   color: #111827;
 }
@@ -27,14 +40,33 @@
 .hint {
   display: block;
   margin-top: 24rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: #9ca3af;
-  word-break: break-all;
+  line-height: 1.65;
 }
 
 .btn {
   margin-top: 48rpx;
-  background: #07c160;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
   color: #ffffff;
-  border-radius: 16rpx;
+  border-radius: 18rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  height: 92rpx;
+  line-height: 92rpx;
+}
+
+.btn::after {
+  border: none;
+}
+
+.skip {
+  margin-top: 20rpx;
+  background: transparent;
+  color: #6b7280;
+  font-size: 26rpx;
+}
+
+.skip::after {
+  border: none;
 }
