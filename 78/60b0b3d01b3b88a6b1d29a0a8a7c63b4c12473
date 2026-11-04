@@ -1,0 +1,141 @@
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/dto/AdminWordBaseInfoSyncResponse.java
+  551bca709d578fc4 15,17,19,21
+arelore-client/arelore-client-web/src/pages/prompt/PromptTagPage.tsx
+  551bca709d578fc4 1,17,22,32-54,62,64,68,109,113,121,124,130,134-138,141,148,151,154,159,162,165,171,173,175,186,189,193,202,204,209,212,225,232-233,235,238,241,243,245,255,259
+arelore-client/arelore-client-web-admin/src/pages/WordBaseInfoManagement.tsx
+  551bca709d578fc4 203-264,283-310,328-331,345-348,478,493,666,668,677,691-728,808-845,853,872-879,896-903,905,1148-1189,1203
+arelore-client/arelore-client-web/src/locale/useI18n.ts
+  551bca709d578fc4 1-54
+arelore-client/arelore-client-web-admin/src/locale/RegionSwitcher.tsx
+  551bca709d578fc4 12,30-31
+arelore-client/arelore-client-web/src/pages/SiteHomePage.tsx
+  551bca709d578fc4 3-4,6,8,12-13,17-30,33-34,42-43,50,53-55,59-85
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/dto/AdminWordBaseInfoBatchI18nMeaningAudioResponse.java
+  551bca709d578fc4 1-16
+arelore-client/arelore-client-web/src/pages/word/pages/BooksPage.tsx
+  551bca709d578fc4 4,11-15,20,46-55,204,207,220,222,224-225,235,279,291-293,296,301-304,310,312,317,321,328,335,341,345,349,354-357,360
+arelore-client/arelore-client-web/src/pages/word/pages/HomePage.tsx
+  551bca709d578fc4 3,38,41,49,53,57,81,83,97,106,108,118-119,121,133,136,148,151,154-158,164,171,177,180,183
+arelore-client/arelore-client-web/src/locale/messages/word.en-us.ts
+  551bca709d578fc4 1-270
+arelore-client/arelore-client-web-admin/src/pages/Layout.tsx
+  551bca709d578fc4 19
+arelore-client/arelore-client-web-admin/src/pages/Login.tsx
+  551bca709d578fc4 4
+arelore-client/arelore-client-web/src/locale/messages/zh-cn.ts
+  551bca709d578fc4 2,4-144
+arelore-client/arelore-client-web/src/pages/word/pages/StudyPage.tsx
+  551bca709d578fc4 4,38,292,471,646-648,704,713,715,725,727-732,735,750,753-758,765,767-768,802,810,824,826,830,845,856,868,882,890-891,897,903,913,915,926,931,938,940,948,958,961,968,970,973,978,983
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/dto/AdminWordBaseInfoEnrichDictRequest.java
+  551bca709d578fc4 1-29
+arelore-client/arelore-client-web-admin/src/api/admin.tsx
+  551bca709d578fc4 164-179,188,191-201
+arelore-client/arelore-client-web/src/pages/word/components/AppShell.tsx
+  551bca709d578fc4 4,8,17,24,28,32,36
+arelore-client/arelore-client-web/src/locale/path.ts
+  551bca709d578fc4 7,35-37
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/support/I18nGlossLang.java
+  551bca709d578fc4 1-153
+arelore-client/arelore-client-web/src/locale/index.ts
+  551bca709d578fc4 6-11
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/AdminWordBaseInfoServiceImpl.java
+  551bca709d578fc4 10-11,16,30,33,67,145-158,162-164,265-306,322-355,357,392-395,397,408-435,437,441-442,444-450,453-455,458-461,474-485,493-495,503,510-529,554-587,603-608,612-619,661-662,664,667-668,670-727,729-734,736-739,749-791,1430-1711,1837,1890,1899-1902,1912-1926
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/support/EdgeTtsVoiceCatalog.java
+  551bca709d578fc4 1-25
+arelore-client/arelore-client-web/src/data/siteCatalog.ts
+  551bca709d578fc4 1-4,12,16-21,27,33,39,45,51,57,63,69,75,81,87,99,105,109-124,126-127,130-136,139,141
+arelore-client/arelore-client-web/src/App.css
+  551bca709d578fc4 2-14,56-67,125,128,137-138,141,143,145-154,157-158,162-226,232-235,240-244,250-255,261-270,274,279-283,286-292,296-305,309-311,316-320,326,330-334,337-346,351,353-354,358,360,365-367,372-380,383,387-402,407,412-414,418,423-453,649-666,671,680-681,706-707,711-712
+arelore-client/arelore-client-web/public/index.html
+  551bca709d578fc4 23,28
+arelore-client/arelore-client-web/scripts/gen-word-locale-fallbacks.js
+  551bca709d578fc4 1-25
+arelore-client/arelore-client-web/src/pages/prompt/PromptLayout.tsx
+  551bca709d578fc4 17,29-62,80,105,111,136
+arelore-client/arelore-client-web/src/locale/LocaleGate.tsx
+  551bca709d578fc4 2-24,30-53,55,66,70-72,93-96,99-103
+arelore-client/arelore-client-web/src/pages/word/pages/ProfilePage.tsx
+  551bca709d578fc4 3,14-24,27,30,32,58-59,70,76,79,81,88,98,105,109,116-118,120,124
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/dto/AdminWordBaseInfoBatchI18nMeaningAudioRequest.java
+  551bca709d578fc4 1-28
+arelore-client/arelore-client-web/src/pages/prompt/PromptListPage.tsx
+  551bca709d578fc4 27,35-44,47-49,53,57,90-99,149,206,248,268,275,326,331,339,342,347,358,367,369,374-381,384,386,401,403,413,416-422,425,433,439,441,449,455,459,463,470,479,491,503,518,544,557,568,600,610,620,627,634,637,640,643,645,647,658,661,665,674,676,692,707,710,713,716,719,743,750,753,756,769,784,796,805,813-815,818-820,826,830,833,835,849,856,865,871,874,878-879,881,883,888-889,891,897-898,900,902-903
+arelore-client/arelore-client-web-admin/public/index.html
+  551bca709d578fc4 5-9,17,22
+arelore-client/arelore-client-web/scripts/patch-prompt-list-i18n.js
+  551bca709d578fc4 1-192
+arelore-client/arelore-client-web/src/pages/word/pages/LoginPage.tsx
+  551bca709d578fc4 5,79,120,178,195,206,213,223,240,253,271,274,287,300,307-310,314-317,334-335,344,346-347,365,367-368,373,381,387-388,391,394,403,406-407,412,424,427-428,433,441,444,450,455,461,468-469,472,474,479
+arelore-client/arelore-client-web/src/locale/messages/wordTypes.ts
+  551bca709d578fc4 1-399
+arelore-client/arelore-client-web/src/locale/constants.ts
+  551bca709d578fc4 1-30,38,40-60,63-122,126-129
+arelore-client/arelore-client-web/src/locale/messages/en-us.ts
+  551bca709d578fc4 2,4-144
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/support/EdgeTtsClient.java
+  551bca709d578fc4 14,82,84-90,99,112,118,122,130-131,141-142,147-148,151,164,213,250-255
+arelore-client/arelore-client-web/scripts/gen-locale-messages.js
+  551bca709d578fc4 1-1135
+arelore-client/arelore-client-web/src/locale/messages/types.ts
+  551bca709d578fc4 1-87
+arelore-client/arelore-client-web/src/locale/messages/wordPacks.ts
+  551bca709d578fc4 1-54
+arelore-client/arelore-client-web/scripts/patch-login-i18n.js
+  551bca709d578fc4 1-99
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/support/FreeDictionaryClient.java
+  551bca709d578fc4 1-205
+arelore-client/arelore-client-web/src/locale/messages/word.ja-jp.ts
+  551bca709d578fc4 1-270
+arelore-client/arelore-client-web-admin/public/manifest.json
+  551bca709d578fc4 10-19
+arelore-client/arelore-client-web/src/locale/messages/word.zh-cn.ts
+  551bca709d578fc4 1-270
+arelore-client/arelore-client-web/src/pages/word/pages/FeedbackPage.tsx
+  551bca709d578fc4 17,31-35,95-101,181,192,202,217,231,244,255,258,262,264,273,286,292,297-303,311,320,328-329,351-352,394,402,405
+arelore-client/arelore-client-web/src/pages/ProductsPage.tsx
+  551bca709d578fc4 4,16,20,34,37-38,41,46,53
+arelore-client/arelore-client-web/src/App.tsx
+  551bca709d578fc4 39,41,51-61,65,69,71-72,76,80-83,87,91,95-96,100-103,107-108,112,116-119,123,127-134,139,141,144-145,149,151-154,159,163,167-168,172-173,177-178,182-187,189,192-195,199-200,206,215-241,251-252,272,286,288,300,331,337,552,554-557,560
+arelore-client/arelore-client-web/src/pages/word/pages/SettingsPage.tsx
+  551bca709d578fc4 4,24,73,91,95,105,108,112,115-118,125,132,137,144,147,150-151,166,176,196-197,214,217,220-221,235
+arelore-client/arelore-client-web/src/components/ProductSearch.tsx
+  551bca709d578fc4 4-9,22,27,39,44,47,50,53,56,58,65-67,70-71,81,101-103,105,110
+arelore-client/arelore-client-web/src/locale/messages/promptPacks.ts
+  551bca709d578fc4 1-396
+arelore-client/arelore-client-web/src/locale/messages/index.ts
+  551bca709d578fc4 1-67
+arelore-client/arelore-client-web-admin/src/pages/ProductHome.tsx
+  551bca709d578fc4 4
+arelore-client/arelore-client-web/src/pages/word/components/WordSeoLanding.tsx
+  551bca709d578fc4 3,12,18,20,22,28,30-31,36,41,44,49,52,57,60,68,72-73,77-78,82-83,87-88,96,100-101,104-105,108-109,112-113,120,123,125,129,131,135,137,141,143,147,149,156
+arelore-client/arelore-client-web-admin/src/locale/index.ts
+  551bca709d578fc4 4
+arelore-client/arelore-client-web/src/locale/RegionSwitcher.tsx
+  551bca709d578fc4 2,4,6,13-30,33,40,42-48,51-52,54-55
+arelore-client/arelore-client-web/src/pages/word/utils/preference.ts
+  551bca709d578fc4 1,15-19,22-24
+arelore-server/arelore-server-core/src/main/java/com/arelore/server/core/biz/word/admin/AdminWordBaseInfoService.java
+  551bca709d578fc4 5-6,11,21-22,26-31,52-59
+arelore-server/arelore-server-admin/src/main/java/com/arelore/server/admin/controller/WordManageController.java
+  551bca709d578fc4 7-8,13,207,215-227,288-299
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "7860b0b3d01b3b88a6b1d29a0a8a7c63b4c12473",
+  "prompts": {
+    "551bca709d578fc4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cursor-bridge-synthetic",
+        "model": "unknown"
+      },
+      "human_author": "huang.huang1 <huang.huang1@jtexpress.com>",
+      "messages": [],
+      "total_additions": 7096,
+      "total_deletions": 1656,
+      "accepted_lines": 9843,
+      "overriden_lines": 4
+    }
+  }
+}
