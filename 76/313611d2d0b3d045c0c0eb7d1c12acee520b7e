@@ -1,0 +1,71 @@
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/profile/index.js
+  551bca709d578fc4 115-128,135
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/settings/index.js
+  551bca709d578fc4 17,27-44,119-120,170-171,199-203,250-261
+arelore-client/arelore-client-mini/arelore-client-mini-word/utils/storage.js
+  551bca709d578fc4 4-5,17-18,25-26,39-43,53-55,67-97,126,167,172,175-177
+arelore-client/arelore-client-mini/arelore-client-mini-word/utils/dictation.js
+  551bca709d578fc4 1-46
+arelore-client/arelore-client-mini/arelore-client-mini-word/utils/preference.js
+  551bca709d578fc4 7,33,38-39,70-71
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/study/index.js
+  551bca709d578fc4 5-12,31,39-41,49,60-66,69-77,86,90,97-127,136,140-144,155-178,199,213,218-224,277-296,310-315,368-369,371,390-394,434-470,527,531-541,543,546-558,562,569-580,675-676,680-684,696-697,704-706,708-710,721-722,727,733,735,738-739,744,755-756,760-762,764,768,771,776-777,780,809-810,857-858,860,865-930,939
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/settings/index.wxml
+  551bca709d578fc4 31-42,126-151
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/settings/index.wxss
+  551bca709d578fc4 97-100
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/words/index.wxss
+  551bca709d578fc4 3,7-218,225-226,232-233,237-238,244,246-248,255-256,270,273-274,306,322,332,336,340,344-345,348-352,355,357-359,364,390,392-415,443-444,446-447,453-460,464-465,469-470
+arelore-client/arelore-client-mini/arelore-client-mini-word/utils/config.js
+  551bca709d578fc4 3-5,14,16
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/books/index.wxml
+  551bca709d578fc4 24,150-165,167
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/login/index.wxml
+  551bca709d578fc4 3-8,10
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/books/index.js
+  551bca709d578fc4 12,87-89,228-229,249-251,254-267,274-275,344-351,362-369,373-374,386-407
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/profile/index.wxml
+  551bca709d578fc4 11,16,21-22,24-25,28,44,46-48
+arelore-client/arelore-client-mini/arelore-client-mini-word/utils/tts.js
+  551bca709d578fc4 10,33-67,152,449-451,491-492,495,531,536,570,584,589,628,636-637,643,671,686,712,721,736-750,756,787-789
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/study/index.wxss
+  551bca709d578fc4 13-25,104-108,282-307,341-370,432-543
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/login/index.js
+  551bca709d578fc4 7,12,16,21-27,30,35-36,42-47,59,69-71,82-85
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/books/index.wxss
+  551bca709d578fc4 261-269
+arelore-client/arelore-client-mini/arelore-client-mini-word/README.md
+  551bca709d578fc4 79-82,159,161,163-166,168,192
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/words/index.js
+  551bca709d578fc4 31,34,61-71,75,89,92,104,109-114,118-119,145-148,156-159,164-165,175,177-178,180
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/profile/index.wxss
+  551bca709d578fc4 3,18,55-62,66,70,87,98,103,111-126,130-131,136,149-150,161,166-167,172-186,192,199,204,206,210,216,219-220
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/study/index.wxml
+  551bca709d578fc4 12-13,25,46,50-60,78-145,171,177-204,211-243,245-247
+arelore-client/arelore-client-mini/arelore-client-mini-word/start.sh
+  551bca709d578fc4 21,27
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/login/index.wxss
+  551bca709d578fc4 3,5,11-22,27-28,43,45,50,52-71
+arelore-client/arelore-client-mini/arelore-client-mini-word/pages/words/index.wxml
+  551bca709d578fc4 3-5,9-42,52-53,58-60,62,65,93,108,124-127,131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "76313611d2d0b3d045c0c0eb7d1c12acee520b7e",
+  "prompts": {
+    "551bca709d578fc4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cursor-bridge-synthetic",
+        "model": "unknown"
+      },
+      "human_author": "huang.huang1 <huang.huang1@jtexpress.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1533,
+      "overriden_lines": 0
+    }
+  }
+}
