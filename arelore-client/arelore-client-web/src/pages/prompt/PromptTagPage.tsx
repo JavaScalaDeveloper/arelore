@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
   Form,
@@ -14,27 +14,12 @@ import {
   message,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
+import { useI18n } from '../../locale';
 import { AiPromptTag, promptApi } from '../../api/prompt';
 import { TAG_COLOR_OPTIONS } from './tagColors';
 
-const TAG_TYPE_OPTIONS = [
-  { label: '配置标签', value: 'CONFIG' },
-  { label: '人工标签', value: 'MANUAL' },
-];
-
-const COLOR_SELECT_OPTIONS = [
-  { value: '', label: '默认（无色）' as React.ReactNode },
-  ...TAG_COLOR_OPTIONS.map((c) => ({
-    value: c.value,
-    label: (
-      <Tag color={c.value} style={{ marginInlineEnd: 0 }}>
-        {c.label}
-      </Tag>
-    ) as React.ReactNode,
-  })),
-];
-
 const PromptTagPage: React.FC = () => {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<AiPromptTag[]>([]);
   const [nameKeyword, setNameKeyword] = useState('');
@@ -44,6 +29,29 @@ const PromptTagPage: React.FC = () => {
   const [editing, setEditing] = useState<AiPromptTag | null>(null);
   const [form] = Form.useForm();
 
+  const tagTypeOptions = useMemo(
+    () => [
+      { label: t('prompt.tags.typeConfigFull'), value: 'CONFIG' },
+      { label: t('prompt.tags.typeManualFull'), value: 'MANUAL' },
+    ],
+    [t]
+  );
+
+  const colorSelectOptions = useMemo(
+    () => [
+      { value: '', label: t('prompt.tags.colorDefault') as React.ReactNode },
+      ...TAG_COLOR_OPTIONS.map((c) => ({
+        value: c.value,
+        label: (
+          <Tag color={c.value} style={{ marginInlineEnd: 0 }}>
+            {c.label}
+          </Tag>
+        ) as React.ReactNode,
+      })),
+    ],
+    [t]
+  );
+
   const loadTags = useCallback(async () => {
     setLoading(true);
     try {
@@ -51,13 +59,13 @@ const PromptTagPage: React.FC = () => {
         name: query.name || undefined,
         tagType: query.tagType || undefined,
       });
-      setRows((res.data || []).filter((t) => t.status !== 'DELETED'));
+      setRows((res.data || []).filter((tag) => tag.status !== 'DELETED'));
     } catch (e: any) {
-      message.error(e?.message || '加载标签失败，请先登录');
+      message.error(e?.message || t('prompt.tags.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [query, t]);
 
   const onSearch = () => {
     setQuery({
@@ -98,11 +106,11 @@ const PromptTagPage: React.FC = () => {
         sortOrder: values.sortOrder ?? 0,
         status: 'NORMAL',
       });
-      message.success('已保存');
+      message.success(t('prompt.common.saved'));
       setEditOpen(false);
       loadTags();
     } catch (e: any) {
-      message.error(e?.message || '保存失败');
+      message.error(e?.message || t('prompt.common.saveFailed'));
     }
   };
 
@@ -110,62 +118,61 @@ const PromptTagPage: React.FC = () => {
     if (!row.id) return;
     try {
       await promptApi.tagDelete({ id: row.id });
-      message.success('已删除');
+      message.success(t('prompt.common.deleted'));
       loadTags();
     } catch (e: any) {
-      message.error(e?.message || '删除失败');
+      message.error(e?.message || t('prompt.common.deleteFailed'));
     }
   };
 
   const columns = [
     {
-      title: '类型',
+      title: t('prompt.tags.colType'),
       dataIndex: 'tagType',
       width: 110,
       render: (v: string) =>
-        v === 'CONFIG' ? <Tag color="blue">配置</Tag> : <Tag>人工</Tag>,
+        v === 'CONFIG' ? (
+          <Tag color="blue">{t('prompt.tags.typeConfig')}</Tag>
+        ) : (
+          <Tag>{t('prompt.tags.typeManual')}</Tag>
+        ),
     },
     {
-      title: '标签',
+      title: t('prompt.tags.colName'),
       dataIndex: 'name',
       render: (_: string, row: AiPromptTag) => (
         <Tag color={row.color || undefined}>{row.name}</Tag>
       ),
     },
     {
-      title: '色值',
+      title: t('prompt.tags.colColor'),
       dataIndex: 'color',
       width: 160,
-      render: (v: string) =>
-        v ? (
-          <Tag color={v}>{v}</Tag>
-        ) : (
-          '-'
-        ),
+      render: (v: string) => (v ? <Tag color={v}>{v}</Tag> : '-'),
     },
     {
-      title: '排序',
+      title: t('prompt.tags.colSort'),
       dataIndex: 'sortOrder',
       width: 100,
     },
     {
-      title: '状态',
+      title: t('prompt.tags.colStatus'),
       dataIndex: 'status',
       width: 100,
-      render: (v: string) => (v === 'DISABLED' ? '停用' : '启用'),
+      render: (v: string) => (v === 'DISABLED' ? t('prompt.tags.disabled') : t('prompt.tags.enabled')),
     },
     {
-      title: '操作',
+      title: t('prompt.common.actions'),
       key: 'action',
       width: 160,
       render: (_: unknown, row: AiPromptTag) => (
         <Space>
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(row)}>
-            编辑
+            {t('prompt.common.edit')}
           </Button>
-          <Popconfirm title="确认删除该标签？" onConfirm={() => onDelete(row)}>
+          <Popconfirm title={t('prompt.tags.confirmDelete')} onConfirm={() => onDelete(row)}>
             <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-              删除
+              {t('prompt.common.delete')}
             </Button>
           </Popconfirm>
         </Space>
@@ -176,14 +183,14 @@ const PromptTagPage: React.FC = () => {
   return (
     <div>
       <Typography.Title level={4} style={{ marginTop: 0 }}>
-        标签管理
+        {t('prompt.tags.title')}
       </Typography.Title>
       <Typography.Paragraph type="secondary" style={{ marginTop: -8 }}>
-        配置标签：可手打也可随 CSV 导入自动补齐。人工标签：仅在此或编辑页维护，导入不覆盖。
+        {t('prompt.tags.lead')}
       </Typography.Paragraph>
       <Space style={{ marginBottom: 16 }} wrap>
         <Input
-          placeholder="按标签名搜索"
+          placeholder={t('prompt.tags.searchName')}
           allowClear
           style={{ width: 220 }}
           value={nameKeyword}
@@ -192,17 +199,17 @@ const PromptTagPage: React.FC = () => {
         />
         <Select
           allowClear
-          placeholder="标签类型"
+          placeholder={t('prompt.tags.tagType')}
           style={{ width: 140 }}
-          options={TAG_TYPE_OPTIONS}
+          options={tagTypeOptions}
           value={tagTypeFilter}
           onChange={(v) => setTagTypeFilter(v)}
         />
         <Button type="primary" icon={<SearchOutlined />} onClick={onSearch}>
-          查询
+          {t('prompt.common.search')}
         </Button>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          新建标签
+          {t('prompt.tags.createTag')}
         </Button>
       </Space>
 
@@ -215,28 +222,27 @@ const PromptTagPage: React.FC = () => {
       />
 
       <Modal
-        title={editing ? '编辑标签' : '新建标签'}
+        title={editing ? t('prompt.tags.editTitle') : t('prompt.tags.createTitle')}
         open={editOpen}
         onCancel={() => setEditOpen(false)}
         onOk={onSave}
         destroyOnClose
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="tagType" label="标签类型" rules={[{ required: true }]}>
-            <Select options={TAG_TYPE_OPTIONS} disabled={!!editing} />
+          <Form.Item name="tagType" label={t('prompt.tags.tagType')} rules={[{ required: true }]}>
+            <Select options={tagTypeOptions} disabled={!!editing} />
           </Form.Item>
-          <Form.Item name="name" label="标签名" rules={[{ required: true, max: 64 }]}>
+          <Form.Item name="name" label={t('prompt.tags.nameField')} rules={[{ required: true, max: 64 }]}>
             <Input maxLength={64} disabled={!!editing} />
           </Form.Item>
-          <Form.Item name="color" label="颜色" extra="对应 Ant Design Tag 预设色，可空">
+          <Form.Item name="color" label={t('prompt.tags.colorField')} extra={t('prompt.tags.colorExtra')}>
             <Select
               allowClear
-              placeholder="选择颜色"
+              placeholder={t('prompt.tags.colorPlaceholder')}
               options={
-                editing?.color &&
-                !COLOR_SELECT_OPTIONS.some((o) => o.value === editing.color)
+                editing?.color && !colorSelectOptions.some((o) => o.value === editing.color)
                   ? [
-                      ...COLOR_SELECT_OPTIONS,
+                      ...colorSelectOptions,
                       {
                         value: editing.color,
                         label: (
@@ -246,11 +252,11 @@ const PromptTagPage: React.FC = () => {
                         ),
                       },
                     ]
-                  : COLOR_SELECT_OPTIONS
+                  : colorSelectOptions
               }
             />
           </Form.Item>
-          <Form.Item name="sortOrder" label="排序（越小越靠前）">
+          <Form.Item name="sortOrder" label={t('prompt.tags.sortField')}>
             <InputNumber style={{ width: '100%' }} />
           </Form.Item>
         </Form>

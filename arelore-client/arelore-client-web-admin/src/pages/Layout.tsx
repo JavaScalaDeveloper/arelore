@@ -16,9 +16,7 @@ import {
   BarChartOutlined,
   MessageOutlined,
 } from '@ant-design/icons';
-import RegionSwitcher from '../locale/RegionSwitcher';
-import { stripLocalePrefix } from '../locale/path';
-import { useLocaleNavigate } from '../locale/navigation';
+import { RegionSwitcher, stripLocalePrefix, useLocaleNavigate } from '../locale';
 
 type MenuItem = Required<MenuProps>['items'][number];
 

@@ -4,10 +4,13 @@ import com.arelore.server.core.common.dto.IdRequest;
 import com.arelore.server.core.common.dto.PageResult;
 import com.arelore.server.core.common.result.Result;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoAdoptPicturesRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchI18nMeaningAudioRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchI18nMeaningAudioResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchMeaningAudioRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchMeaningAudioResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchResponse;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoEnrichDictRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoPictureSearchResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoResponse;
@@ -201,12 +204,25 @@ public class WordManageController {
         return Result.success(baseInfoService.pageQuery(request == null ? new AdminWordBaseInfoRequest() : request));
     }
 
-    /** 分页扫描词条词形入基础表，并对无释义词查有道补释义（带空格词跳过） */
+    /** 仅从词条表补齐尚未入库的词形；不调有道 / FreeDictionary */
     @PostMapping("/base-info/sync")
     public Result<AdminWordBaseInfoSyncResponse> baseInfoSync(
         @RequestBody(required = false) AdminWordBaseInfoRequest request
     ) {
         return Result.success(baseInfoService.syncFromEntries());
+    }
+
+    /**
+     * 仅扫基础表：有道 + FreeDictionary 补释义/例句/多语种译词。
+     * 可带列表同等筛选（如 tags=no_freedictionary）；不扫 15 万词条。
+     */
+    @PostMapping("/base-info/enrich-dict")
+    public Result<AdminWordBaseInfoSyncResponse> baseInfoEnrichDict(
+        @RequestBody(required = false) AdminWordBaseInfoEnrichDictRequest request
+    ) {
+        return Result.success(baseInfoService.enrichFromDictionaries(
+            request == null ? new AdminWordBaseInfoEnrichDictRequest() : request
+        ));
     }
 
     @PostMapping("/base-info/detail")
@@ -264,6 +280,18 @@ public class WordManageController {
     ) {
         try {
             return Result.success(baseInfoService.batchGenerateMeaningAudio(request));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /** 按 wordTranslations 批量生成多语种译词语音（Edge TTS，按语种换音色） */
+    @PostMapping("/base-info/batch-generate-i18n-meaning-audio")
+    public Result<AdminWordBaseInfoBatchI18nMeaningAudioResponse> baseInfoBatchGenerateI18nMeaningAudio(
+        @RequestBody(required = false) AdminWordBaseInfoBatchI18nMeaningAudioRequest request
+    ) {
+        try {
+            return Result.success(baseInfoService.batchGenerateI18nMeaningAudio(request));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return Result.error(e.getMessage());
         }

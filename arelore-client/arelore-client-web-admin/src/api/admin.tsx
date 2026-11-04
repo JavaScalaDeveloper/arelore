@@ -161,6 +161,22 @@ export const adminApi = {
     force?: boolean;
   }): Promise<ApiResponse<any>> =>
     request.post('/admin/word/base-info/batch-generate-meaning-audio', data || {}, { timeout: 6 * 60 * 60 * 1000 }),
+  /** 按 wordTranslations 批量生成多语种译词语音（Edge TTS 按语种换音色） */
+  batchGenerateWordBaseInfoI18nMeaningAudio: (data?: {
+    languageCode?: string;
+    word?: string;
+    tag?: string;
+    tags?: string[];
+    hasPicture?: boolean;
+    pictureConfirmed?: boolean;
+    limit?: number;
+    force?: boolean;
+    langs?: string[];
+    maxLangsPerWord?: number;
+  }): Promise<ApiResponse<any>> =>
+    request.post('/admin/word/base-info/batch-generate-i18n-meaning-audio', data || {}, {
+      timeout: 6 * 60 * 60 * 1000,
+    }),
   adoptWordBaseInfoPictures: (data: {
     id: number;
     pictureUrls: string[];
@@ -169,10 +185,20 @@ export const adminApi = {
   /** 拉取已落库配图/语音；缺文件属常见情况，默认不弹全局「文件不存在」toast */
   getWordBaseInfoPictureContent: (data: { id: number }): Promise<ApiResponse<any>> =>
     request.post('/admin/word/base-info/picture-content', data, { skipErrorToast: true } as any),
-  /** 从词条同步语种+词形（不查有道） */
+  /** 仅从词条同步语种+词形（不查有道 / FreeDictionary） */
   syncWordBaseInfo: (data?: any): Promise<ApiResponse<any>> =>
-    // 含有道补释义，词量大时可能超过半小时
     request.post('/admin/word/base-info/sync', data || {}, { timeout: 2 * 60 * 60 * 1000 }),
+  /** 仅扫基础表：有道 + FreeDictionary 补释义/例句/多语种；可按当前筛选 */
+  enrichWordBaseInfoDict: (data?: {
+    languageCode?: string;
+    word?: string;
+    tag?: string;
+    tags?: string[];
+    hasPicture?: boolean;
+    pictureConfirmed?: boolean;
+    limit?: number;
+  }): Promise<ApiResponse<any>> =>
+    request.post('/admin/word/base-info/enrich-dict', data || {}, { timeout: 6 * 60 * 60 * 1000 }),
 
   /** 公共二进制文件列表（不含 file_data） */
   getCommonBinaryFileList: (data: any): Promise<ApiResponse<any>> =>

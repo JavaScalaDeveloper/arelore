@@ -20,12 +20,12 @@
     <title>Arelore - 官方网站</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
     <!-- /word 首屏 SEO + favicon：在 React 加载前写入，便于爬虫与标签页展示 -->
     <script>
       (function () {
         try {
-          var path = location.pathname.replace(/^\/(zh-cn|en-us)(?=\/|$)/, '') || '/';
+          var path = location.pathname.replace(/^\/(zh-cn|en-us|ja-jp|ko-kr|es-es|fr-fr|de-de|pt-br|ru-ru|vi-vn|th-th|id-id|ar-sa|hi-in|it-it|nl-nl|tr-tr|pl-pl|sv-se|uk-ua|ms-my)(?=\/|$)/, '') || '/';
           var base = '%PUBLIC_URL%' || '';
           if (base === '%PUBLIC_URL%') base = '';
           var isWord = path === '/word' || path.indexOf('/word/') === 0;

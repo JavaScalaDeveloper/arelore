@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Card, Progress, Space, Tag, Typography, message } from 'antd';
-import {  } from 'react-router-dom';
-import { useLocaleNavigate } from '../../../locale';
+import { useI18n, useLocaleNavigate } from '../../../locale';
 import { wordApi } from '../api/word';
 import WordSeoLanding from '../components/WordSeoLanding';
 import { modeLabel, syncPreference } from '../utils/preference';
@@ -36,9 +35,10 @@ function mapCurrent(current: any) {
 
 export default function HomePage() {
   const navigate = useLocaleNavigate();
+  const { t, locale } = useI18n();
   const [status, setStatus] = useState<'loading' | 'needLogin' | 'noBook' | 'error' | 'ready'>('loading');
   const [book, setBook] = useState<any>(null);
-  const [studyModeLabel, setStudyModeLabel] = useState(modeLabel(getPreference().studyMode));
+  const [studyModeLabel, setStudyModeLabel] = useState(modeLabel(getPreference().studyMode, locale));
   const [isListenMode, setIsListenMode] = useState(
     getPreference().studyMode === STUDY_MODE_LISTEN_SPELL
   );
@@ -46,15 +46,15 @@ export default function HomePage() {
 
   const refreshPreference = useCallback(() => {
     const local = getPreference();
-    setStudyModeLabel(modeLabel(local.studyMode));
+    setStudyModeLabel(modeLabel(local.studyMode, locale));
     setIsListenMode(local.studyMode === STUDY_MODE_LISTEN_SPELL);
     syncPreference()
       .then((pref) => {
-        setStudyModeLabel(modeLabel(pref.studyMode));
+        setStudyModeLabel(modeLabel(pref.studyMode, locale));
         setIsListenMode(pref.studyMode === STUDY_MODE_LISTEN_SPELL);
       })
       .catch(() => undefined);
-  }, []);
+  }, [locale]);
 
   const refreshHome = useCallback(() => {
     if (!getToken()) {
@@ -78,9 +78,9 @@ export default function HomePage() {
       })
       .catch((err) => {
         setStatus('error');
-        setErrorMessage(shortErrorMessage(err, '加载当前词书失败'));
+        setErrorMessage(shortErrorMessage(err, t('word.home.loadBookFailed')));
       });
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     refreshPreference();
@@ -94,7 +94,7 @@ export default function HomePage() {
   if (status === 'loading') {
     return (
       <div className="page">
-        <Card className="state-card">加载中…</Card>
+        <Card className="state-card">{t('word.common.loading')}</Card>
       </div>
     );
   }
@@ -103,9 +103,9 @@ export default function HomePage() {
     return (
       <div className="page">
         <Card className="state-card">
-          <Title level={4}>网络不通</Title>
+          <Title level={4}>{t('word.home.networkError')}</Title>
           <Paragraph type="secondary">{errorMessage}</Paragraph>
-          <Button onClick={refreshHome}>重试</Button>
+          <Button onClick={refreshHome}>{t('word.common.retry')}</Button>
         </Card>
       </div>
     );
@@ -115,10 +115,10 @@ export default function HomePage() {
     return (
       <div className="page">
         <Card className="state-card">
-          <Title level={4}>还没有单词书</Title>
-          <Paragraph type="secondary">先选择一本词书并确认学习计划</Paragraph>
+          <Title level={4}>{t('word.home.noBookTitle')}</Title>
+          <Paragraph type="secondary">{t('word.home.noBookHint')}</Paragraph>
           <Button type="primary" onClick={() => navigate('/word/books')}>
-            选择单词书
+            {t('word.home.chooseBook')}
           </Button>
         </Card>
       </div>
@@ -130,10 +130,10 @@ export default function HomePage() {
       <div className="page-head">
         <div>
           <Title level={1} style={{ margin: 0, fontSize: 22 }}>
-            今日学习
+            {t('word.home.todayTitle')}
           </Title>
           <Text type="secondary" style={{ fontSize: 13 }}>
-            听力 · 听写 · 看词识意
+            {t('word.home.todaySubtitle')}
           </Text>
         </div>
         <Tag color={isListenMode ? 'processing' : 'default'}>{studyModeLabel}</Tag>
@@ -145,38 +145,42 @@ export default function HomePage() {
           <Progress percent={book.progressPercent} showInfo />
           <Space direction="vertical" size={4} style={{ width: '100%', marginTop: 12 }}>
             <Text>
-              新学待学 {book.learnTodo} · 已学 {book.learnDone}
+              {t('word.home.learnStats', { todo: book.learnTodo, done: book.learnDone })}
             </Text>
             <Text>
-              复习待复 {book.reviewTodo} · 已复 {book.reviewDone}
+              {t('word.home.reviewStats', { todo: book.reviewTodo, done: book.reviewDone })}
             </Text>
             <Text type="secondary">
-              共 {book.wordCount} 词 · 计划 {book.planDays} 天 · 剩余约 {book.remainingDays} 天
+              {t('word.home.planStats', {
+                words: book.wordCount,
+                days: book.planDays,
+                remain: book.remainingDays,
+              })}
             </Text>
           </Space>
         </Card>
 
         <Card>
-          <Title level={5}>快捷操作</Title>
+          <Title level={5}>{t('word.home.quickActions')}</Title>
           <div className="home-actions">
             <Button
               type="primary"
               size="large"
               onClick={() => {
                 if (!book?.code) {
-                  message.warning('请先选择单词书');
+                  message.warning(t('word.home.chooseBookFirst'));
                   return;
                 }
                 navigate('/word/study');
               }}
             >
-              开始学习
+              {t('word.home.startStudy')}
             </Button>
             <Button size="large" onClick={() => navigate('/word/books')}>
-              切换词书
+              {t('word.home.switchBook')}
             </Button>
             <Button size="large" onClick={() => navigate('/word/settings')}>
-              学习设置
+              {t('word.home.studySettings')}
             </Button>
           </div>
         </Card>

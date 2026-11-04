@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Card, Image, Space, Tag, Typography, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import { useLocaleNavigate } from '../../../locale';
+import { useI18n, useLocaleNavigate } from '../../../locale';
 import { StudyCard, wordApi } from '../api/word';
 import { shortErrorMessage } from '../utils/request';
 import {
@@ -35,6 +35,7 @@ function formatElapsed(ms: number): string {
 
 export default function StudyPage() {
   const navigate = useLocaleNavigate();
+  const { t } = useI18n();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const sessionRef = useRef<TtsSession | null>(null);
   const answeringLock = useRef(false);
@@ -288,7 +289,7 @@ export default function StudyPage() {
         answeringLock.current = false;
         setSubmitting(false);
         dictationLock.current = false;
-        message.error(shortErrorMessage(e, '提交失败'));
+        message.error(shortErrorMessage(e, t('word.study.submitFailed')));
       }
     },
     [
@@ -467,7 +468,7 @@ export default function StudyPage() {
       })
       .catch((e) => {
         setStatus('error');
-        setErrorMessage(shortErrorMessage(e, '加载学习队列失败'));
+        setErrorMessage(shortErrorMessage(e, t('word.study.loadQueueFailed')));
       });
   }, [bindStoredMedia, resetDictation]);
 
@@ -642,9 +643,9 @@ export default function StudyPage() {
         .trim()
         .slice(0, 120);
       ms.metadata = new MediaMetadata({
-        title: card.word || '听词',
-        artist: meaningLine || '暂无释义',
-        album: 'Arelore · 听词（摸鱼）',
+        title: card.word || t('word.study.mediaTitleFallback'),
+        artist: meaningLine || t('word.study.noMeaning'),
+        album: t('word.study.mediaAlbum'),
       });
       ms.playbackState = listenPaused ? 'paused' : 'playing';
       ms.setActionHandler('play', () => {
@@ -700,7 +701,7 @@ export default function StudyPage() {
   if (status === 'loading') {
     return (
       <div className="page">
-        <Card className="state-card">准备学习…</Card>
+        <Card className="state-card">{t('word.study.preparing')}</Card>
       </div>
     );
   }
@@ -709,9 +710,9 @@ export default function StudyPage() {
     return (
       <div className="page">
         <Card className="state-card">
-          <Title level={4}>无法开始</Title>
+          <Title level={4}>{t('word.study.cannotStart')}</Title>
           <Paragraph type="secondary">{errorMessage}</Paragraph>
-          <Button onClick={() => navigate('/word')}>返回</Button>
+          <Button onClick={() => navigate('/word')}>{t('word.common.back')}</Button>
         </Card>
       </div>
     );
@@ -721,12 +722,17 @@ export default function StudyPage() {
     return (
       <div className="page">
         <Card className="state-card">
-          <Title level={4}>本轮完成</Title>
+          <Title level={4}>{t('word.study.roundDone')}</Title>
           <Paragraph>
-            新学 {learnDone}/{learnTotal} · 复习 {reviewDone}/{reviewTotal}
+            {t('word.study.roundStats', {
+              learnDone,
+              learnTotal,
+              reviewDone,
+              reviewTotal,
+            })}
           </Paragraph>
           <Button type="primary" onClick={() => navigate('/word')}>
-            返回首页
+            {t('word.common.backHome')}
           </Button>
         </Card>
       </div>
@@ -741,21 +747,25 @@ export default function StudyPage() {
     <div className="page study-page">
       <div className="page-head">
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/word')}>
-          返回首页
+          {t('word.common.backHome')}
         </Button>
         <Space size={16}>
-          <Text>新学 {learnDone}/{learnTotal}</Text>
-          <Text>复习 {reviewDone}/{reviewTotal}</Text>
+          <Text>
+            {t('word.study.learn')} {learnDone}/{learnTotal}
+          </Text>
+          <Text>
+            {t('word.study.review')} {reviewDone}/{reviewTotal}
+          </Text>
           <Text type="secondary">{elapsedText}</Text>
         </Space>
       </div>
 
       <Space style={{ marginBottom: 8 }}>
         <Tag color={card.mode === 'review' ? 'orange' : 'blue'}>
-          {card.mode === 'review' ? '复习' : '新学'}
+          {card.mode === 'review' ? t('word.study.review') : t('word.study.learn')}
         </Tag>
-        {isListenMode && <Tag color="processing">听词摸鱼</Tag>}
-        {isDictationMode && <Tag color="purple">听写</Tag>}
+        {isListenMode && <Tag color="processing">{t('word.study.listenTag')}</Tag>}
+        {isDictationMode && <Tag color="purple">{t('word.study.dictationTag')}</Tag>}
       </Space>
 
       <Card className="word-card">
@@ -789,7 +799,7 @@ export default function StudyPage() {
             loading={playing && playingType === 2}
             onClick={() => playWord(card, 2)}
           >
-            美音
+            {t('word.study.usVoice')}
           </Button>
           <Button
             size="small"
@@ -797,7 +807,7 @@ export default function StudyPage() {
             loading={playing && playingType === 1}
             onClick={() => playWord(card, 1)}
           >
-            英音
+            {t('word.study.ukVoice')}
           </Button>
         </Space>
 
@@ -811,13 +821,13 @@ export default function StudyPage() {
                 onError={() => setPictureError(true)}
               />
             )}
-            <Paragraph style={{ marginTop: 12 }}>{card.meaning || '暂无释义'}</Paragraph>
+            <Paragraph style={{ marginTop: 12 }}>{card.meaning || t('word.study.noMeaning')}</Paragraph>
             {!isDictationMode && card.mnemonic && (
-              <Paragraph type="secondary">记忆：{card.mnemonic}</Paragraph>
+              <Paragraph type="secondary">{t('word.study.memory', { text: card.mnemonic })}</Paragraph>
             )}
             {!isDictationMode && card.examples && card.examples.length > 0 && (
               <div style={{ marginTop: 8 }}>
-                <Text type="secondary">例句</Text>
+                <Text type="secondary">{t('word.study.example')}</Text>
                 {card.examples.map((ex, idx) => (
                   <div key={`${ex.en || ''}-${idx}`} style={{ marginTop: 4 }}>
                     <Paragraph style={{ marginBottom: 0 }}>{ex.en}</Paragraph>
@@ -832,7 +842,7 @@ export default function StudyPage() {
             )}
             {!isDictationMode && card.phrases && card.phrases.length > 0 && (
               <div style={{ marginTop: 8 }}>
-                <Text type="secondary">词组</Text>
+                <Text type="secondary">{t('word.study.phrases')}</Text>
                 <Paragraph style={{ marginBottom: 0 }}>
                   {card.phrases
                     .map((p) => (p.cn ? `${p.en}（${p.cn}）` : p.en))
@@ -843,7 +853,7 @@ export default function StudyPage() {
             )}
             {!isDictationMode && card.synonyms && card.synonyms.length > 0 && (
               <div style={{ marginTop: 8 }}>
-                <Text type="secondary">近义</Text>
+                <Text type="secondary">{t('word.study.synonyms')}</Text>
                 {card.synonyms.map((g, idx) => (
                   <Paragraph key={`syn-${idx}`} type="secondary" style={{ marginBottom: 2 }}>
                     {g.pos ? `${g.pos} ` : ''}
@@ -855,7 +865,7 @@ export default function StudyPage() {
             )}
             {!isDictationMode && card.relatedWords && card.relatedWords.length > 0 && (
               <div style={{ marginTop: 8 }}>
-                <Text type="secondary">派生</Text>
+                <Text type="secondary">{t('word.study.derivatives')}</Text>
                 {card.relatedWords.map((g, idx) => (
                   <Paragraph key={`rel-${idx}`} type="secondary" style={{ marginBottom: 2 }}>
                     {g.pos ? `${g.pos} ` : ''}
@@ -869,7 +879,7 @@ export default function StudyPage() {
             )}
             {!isDictationMode && card.etym && (
               <Paragraph type="secondary" style={{ marginTop: 8 }}>
-                词源：{card.etym}
+                {t('word.study.etym', { text: card.etym })}
               </Paragraph>
             )}
           </div>
@@ -877,20 +887,20 @@ export default function StudyPage() {
 
         {!isListenMode && !isDictationMode && hintShown && !revealed && (
           <div className="reveal">
-            <Text type="secondary">例句提示</Text>
-            <Paragraph>{card.exampleEn || '暂无英文例句'}</Paragraph>
+            <Text type="secondary">{t('word.study.exampleHint')}</Text>
+            <Paragraph>{card.exampleEn || t('word.study.noExample')}</Paragraph>
           </div>
         )}
 
         {!isListenMode && !isDictationMode && !hintShown && !revealed && (
           <Paragraph type="secondary" style={{ marginTop: 16 }}>
-            先回想词义；不确定可点「提示」
+            {t('word.study.meaningGuide')}
           </Paragraph>
         )}
 
         {isDictationMode && !revealed && (
           <Paragraph type="secondary" style={{ marginTop: 12, textAlign: 'center' }}>
-            听语音，按字母输入单词；输错会抖动提示
+            {t('word.study.dictationGuide')}
           </Paragraph>
         )}
       </Card>
@@ -900,9 +910,9 @@ export default function StudyPage() {
           <Space className="study-actions" wrap size={12}>
             {!revealed ? (
               <>
-                <Button onClick={() => playWord(card, voiceType)}>重听</Button>
+                <Button onClick={() => playWord(card, voiceType)}>{t('word.study.replay')}</Button>
                 <Button danger onClick={() => void answerAndReveal(false, false)} disabled={submitting}>
-                  不认识 (←)
+                  {t('word.study.unknown')}
                 </Button>
               </>
             ) : (
@@ -913,23 +923,21 @@ export default function StudyPage() {
                   goNext(!!pendingRemember);
                 }}
               >
-                下一个 (Enter)
+                {t('word.study.nextEnter')}
               </Button>
             )}
           </Space>
           <div className="study-hint">
-            {!revealed
-              ? '键盘直接输入字母（含 R）· Backspace 退格 · ← 不认识 · 重听请点按钮'
-              : '已展示正确答案，3 秒后自动下一词；也可 Enter / → 立即下一词'}
+            {!revealed ? t('word.study.dictationHintTyping') : t('word.study.dictationHintReveal')}
           </div>
         </>
       ) : isListenMode ? (
         <>
           <Space className="study-actions" wrap size={12}>
             <Button onClick={() => toggleListenPause()}>
-              {listenPaused ? '继续 (P)' : '暂停 (P)'}
+              {listenPaused ? t('word.study.resume') : t('word.study.pause')}
             </Button>
-            <Button onClick={() => playWord(card, voiceType)}>重听 (R)</Button>
+            <Button onClick={() => playWord(card, voiceType)}>{t('word.study.replayR')}</Button>
             <Button
               onClick={() => {
                 listenPausedRef.current = false;
@@ -937,7 +945,7 @@ export default function StudyPage() {
                 void answerAndReveal(false, true);
               }}
             >
-              稍后复习 (←)
+              {t('word.study.laterReview')}
             </Button>
             <Button
               type="primary"
@@ -947,36 +955,32 @@ export default function StudyPage() {
                 void answerAndReveal(true, true);
               }}
             >
-              下一词 (Space)
+              {t('word.study.nextSpace')}
             </Button>
           </Space>
-          <div className="study-hint">
-            键盘：P 暂停/继续 · R 重听 · ← 稍后复习 · Space/Enter 下一词 · 线控/多媒体键（若系统会发给浏览器）也可暂停/继续
-          </div>
+          <div className="study-hint">{t('word.study.listenHotkeys')}</div>
         </>
       ) : (
         <>
           <Space className="study-actions" wrap size={12}>
             {!revealed ? (
               <>
-                <Button onClick={() => setHintShown(true)}>提示 (H / Space)</Button>
+                <Button onClick={() => setHintShown(true)}>{t('word.study.hint')}</Button>
                 <Button danger onClick={() => void answerAndReveal(false, false)}>
-                  不认识 (← / 1)
+                  {t('word.study.unknown')}
                 </Button>
                 <Button type="primary" onClick={() => void answerAndReveal(true, false)}>
-                  认识 (→ / 2 / Enter)
+                  {t('word.study.known')}
                 </Button>
               </>
             ) : (
               <Button type="primary" onClick={() => goNext(!!pendingRemember)}>
-                下一词 (Space / Enter)
+                {t('word.study.nextSpaceEnter')}
               </Button>
             )}
           </Space>
           <div className="study-hint">
-            {!revealed
-              ? '键盘：←/1 不认识 · →/2/Enter 认识 · H/Space 提示'
-              : '键盘：Space / Enter / → 下一词'}
+            {!revealed ? t('word.study.meaningHotkeysAsk') : t('word.study.meaningHotkeysNext')}
           </div>
         </>
       )}

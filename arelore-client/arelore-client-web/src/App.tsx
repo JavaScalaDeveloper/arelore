@@ -36,7 +36,9 @@ import { UserInfo } from './types';
 import {
   LocaleGate,
   LocaleNavigate,
+  PREFIXED_LOCALES,
   RegionSwitcher,
+  useI18n,
   useLocale,
   useLocaleNavigate,
   useStrippedLocation,
@@ -46,165 +48,162 @@ import './App.css';
 
 const { Header, Content, Footer } = Layout;
 
-// 导航菜单配置
-const navigationItems: any[] = [
-  { key: 'home', icon: <HomeOutlined />, label: '首页', path: '/home' },
+type NavNode = {
+  key: string;
+  icon?: React.ReactNode;
+  labelKey: string;
+  path?: string;
+  children?: NavNode[];
+};
+
+// 导航结构：文案走 i18n labelKey
+const navigationItems: NavNode[] = [
+  { key: 'home', icon: <HomeOutlined />, labelKey: 'nav.home', path: '/home' },
   {
     key: 'products',
     icon: <SolutionOutlined />,
-    label: '产品中心',
+    labelKey: 'nav.products',
     children: [
       {
         key: 'foreignLanguage',
-        label: '外语',
+        labelKey: 'nav.foreignLanguage',
         children: [
-          {
-            key: 'word',
-            icon: <BookOutlined />,
-            label: '墨鱼背词',
-            path: '/word'
-          }
-        ]
+          { key: 'word', icon: <BookOutlined />, labelKey: 'nav.word', path: '/word' },
+        ],
       },
       {
         key: 'creator',
-        label: '创作',
+        labelKey: 'nav.creator',
         children: [
           {
             key: 'aiPrompt',
-            label: 'AI提示词',
-            path: '/home/products/ai-prompt/list'
-          }
-        ]
+            labelKey: 'nav.aiPrompt',
+            path: '/home/products/ai-prompt/list',
+          },
+        ],
       },
       {
         key: 'security',
-        label: '安全',
+        labelKey: 'nav.security',
         children: [
           {
             key: 'databaseSecurity',
-            label: '数据库安全',
+            labelKey: 'nav.databaseSecurity',
             children: [
               {
                 key: 'databaseClassification',
-                label: '数据库分类分级',
-                path: '/home/products/database-classification'
+                labelKey: 'nav.databaseClassification',
+                path: '/home/products/database-classification',
               },
               {
                 key: 'databaseAudit',
-                label: '数据库审计',
-                path: '/home/products/database-audit'
-              }
-            ]
+                labelKey: 'nav.databaseAudit',
+                path: '/home/products/database-audit',
+              },
+            ],
           },
           {
             key: 'apiSecurity',
-            label: 'API安全',
-            path: '/home/products/api-security'
+            labelKey: 'nav.apiSecurity',
+            path: '/home/products/api-security',
           },
           {
             key: 'applicationSecurity',
-            label: '应用安全',
+            labelKey: 'nav.applicationSecurity',
             children: [
               {
                 key: 'codeSecurityScan',
-                label: '代码安全扫描',
-                path: '/home/products/application-security/code-security-scan'
-              }
-            ]
+                labelKey: 'nav.codeSecurityScan',
+                path: '/home/products/application-security/code-security-scan',
+              },
+            ],
           },
           {
             key: 'mqSecurity',
-            label: 'MQ安全',
+            labelKey: 'nav.mqSecurity',
             children: [
               {
                 key: 'mqClassification',
-                label: 'MQ分类分级',
-                path: '/home/products/mq-classification'
-              }
-            ]
-          }
-        ]
-      }
-    ]
+                labelKey: 'nav.mqClassification',
+                path: '/home/products/mq-classification',
+              },
+            ],
+          },
+        ],
+      },
+    ],
   },
   {
     key: 'tools',
     icon: <SolutionOutlined />,
-    label: '免费工具',
+    labelKey: 'nav.tools',
     children: [
-      {
-        key: 'textMasking',
-        label: '文本脱敏',
-        path: '/home/tools/text-masking'
-      },
+      { key: 'textMasking', labelKey: 'nav.textMasking', path: '/home/tools/text-masking' },
       {
         key: 'fileDetection',
-        label: '文件敏感内容检测',
-        path: '/home/tools/file-detection'
+        labelKey: 'nav.fileDetection',
+        path: '/home/tools/file-detection',
       },
       {
         key: 'documentProcessing',
-        label: '文档处理',
+        labelKey: 'nav.documentProcessing',
         children: [
-          {
-            key: 'pdfToWord',
-            label: 'PDF转Word',
-            path: '/home/tools/pdf-to-word'
-          }
-        ]
-      }
-    ]
+          { key: 'pdfToWord', labelKey: 'nav.pdfToWord', path: '/home/tools/pdf-to-word' },
+        ],
+      },
+    ],
   },
   {
     key: 'solutions',
     icon: <CustomerServiceOutlined />,
-    label: '解决方案',
+    labelKey: 'nav.solutions',
     children: [
       {
         key: 'scenarioSolutions',
-        label: '场景解决方案',
+        labelKey: 'nav.scenarioSolutions',
         children: [
           {
             key: 'databaseClassificationSolution',
-            label: '数据库资产分类分级扫描治理方案',
-            path: '/home/solutions/database-classification'
+            labelKey: 'nav.databaseClassificationSolution',
+            path: '/home/solutions/database-classification',
           },
           {
             key: 'apiClassificationSolution',
-            label: 'API分类分级扫描治理方案',
-            path: '/home/solutions/api-classification'
+            labelKey: 'nav.apiClassificationSolution',
+            path: '/home/solutions/api-classification',
           },
           {
             key: 'mqLogClassificationSolution',
-            label: 'MQ、日志分类分级解决方案',
-            path: '/home/solutions/mq-log-classification'
+            labelKey: 'nav.mqLogClassificationSolution',
+            path: '/home/solutions/mq-log-classification',
           },
           {
             key: 'fileSensitiveSolution',
-            label: '文件敏感信息解决方案',
-            path: '/home/solutions/file-sensitive'
-          }
-        ]
-      }
-    ]
+            labelKey: 'nav.fileSensitiveSolution',
+            path: '/home/solutions/file-sensitive',
+          },
+        ],
+      },
+    ],
   },
-  { key: 'contact', icon: <PhoneOutlined />, label: '联系我们', path: '/home/contact' },
+  { key: 'contact', icon: <PhoneOutlined />, labelKey: 'nav.contact', path: '/home/contact' },
 ];
 
-/** 递归渲染导航（支持产品中心 → 外语/安全 → 子类 → 产品） */
-function renderNavNodes(items: any[]): React.ReactNode[] {
+function renderNavNodes(
+  items: NavNode[],
+  t: (key: string) => string
+): React.ReactNode[] {
   return (items || []).map((item) => {
     if (item.children && item.children.length) {
       return (
-        <Menu.SubMenu key={item.key} icon={item.icon} title={item.label}>
-          {renderNavNodes(item.children)}
+        <Menu.SubMenu key={item.key} icon={item.icon} title={t(item.labelKey)}>
+          {renderNavNodes(item.children, t)}
         </Menu.SubMenu>
       );
     }
     return (
       <Menu.Item key={item.key} icon={item.icon}>
-        {item.label}
+        {t(item.labelKey)}
       </Menu.Item>
     );
   });
@@ -213,9 +212,33 @@ function renderNavNodes(items: any[]): React.ReactNode[] {
 function App() {
   return (
     <Routes>
-      <Route path="/en-us/*" element={<LocaleGate locale="en-us"><MainApp /></LocaleGate>} />
-      <Route path="/zh-cn/*" element={<LocaleGate locale="zh-cn"><MainApp /></LocaleGate>} />
-      <Route path="*" element={<LocaleGate locale="zh-cn"><MainApp /></LocaleGate>} />
+      {PREFIXED_LOCALES.map((locale) => (
+        <Route
+          key={locale}
+          path={`/${locale}/*`}
+          element={
+            <LocaleGate locale={locale}>
+              <MainApp />
+            </LocaleGate>
+          }
+        />
+      ))}
+      <Route
+        path="/zh-cn/*"
+        element={
+          <LocaleGate locale="zh-cn">
+            <MainApp />
+          </LocaleGate>
+        }
+      />
+      <Route
+        path="*"
+        element={
+          <LocaleGate locale="zh-cn">
+            <MainApp />
+          </LocaleGate>
+        }
+      />
     </Routes>
   );
 }
@@ -225,7 +248,8 @@ function MainApp() {
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const navigate = useLocaleNavigate();
   const strippedLocation = useStrippedLocation();
-  const { pathnameWithoutLocale } = useLocale();
+  const { pathnameWithoutLocale, localePath } = useLocale();
+  const { t } = useI18n();
 
   // 初始化：补齐 token/userToken 等别名，背词与其它模块共用登录态
   useEffect(() => {
@@ -245,8 +269,7 @@ function MainApp() {
   const handleNavClick = (e: { key: string }) => {
     setCurrent(e.key);
     
-    // 查找菜单项（包括子菜单）
-    const findMenuItem = (items: any[], key: string): any => {
+    const findMenuItem = (items: NavNode[], key: string): NavNode | null => {
       for (const item of items) {
         if (item.key === key) {
           return item;
@@ -260,9 +283,9 @@ function MainApp() {
       }
       return null;
     };
-    
+
     const item = findMenuItem(navigationItems, e.key);
-    if (item && item.path) {
+    if (item?.path) {
       navigate(item.path);
     }
   };
@@ -274,7 +297,7 @@ function MainApp() {
 
   // 处理登录成功
   const handleLoginSuccess = (user: UserInfo) => {
-    message.success(`欢迎回来，${user.nickname || user.username}！`);
+    message.success(t('common.welcomeBack', { name: user.nickname || user.username || '' }));
   };
 
   if (pathnameWithoutLocale === '/word' || pathnameWithoutLocale.startsWith('/word/')) {
@@ -305,13 +328,13 @@ function MainApp() {
             onClick={handleNavClick}
             className="nav-menu"
           >
-            {renderNavNodes(navigationItems)}
+            {renderNavNodes(navigationItems, t)}
           </Menu>
 
           {/* 右侧功能区 */}
           <div className="header-right">
             <div className="header-product-search">
-              <ProductSearch size="middle" placeholder="搜索产品…" />
+              <ProductSearch size="middle" placeholder={t('common.searchProducts')} />
             </div>
             <RegionSwitcher size="middle" />
           </div>
@@ -526,15 +549,15 @@ function MainApp() {
 
       <Footer className="app-footer">
         <div className="footer-content">
-          <p>Arelore ©{new Date().getFullYear()} Created by Arelore Team</p>
+          <p>{t('footer.createdBy', { year: new Date().getFullYear() })}</p>
           <div className="footer-links">
-            <a href="/home">关于我们</a>
-            <a href="/home">隐私政策</a>
-            <a href="/home">服务条款</a>
-            <a href="/home/contact">帮助中心</a>
+            <a href={localePath('/home')}>{t('footer.about')}</a>
+            <a href={localePath('/home')}>{t('footer.privacy')}</a>
+            <a href={localePath('/home')}>{t('footer.terms')}</a>
+            <a href={localePath('/home/contact')}>{t('footer.help')}</a>
           </div>
           <p style={{ fontSize: '12px', color: '#999', marginTop: '12px' }}>
-            沪ICP备2026055763号
+            {t('footer.icp')}
           </p>
         </div>
       </Footer>

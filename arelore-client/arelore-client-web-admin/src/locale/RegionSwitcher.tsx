@@ -9,7 +9,7 @@ type Props = {
   style?: React.CSSProperties;
 };
 
-export default function RegionSwitcher({ size = 'middle', style }: Props) {
+export function RegionSwitcher({ size = 'middle', style }: Props) {
   const { locale, setLocale } = useLocaleOptional();
 
   return (
@@ -27,3 +27,5 @@ export default function RegionSwitcher({ size = 'middle', style }: Props) {
     />
   );
 }
+
+export default RegionSwitcher;

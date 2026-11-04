@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Form, Input, Progress, Space, Tabs, Typography, message } from 'antd';
 import { LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useSearchParams } from 'react-router-dom';
-import { stripLocalePrefix, useLocaleNavigate } from '../../../locale';
+import { stripLocalePrefix, useI18n, useLocaleNavigate } from '../../../locale';
 import { authApi } from '../api/auth';
 import { sha256Hex } from '../../../utils/hash';
 import { passwordStrengthView } from '../../../utils/passwordStrength';
@@ -76,6 +76,7 @@ function resolveRedirect(raw: string | null, fallback: string): string {
 
 export default function LoginPage({ successFallback = '/word' }: LoginPageProps) {
   const navigate = useLocaleNavigate();
+  const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const [form] = Form.useForm();
   const [mode, setMode] = useState<Mode>(() => parseMode(searchParams.get('mode')));
@@ -116,7 +117,7 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
       } catch {
         /* ignore */
       }
-      message.success('登录成功');
+      message.success(t('word.login.loginOk'));
       navigate(successPath, { replace: true });
     },
     [navigate, successPath]
@@ -174,7 +175,7 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
         <Text style={{ color: strength.color, fontSize: 12 }}>{strength.label}</Text>
         <div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            仅作提示，不强制大小写或特殊字符；至少 8 位即可提交
+            {t('word.login.passwordHint')}
           </Text>
         </div>
       </div>
@@ -191,7 +192,7 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
       const left = readCooldownLeft(mode, email);
       if (left > 0) {
         setCountdown(left);
-        message.warning(`请 ${left} 秒后再获取验证码`);
+        message.warning(t('word.login.codeWait', { n: left }));
         return;
       }
       setSending(true);
@@ -202,14 +203,14 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
       } else {
         await authApi.applyEmailCode(email);
       }
-      message.success('验证码已发送，请查收邮件（含垃圾箱）');
+      message.success(t('word.login.codeSent'));
       writeCooldown(mode, email, CODE_COOLDOWN_SEC);
       setCountdown(CODE_COOLDOWN_SEC);
     } catch (e: any) {
       if (e?.errorFields) {
         return;
       }
-      message.error(shortErrorMessage(e, '发送失败'));
+      message.error(shortErrorMessage(e, t('word.login.sendFailed')));
     } finally {
       setSending(false);
     }
@@ -219,7 +220,7 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
     try {
       return await sha256Hex(plain);
     } catch {
-      message.error('当前环境无法完成密码摘要，请更换浏览器后重试');
+      message.error(t('word.login.hashFailed'));
       return null;
     }
   };
@@ -236,7 +237,7 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
         const res = await authApi.emailPasswordLogin({ email, passwordHash });
         const token = res.data?.token || '';
         if (!token) {
-          message.error('登录失败：未返回 token');
+          message.error(t('word.login.noTokenLogin'));
           return;
         }
         await finishLogin(token, res.data?.user);
@@ -249,7 +250,7 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
         });
         const token = res.data?.token || '';
         if (!token) {
-          message.error('登录失败：未返回 token');
+          message.error(t('word.login.noTokenLogin'));
           return;
         }
         await finishLogin(token, res.data?.user);
@@ -267,10 +268,10 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
         });
         const token = res.data?.token || '';
         if (!token) {
-          message.error('注册失败：未返回 token');
+          message.error(t('word.login.noTokenRegister'));
           return;
         }
-        message.success('注册成功');
+        message.success(t('word.login.registerOk'));
         await finishLogin(token, res.data?.user);
         return;
       }
@@ -283,7 +284,7 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
         code: String(values.code || '').trim(),
         newPasswordHash,
       });
-      message.success(getToken() ? '密码已更新' : '密码已更新，请使用新密码登录');
+      message.success(getToken() ? t('word.login.passwordUpdated') : t('word.login.passwordUpdatedLogin'));
       form.setFieldsValue({
         password: undefined,
         code: undefined,
@@ -296,24 +297,24 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
         switchMode('password');
       }
     } catch (e: any) {
-      message.error(shortErrorMessage(e, mode === 'register' ? '注册失败' : mode === 'reset' ? '改密失败' : '登录失败'));
+      message.error(shortErrorMessage(e, mode === 'register' ? t('word.login.registerFailed') : mode === 'reset' ? t('word.login.resetFailed') : t('word.login.loginFailed')));
     } finally {
       setSubmitting(false);
     }
   };
 
   const titleMap: Record<Mode, string> = {
-    password: '邮箱密码登录',
-    code: '验证码登录',
-    register: '邮箱注册',
-    reset: '找回 / 设置密码',
+    password: t('word.login.titlePassword'),
+    code: t('word.login.titleCode'),
+    register: t('word.login.titleRegister'),
+    reset: t('word.login.titleReset'),
   };
 
   const tipMap: Record<Mode, string> = {
-    password: '使用邮箱作为账号；未设密码请先找回/设置密码',
-    code: '验证码登录可自动注册；无密码账号请之后设置密码',
-    register: '验证邮箱后设置密码，注册成功即登录',
-    reset: '已注册用户（含无密码）可通过验证码设置新密码',
+    password: t('word.login.tipPassword'),
+    code: t('word.login.tipCode'),
+    register: t('word.login.tipRegister'),
+    reset: t('word.login.tipReset'),
   };
 
   return (
@@ -330,8 +331,8 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
             activeKey={mode}
             onChange={(key) => switchMode(key as Mode)}
             items={[
-              { key: 'password', label: '密码登录' },
-              { key: 'code', label: '验证码登录' },
+              { key: 'password', label: t('word.login.tabPassword') },
+              { key: 'code', label: t('word.login.tabCode') },
             ]}
             style={{ marginBottom: 8 }}
           />
@@ -340,10 +341,10 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
         <Form form={form} layout="vertical" onFinish={onSubmit} style={{ textAlign: 'left', marginTop: 8 }}>
           <Form.Item
             name="email"
-            label="邮箱"
+            label={t('word.login.email')}
             rules={[
-              { required: true, message: '请输入邮箱' },
-              { type: 'email', message: '邮箱格式不正确' },
+              { required: true, message: t('word.login.emailRequired') },
+              { type: 'email', message: t('word.login.emailInvalid') },
             ]}
           >
             <Input
@@ -361,15 +362,15 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
           {mode === 'password' && (
             <Form.Item
               name="password"
-              label="密码"
+              label={t('word.login.password')}
               rules={[
-                { required: true, message: '请输入密码' },
-                { min: 8, message: '密码至少 8 位' },
+                { required: true, message: t('word.login.passwordRequired') },
+                { min: 8, message: t('word.login.passwordMin') },
               ]}
             >
               <Input.Password
                 prefix={<LockOutlined />}
-                placeholder="至少 8 位"
+                placeholder={t('word.login.passwordPlaceholder')}
                 size="large"
                 autoComplete="current-password"
               />
@@ -377,20 +378,20 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
           )}
 
           {(mode === 'code' || mode === 'register' || mode === 'reset') && (
-            <Form.Item label="验证码" required>
+            <Form.Item label={t('word.login.code')} required>
               <Space.Compact style={{ width: '100%' }}>
                 <Form.Item
                   name="code"
                   noStyle
                   rules={[
-                    { required: true, message: '请输入验证码' },
-                    { pattern: /^\d{4,8}$/, message: '验证码为 4～8 位数字' },
+                    { required: true, message: t('word.login.codeRequired') },
+                    { pattern: /^\d{4,8}$/, message: t('word.login.codePattern') },
                   ]}
                 >
-                  <Input placeholder="邮件中的验证码" size="large" maxLength={8} autoComplete="one-time-code" />
+                  <Input placeholder={t('word.login.codePlaceholder')} size="large" maxLength={8} autoComplete="one-time-code" />
                 </Form.Item>
                 <Button size="large" loading={sending} disabled={countdown > 0 || sending} onClick={onSendCode}>
-                  {countdown > 0 ? `${countdown}s 后重试` : '获取验证码'}
+                  {countdown > 0 ? t('word.login.retryIn', { n: countdown }) : t('word.login.getCode')}
                 </Button>
               </Space.Compact>
             </Form.Item>
@@ -399,16 +400,16 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
           {mode === 'register' && (
             <Form.Item
               name="password"
-              label="设置密码"
+              label={t('word.login.setPassword')}
               extra={renderPasswordStrength()}
               rules={[
-                { required: true, message: '请设置密码' },
-                { min: 8, message: '密码至少 8 位' },
+                { required: true, message: t('word.login.passwordRequired') },
+                { min: 8, message: t('word.login.passwordMin') },
               ]}
             >
               <Input.Password
                 prefix={<LockOutlined />}
-                placeholder="至少 8 位"
+                placeholder={t('word.login.passwordPlaceholder')}
                 size="large"
                 autoComplete="new-password"
                 onChange={(e) => setPasswordDraft(e.target.value)}
@@ -420,16 +421,16 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
             <>
               <Form.Item
                 name="newPassword"
-                label="新密码"
+                label={t('word.login.newPassword')}
                 extra={renderPasswordStrength()}
                 rules={[
-                  { required: true, message: '请输入新密码' },
-                  { min: 8, message: '密码至少 8 位' },
+                  { required: true, message: t('word.login.passwordRequired') },
+                  { min: 8, message: t('word.login.passwordMin') },
                 ]}
               >
                 <Input.Password
                   prefix={<LockOutlined />}
-                  placeholder="至少 8 位"
+                  placeholder={t('word.login.passwordPlaceholder')}
                   size="large"
                   autoComplete="new-password"
                   onChange={(e) => setPasswordDraft(e.target.value)}
@@ -437,45 +438,45 @@ export default function LoginPage({ successFallback = '/word' }: LoginPageProps)
               </Form.Item>
               <Form.Item
                 name="confirmPassword"
-                label="确认新密码"
+                label={t('word.login.confirmPassword')}
                 dependencies={['newPassword']}
                 rules={[
-                  { required: true, message: '请再次输入新密码' },
+                  { required: true, message: t('word.login.confirmRequired') },
                   ({ getFieldValue }) => ({
                     validator(_, value) {
                       if (!value || getFieldValue('newPassword') === value) {
                         return Promise.resolve();
                       }
-                      return Promise.reject(new Error('两次输入的密码不一致'));
+                      return Promise.reject(new Error(t('word.login.confirmMismatch')));
                     },
                   }),
                 ]}
               >
-                <Input.Password prefix={<LockOutlined />} placeholder="再次输入" size="large" autoComplete="new-password" />
+                <Input.Password prefix={<LockOutlined />} placeholder={t('word.login.confirmPlaceholder')} size="large" autoComplete="new-password" />
               </Form.Item>
             </>
           )}
 
           <Button type="primary" htmlType="submit" block size="large" loading={submitting}>
-            {mode === 'register' ? '注册并登录' : mode === 'reset' ? '更新密码' : '登录'}
+            {mode === 'register' ? t('word.login.submitRegister') : mode === 'reset' ? t('word.login.submitReset') : t('word.login.submitLogin')}
           </Button>
         </Form>
 
         <div style={{ marginTop: 16, fontSize: 13 }}>
           {mode === 'password' || mode === 'code' ? (
             <Space split={<Text type="secondary">·</Text>}>
-              <Link onClick={() => switchMode('register')}>注册账号</Link>
-              <Link onClick={() => switchMode('reset')}>忘记密码 / 设置密码</Link>
+              <Link onClick={() => switchMode('register')}>{t('word.login.linkRegister')}</Link>
+              <Link onClick={() => switchMode('reset')}>{t('word.login.linkForgot')}</Link>
             </Space>
           ) : mode === 'reset' && getToken() ? (
-            <Link onClick={() => navigate('/word/profile')}>返回我的</Link>
+            <Link onClick={() => navigate('/word/profile')}>{t('word.login.backProfile')}</Link>
           ) : (
-            <Link onClick={() => switchMode('password')}>返回登录</Link>
+            <Link onClick={() => switchMode('password')}>{t('word.login.backLogin')}</Link>
           )}
         </div>
 
         <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
-          验证码 5 分钟内有效；发送成功后 60 秒内不可重复获取；未收到请检查垃圾邮件。
+          {t('word.login.codeFooter')}
         </Text>
       </div>
     </div>

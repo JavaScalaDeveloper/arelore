@@ -2,10 +2,13 @@ package com.arelore.server.core.biz.word.admin;
 
 import com.arelore.server.core.service.BaseService;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoAdoptPicturesRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchI18nMeaningAudioRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchI18nMeaningAudioResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchMeaningAudioRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchMeaningAudioResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchResponse;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoEnrichDictRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoPictureSearchResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoResponse;
@@ -15,10 +18,16 @@ import com.arelore.server.core.biz.word.admin.dto.AdminWordPictureContentRespons
 
 public interface AdminWordBaseInfoService extends BaseService<AdminWordBaseInfoRequest, AdminWordBaseInfoResponse> {
     /**
-     * 分页扫描 admin_word_entry 全部词形写入 admin_word_base_info，
-     * 再对无释义词查有道补释义/音标（带空格词跳过；不改已有配图）。
+     * 仅从 admin_word_entry 补齐尚未入库的词形到 admin_word_base_info；
+     * 不调有道 / FreeDictionary。
      */
     AdminWordBaseInfoSyncResponse syncFromEntries();
+
+    /**
+     * 仅扫 admin_word_base_info：有道补释义/音标/例句等，FreeDictionary 补多语种译词；
+     * 带空格词跳过；不改已有配图。可按列表筛选缩小范围。
+     */
+    AdminWordBaseInfoSyncResponse enrichFromDictionaries(AdminWordBaseInfoEnrichDictRequest request);
 
     /** 管理端调试：实时请求有道 jsonapi，不落库 */
     AdminWordBaseInfoYoudaoTestResponse testYoudao(String word);
@@ -39,6 +48,14 @@ public interface AdminWordBaseInfoService extends BaseService<AdminWordBaseInfoR
      * 并回写 base_info.ext_info.meaningAudio。
      */
     AdminWordBaseInfoBatchMeaningAudioResponse batchGenerateMeaningAudio(AdminWordBaseInfoBatchMeaningAudioRequest request);
+
+    /**
+     * 按 wordTranslations 批量生成多语种译词语音（Edge TTS 按语种换 Neural 音色），
+     * 写入 common_binary_file，回写 ext_info.i18nMeaningAudios。
+     */
+    AdminWordBaseInfoBatchI18nMeaningAudioResponse batchGenerateI18nMeaningAudio(
+        AdminWordBaseInfoBatchI18nMeaningAudioRequest request
+    );
 
     /** 人工采纳配图并锁定，之后自动同步不会覆盖 pictures */
     AdminWordBaseInfoResponse adoptPictures(AdminWordBaseInfoAdoptPicturesRequest request);

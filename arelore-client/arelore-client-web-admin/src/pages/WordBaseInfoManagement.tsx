@@ -200,6 +200,68 @@ function meaningAudioFileId(extInfo?: string): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
+/** 产品语种 + Wiktionary 长尾码中文名（历史脏数据展示用；新补词典只落产品语种） */
+const LANG_LABEL_ZH: Record<string, string> = {
+  zh: '中文',
+  cmn: '中文（普通话）',
+  en: '英语',
+  ja: '日语',
+  ko: '韩语',
+  es: '西班牙语',
+  fr: '法语',
+  de: '德语',
+  pt: '葡萄牙语',
+  ru: '俄语',
+  vi: '越南语',
+  th: '泰语',
+  id: '印尼语',
+  ar: '阿拉伯语',
+  hi: '印地语',
+  it: '意大利语',
+  nl: '荷兰语',
+  tr: '土耳其语',
+  pl: '波兰语',
+  sv: '瑞典语',
+  uk: '乌克兰语',
+  ms: '马来语',
+  af: '南非荷兰语',
+  sq: '阿尔巴尼亚语',
+  hy: '亚美尼亚语',
+  ast: '阿斯图里亚斯语',
+  az: '阿塞拜疆语',
+  be: '白俄罗斯语',
+  bg: '保加利亚语',
+  ca: '加泰罗尼亚语',
+  cs: '捷克语',
+};
+
+function translationRows(extInfo?: string): { lang: string; label: string; words: string; fileId?: number }[] {
+  const ext = parseExtInfo(extInfo);
+  const list = Array.isArray(ext.wordTranslations) ? ext.wordTranslations : [];
+  const audios = ext.i18nMeaningAudios && typeof ext.i18nMeaningAudios === 'object' ? ext.i18nMeaningAudios : {};
+  return list
+    .map((row: any) => {
+      const lang = String(row?.lang || '').trim().toLowerCase();
+      if (!lang) {
+        return null;
+      }
+      const words = Array.isArray(row?.words) ? row.words.map((w: any) => String(w || '').trim()).filter(Boolean) : [];
+      if (!words.length) {
+        return null;
+      }
+      const audio = audios[lang];
+      const rawId = audio?.fileId;
+      const n = rawId == null || rawId === '' ? NaN : Number(rawId);
+      return {
+        lang,
+        label: LANG_LABEL_ZH[lang] || row?.langName || lang,
+        words: words.join('、'),
+        fileId: Number.isFinite(n) && n > 0 ? n : undefined,
+      };
+    })
+    .filter(Boolean) as { lang: string; label: string; words: string; fileId?: number }[];
+}
+
 function tagList(extInfo?: string): string[] {
   const ext = parseExtInfo(extInfo);
   let tags = Array.isArray(ext.tags) ? ext.tags.filter(Boolean).map(String) : [];
@@ -218,6 +280,34 @@ function tagList(extInfo?: string): string[] {
   if (!ext.meaningAudioError && tags.includes('meaning_audio_error')) {
     tags = tags.filter((t) => t !== 'meaning_audio_error');
   }
+  // 已有 wordTranslations 但 tags 未刷时，列表仍展示「有/无多语种译词」
+  const hasFd = Array.isArray(ext.wordTranslations) && ext.wordTranslations.length > 0;
+  if (hasFd && !tags.includes('has_freedictionary')) {
+    tags = [...tags.filter((t) => t !== 'no_freedictionary'), 'has_freedictionary'];
+  }
+  if (!hasFd && tags.includes('has_freedictionary')) {
+    tags = [...tags.filter((t) => t !== 'has_freedictionary'), 'no_freedictionary'];
+  }
+  if (!hasFd && !tags.includes('no_freedictionary') && !tags.includes('has_freedictionary')) {
+    // 历史词未写 tags：仍可在列表看见「无多语种译词」，便于筛选后再同步
+    tags = [...tags, 'no_freedictionary'];
+  }
+  // 多语种译词语音：按 i18nMeaningAudios 是否有 fileId 推导
+  const i18nAudios = ext.i18nMeaningAudios && typeof ext.i18nMeaningAudios === 'object' ? ext.i18nMeaningAudios : {};
+  const hasI18nAudio = Object.values(i18nAudios).some((a: any) => {
+    const id = a?.fileId;
+    const n = id == null || id === '' ? NaN : Number(id);
+    return Number.isFinite(n) && n > 0;
+  });
+  if (hasI18nAudio && !tags.includes('has_i18n_meaning_audio')) {
+    tags = [...tags.filter((t) => t !== 'no_i18n_meaning_audio'), 'has_i18n_meaning_audio'];
+  }
+  if (!hasI18nAudio && tags.includes('has_i18n_meaning_audio')) {
+    tags = [...tags.filter((t) => t !== 'has_i18n_meaning_audio'), 'no_i18n_meaning_audio'];
+  }
+  if (!hasI18nAudio && !tags.includes('no_i18n_meaning_audio') && !tags.includes('has_i18n_meaning_audio')) {
+    tags = [...tags, 'no_i18n_meaning_audio'];
+  }
   return tags;
 }
 
@@ -235,6 +325,10 @@ const TAG_OPTIONS = [
   { value: 'no_example', label: '无例句' },
   { value: 'has_meaning_audio', label: '有释义语音' },
   { value: 'no_meaning_audio', label: '无释义语音' },
+  { value: 'has_freedictionary', label: '有多语种译词' },
+  { value: 'no_freedictionary', label: '无多语种译词' },
+  { value: 'has_i18n_meaning_audio', label: '有多语种释义语音' },
+  { value: 'no_i18n_meaning_audio', label: '无多语种释义语音' },
   { value: 'meaning_audio_error', label: '释义语音失败' },
   { value: 'sync_error', label: '同步失败' },
 ];
@@ -248,6 +342,10 @@ const TAG_COLOR: Record<string, string> = {
   no_example: 'orange',
   has_meaning_audio: 'cyan',
   no_meaning_audio: 'default',
+  has_freedictionary: 'purple',
+  no_freedictionary: 'magenta',
+  has_i18n_meaning_audio: 'cyan',
+  no_i18n_meaning_audio: 'default',
   meaning_audio_error: 'error',
   confirmed: 'success',
   unconfirmed: 'default',
@@ -377,6 +475,7 @@ const WordBaseInfoManagement: React.FC = () => {
   const [languages, setLanguages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [enrichingDict, setEnrichingDict] = useState(false);
   const [total, setTotal] = useState(0);
   const [pageNum, setPageNum] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -391,6 +490,7 @@ const WordBaseInfoManagement: React.FC = () => {
   const [searchingPics, setSearchingPics] = useState(false);
   const [batchSearching, setBatchSearching] = useState(false);
   const [batchMeaningAudio, setBatchMeaningAudio] = useState(false);
+  const [batchI18nMeaningAudio, setBatchI18nMeaningAudio] = useState(false);
   const [adoptingPics, setAdoptingPics] = useState(false);
   const [candidates, setCandidates] = useState<any[]>([]);
   const [selectedUrls, setSelectedUrls] = useState<string[]>([]);
@@ -563,9 +663,9 @@ const WordBaseInfoManagement: React.FC = () => {
 
   const handleSync = () => {
     Modal.confirm({
-      title: '从词条同步单词',
+      title: '从词条同步词形',
       content:
-        '将分页扫描全部词条词形写入基础表；再对缺释义/缺例句的词查有道补释义、音标、双语例句、词组、近义、派生与词源摘要（带空格词跳过，不改已有配图与已有字段）。词量大时可能较久。配图请用「批量搜图」。',
+        '仅把词条表里尚未入库的语种+词形写入基础表，不调用有道 / FreeDictionary。释义与多语种请用「补词典」。配图请用「批量搜图」。',
       okText: '开始同步',
       cancelText: '取消',
       onOk: async () => {
@@ -574,7 +674,7 @@ const WordBaseInfoManagement: React.FC = () => {
           const res = await adminApi.syncWordBaseInfo({});
           const d = res.data || {};
           message.success(
-            `同步完成：词形 扫描 ${d.scanned ?? 0}/去重 ${d.distinct ?? 0}/新增 ${d.inserted ?? 0}；释义 扫描 ${d.meaningScanned ?? 0}/写入 ${d.meaningFilled ?? 0}/失败 ${d.meaningFailed ?? 0}/跳过 ${d.meaningSkipped ?? 0}`
+            `词形同步完成：扫描 ${d.scanned ?? 0}，去重 ${d.distinct ?? 0}，新增 ${d.inserted ?? 0}，跳过 ${d.skipped ?? 0}，失败 ${d.failed ?? 0}`
           );
           loadData({ pageNum: 1 });
         } catch (e: any) {
@@ -583,6 +683,44 @@ const WordBaseInfoManagement: React.FC = () => {
           }
         } finally {
           setSyncing(false);
+        }
+      },
+    });
+  };
+
+  const handleEnrichDict = () => {
+    const values = queryForm.getFieldsValue();
+    const tags = Array.isArray(values.tags) ? values.tags.filter(Boolean) : [];
+    const tagText = tags.length
+      ? tags.map((t: string) => TAG_OPTIONS.find((o) => o.value === t)?.label || t).join('、')
+      : '未选（默认只扫缺释义/例句/多语种）';
+    Modal.confirm({
+      title: '补词典（有道 + FreeDictionary）',
+      content: `只扫基础表（约两万词，不扫词条）。按当前筛选（标签：${tagText}）调用有道补释义/音标/例句等，再调 FreeDictionary 补多语种译词。已齐全字段跳过；遇 429 本轮停 FD，可稍后筛「无多语种译词」再跑。`,
+      okText: '开始补词典',
+      cancelText: '取消',
+      onOk: async () => {
+        setEnrichingDict(true);
+        try {
+          const res = await adminApi.enrichWordBaseInfoDict({
+            languageCode: values.languageCode || undefined,
+            word: values.word || undefined,
+            tags: tags.length ? tags : undefined,
+            hasPicture: values.hasPicture,
+            pictureConfirmed: values.pictureConfirmed,
+          });
+          const d = res.data || {};
+          const note = d.note ? ` ${d.note}` : '';
+          message.success(
+            `补词典完成：扫描 ${d.meaningScanned ?? 0}，写入 ${d.meaningFilled ?? 0}，失败 ${d.meaningFailed ?? 0}，跳过 ${d.meaningSkipped ?? 0}.${note}`
+          );
+          loadData({ pageNum: 1, filters: values });
+        } catch (e: any) {
+          if (!e?.notified) {
+            message.error(e?.message || '补词典失败');
+          }
+        } finally {
+          setEnrichingDict(false);
         }
       },
     });
@@ -667,6 +805,44 @@ const WordBaseInfoManagement: React.FC = () => {
     });
   };
 
+  const runBatchI18nMeaningAudio = () => {
+    const values = queryForm.getFieldsValue();
+    const tags = Array.isArray(values.tags) ? values.tags.filter(Boolean) : [];
+    const tagText = tags.length
+      ? tags.map((t: string) => TAG_OPTIONS.find((o) => o.value === t)?.label || t).join('、')
+      : '未选（默认只扫有多语种译词的词）';
+    Modal.confirm({
+      title: '批量生成多语种译词语音',
+      content: `按当前筛选（标签：${tagText}）读取 wordTranslations，用 Edge TTS 按语种切换 Neural 音色（如 ja→Nanami、ko→SunHi）朗读各语种译词，写入 common_binary_file，回写 i18nMeaningAudios。每词默认最多 12 语种；译词未变则跳过。需先「补词典」写入多语种译词。`,
+      okText: '开始生成',
+      cancelText: '取消',
+      onOk: async () => {
+        setBatchI18nMeaningAudio(true);
+        try {
+          const res = await adminApi.batchGenerateWordBaseInfoI18nMeaningAudio({
+            languageCode: values.languageCode || undefined,
+            word: values.word || undefined,
+            tags: tags.length ? tags : undefined,
+            hasPicture: values.hasPicture,
+            pictureConfirmed: values.pictureConfirmed,
+            maxLangsPerWord: 12,
+          });
+          const d = res.data || {};
+          message.success(
+            `多语种语音完成：扫描 ${d.scanned ?? 0} 词，有写入 ${d.filled ?? 0}，语音条 ${d.audioFilled ?? 0}，失败 ${d.failed ?? 0}，跳过 ${d.skipped ?? 0}`
+          );
+          loadData({ pageNum: 1, filters: values });
+        } catch (e: any) {
+          if (!e?.notified) {
+            message.error(e?.message || '批量生成多语种译词语音失败');
+          }
+        } finally {
+          setBatchI18nMeaningAudio(false);
+        }
+      },
+    });
+  };
+
   const detailExt = parseExtInfo(detail?.extInfo);
   const detailPics = pictureRefs(detail?.extInfo);
   const detailMeanings = meaningLines(detail?.extInfo);
@@ -674,6 +850,7 @@ const WordBaseInfoManagement: React.FC = () => {
   const detailPhrases = phraseLines(detail?.extInfo);
   const detailSynonyms = synonymLines(detail?.extInfo);
   const detailRelated = relatedLines(detail?.extInfo);
+  const detailTranslations = translationRows(detail?.extInfo);
   const detailEtym = typeof detailExt.etym === 'string' ? detailExt.etym.trim() : '';
   const detailTags = tagList(detail?.extInfo);
   const detailMeaningAudioId = meaningAudioFileId(detail?.extInfo);
@@ -694,6 +871,14 @@ const WordBaseInfoManagement: React.FC = () => {
           </Button>
           <Button
             type="default"
+            icon={<SoundOutlined />}
+            loading={batchI18nMeaningAudio}
+            onClick={runBatchI18nMeaningAudio}
+          >
+            批量多语种译词语音
+          </Button>
+          <Button
+            type="default"
             icon={<PictureOutlined />}
             loading={batchSearching}
             onClick={() => runBatchSearch('YOUDAO')}
@@ -708,8 +893,16 @@ const WordBaseInfoManagement: React.FC = () => {
           >
             批量搜图（Pixabay）
           </Button>
+          <Button
+            type="default"
+            icon={<CloudSyncOutlined />}
+            loading={enrichingDict}
+            onClick={handleEnrichDict}
+          >
+            补词典（有道+FD）
+          </Button>
           <Button type="primary" icon={<CloudSyncOutlined />} loading={syncing} onClick={handleSync}>
-            从词条同步
+            从词条同步词形
           </Button>
         </Space>
       </div>
@@ -953,6 +1146,48 @@ const WordBaseInfoManagement: React.FC = () => {
             </div>
 
             <div style={{ marginBottom: 16 }}>
+              <Space wrap>
+                <Text strong>多语种译词（FreeDictionary / Wiktionary）</Text>
+                {detailExt.i18nSource ? <Tag>{detailExt.i18nSource}</Tag> : null}
+                {detailExt.lastI18nSyncTime ? (
+                  <Text type="secondary">同步于 {detailExt.lastI18nSyncTime}</Text>
+                ) : null}
+              </Space>
+              <div style={{ marginTop: 8 }}>
+                {detailTranslations.length ? (
+                  <Table
+                    size="small"
+                    pagination={false}
+                    rowKey="lang"
+                    dataSource={detailTranslations}
+                    columns={[
+                      {
+                        title: '语种',
+                        dataIndex: 'label',
+                        width: 120,
+                        render: (label: string, row: { lang: string }) => (
+                          <span>
+                            {label} <Text type="secondary">({row.lang})</Text>
+                          </span>
+                        ),
+                      },
+                      { title: '译词', dataIndex: 'words', ellipsis: true },
+                      {
+                        title: '语音',
+                        dataIndex: 'fileId',
+                        width: 100,
+                        render: (fileId?: number) =>
+                          fileId ? <MeaningAudioPreview fileId={fileId} compact /> : <Tag>未生成</Tag>,
+                      },
+                    ]}
+                  />
+                ) : (
+                  <Tag>暂无（可「补词典」从 FreeDictionary 拉取）</Tag>
+                )}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
               <Text strong>双语例句（有道同步 / 学习端展示）</Text>
               <div style={{ marginTop: 8 }}>
                 {detailExamples.length ? (
@@ -965,7 +1200,7 @@ const WordBaseInfoManagement: React.FC = () => {
                     ))}
                   </ul>
                 ) : (
-                  <Tag>无例句（可「从词条同步」补全）</Tag>
+                  <Tag>无例句（可「补词典」补全）</Tag>
                 )}
               </div>
             </div>

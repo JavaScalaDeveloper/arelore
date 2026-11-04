@@ -14,6 +14,7 @@ import { Outlet } from 'react-router-dom';
 import {
   RegionSwitcher,
   stripLocalePrefix,
+  useI18n,
   useLocaleNavigate,
   useStrippedLocation,
 } from '../../locale';
@@ -21,40 +22,44 @@ import { clearAuthSession, getAuthUserRaw } from '../../utils/authSession';
 
 const { Header, Sider, Content } = AntLayout;
 
-const MENU_ITEMS: MenuProps['items'] = [
-  {
-    key: '/home/products/ai-prompt/list',
-    icon: <FileTextOutlined />,
-    label: '提示词列表',
-  },
-  {
-    key: '/home/products/ai-prompt/tags',
-    icon: <TagsOutlined />,
-    label: '标签管理',
-  },
-];
-
-function readDisplayUser(): { name: string; email: string } {
-  try {
-    const raw = getAuthUserRaw();
-    if (!raw) {
-      return { name: '未登录', email: '' };
-    }
-    const u = JSON.parse(raw);
-    const name =
-      u.nickname || u.nickName || u.username || u.email || u.mobile || '用户';
-    const email = u.email || u.username || u.mobile || '';
-    return { name: String(name), email: email && email !== name ? String(email) : '' };
-  } catch {
-    return { name: '用户', email: '' };
-  }
-}
-
 const PromptLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useLocaleNavigate();
   const location = useStrippedLocation();
-  const user = useMemo(() => readDisplayUser(), []);
+  const { t } = useI18n();
+
+  const user = useMemo(() => {
+    try {
+      const raw = getAuthUserRaw();
+      if (!raw) {
+        return { name: t('prompt.guest'), email: '' };
+      }
+      const u = JSON.parse(raw);
+      const name =
+        u.nickname || u.nickName || u.username || u.email || u.mobile || t('prompt.user');
+      const email = u.email || u.username || u.mobile || '';
+      return { name: String(name), email: email && email !== name ? String(email) : '' };
+    } catch {
+      return { name: t('prompt.user'), email: '' };
+    }
+  }, [t]);
+
+  const menuItems: MenuProps['items'] = useMemo(
+    () => [
+      {
+        key: '/home/products/ai-prompt/list',
+        icon: <FileTextOutlined />,
+        label: t('prompt.menuList'),
+      },
+      {
+        key: '/home/products/ai-prompt/tags',
+        icon: <TagsOutlined />,
+        label: t('prompt.menuTags'),
+      },
+    ],
+    [t]
+  );
+
   const selectedKey = useMemo(() => {
     const path = stripLocalePrefix(location.pathname);
     if (path.startsWith('/home/products/ai-prompt/tags')) {
@@ -72,7 +77,7 @@ const PromptLayout: React.FC = () => {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: '退出登录',
+      label: t('prompt.logout'),
       onClick: onLogout,
     },
   ];
@@ -97,13 +102,13 @@ const PromptLayout: React.FC = () => {
           }}
           onClick={() => navigate('/home/products/ai-prompt/list')}
         >
-          {collapsed ? 'AI' : 'AI 提示词管理'}
+          {collapsed ? t('prompt.brandShort') : t('prompt.brand')}
         </div>
         <Menu
           theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
-          items={MENU_ITEMS}
+          items={menuItems}
           onClick={({ key }) => navigate(String(key))}
         />
       </Sider>
@@ -128,7 +133,7 @@ const PromptLayout: React.FC = () => {
               style={{ color: '#1677ff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
               onClick={() => navigate('/home')}
             >
-              <HomeOutlined /> 返回官网
+              <HomeOutlined /> {t('prompt.backSite')}
             </span>
             <Dropdown menu={{ items: userMenu }} placement="bottomRight">
               <Space style={{ cursor: 'pointer' }} size={8}>

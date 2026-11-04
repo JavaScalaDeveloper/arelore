@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button, Card, Slider, Space, Tag, Typography, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import { useLocaleNavigate } from '../../../locale';
+import { useI18n, useLocaleNavigate } from '../../../locale';
 import { LETTER_VOICES, normalizeLetterVoice } from '../utils/letterVoices';
 import { modeLabel } from '../utils/preference';
 import request, { shortErrorMessage } from '../utils/request';
@@ -21,6 +21,7 @@ const { Title, Text, Paragraph } = Typography;
 
 export default function SettingsPage() {
   const navigate = useLocaleNavigate();
+  const { t, locale } = useI18n();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const sessionRef = useRef<TtsSession | null>(null);
   const [pref, setPref] = useState<WordPreference>(getPreference());
@@ -69,7 +70,7 @@ export default function SettingsPage() {
       return;
     }
     if (!getToken()) {
-      if (!opts?.silent) message.success('已保存到本机');
+      if (!opts?.silent) message.success(t('word.common.savedLocal'));
       return;
     }
     setSaving(true);
@@ -87,11 +88,11 @@ export default function SettingsPage() {
         playbackVolume: next.playbackVolume,
       });
       setPref(saved);
-      if (!opts?.silent) message.success('已保存');
+      if (!opts?.silent) message.success(t('word.common.saved'));
     } catch (e: any) {
       setPreference(prev);
       setPref(prev);
-      message.error(shortErrorMessage(e, '保存失败'));
+      message.error(shortErrorMessage(e, t('word.common.saveFailed')));
     } finally {
       setSaving(false);
     }
@@ -101,53 +102,53 @@ export default function SettingsPage() {
     <div className="page">
       <div className="page-head">
         <Title level={3} style={{ margin: 0 }}>
-          学习设置
+          {t('word.settings.title')}
         </Title>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/word')}>
-          返回首页
+          {t('word.common.backHome')}
         </Button>
       </div>
 
-      <Card title="背词模式" style={{ marginBottom: 16 }}>
+      <Card title={t('word.settings.modesTitle')} style={{ marginBottom: 16 }}>
         <Space direction="vertical" style={{ width: '100%' }}>
           {[
-            { mode: STUDY_MODE_LISTEN_SPELL, tip: '单词 → 拼读 → 中文，结束后自动下一词' },
-            { mode: STUDY_MODE_SEE_MEANING, tip: '看单词，判断是否认识含义' },
-            { mode: STUDY_MODE_DICTATION, tip: '只播语音并显示释义，按字母听写拼出单词' },
-            { mode: STUDY_MODE_SEE_PICK_IMAGE, tip: '暂未开放', disabled: true },
+            { mode: STUDY_MODE_LISTEN_SPELL, tip: t('word.settings.tipListen') },
+            { mode: STUDY_MODE_SEE_MEANING, tip: t('word.settings.tipMeaning') },
+            { mode: STUDY_MODE_DICTATION, tip: t('word.settings.tipDictation') },
+            { mode: STUDY_MODE_SEE_PICK_IMAGE, tip: t('word.settings.tipPickImage'), disabled: true },
           ].map((item) => (
             <div
               key={item.mode}
               className={`option-item ${pref.studyMode === item.mode ? 'active' : ''} ${item.disabled ? 'disabled' : ''}`}
               onClick={() => {
                 if (item.disabled) {
-                  message.info('看词选图暂未开放');
+                  message.info(t('word.settings.pickImageClosed'));
                   return;
                 }
                 if (item.mode !== pref.studyMode) persist({ studyMode: item.mode as any });
               }}
             >
               <div>
-                <Text strong>{modeLabel(item.mode)}</Text>
+                <Text strong>{modeLabel(item.mode, locale)}</Text>
                 <Paragraph type="secondary" style={{ margin: 0 }}>
                   {item.tip}
                 </Paragraph>
               </div>
-              {pref.studyMode === item.mode && <Tag color="blue">当前</Tag>}
+              {pref.studyMode === item.mode && <Tag color="blue">{t('word.settings.current')}</Tag>}
             </div>
           ))}
         </Space>
       </Card>
 
       {pref.studyMode === STUDY_MODE_LISTEN_SPELL && (
-        <Card title="听词选项">
+        <Card title={t('word.settings.listenOptions')}>
           <div className="field">
             <div className="field-head">
-              <Text>拼读语速</Text>
+              <Text>{t('word.settings.spellSpeed')}</Text>
               <Text>{pref.spellSpeed}</Text>
             </div>
-            <Paragraph type="secondary">0 最慢，10 最快；松手后用 hello 试听</Paragraph>
-            {previewing && <Paragraph type="secondary">试听中：hello → 拼读…</Paragraph>}
+            <Paragraph type="secondary">{t('word.settings.spellSpeedHint')}</Paragraph>
+            {previewing && <Paragraph type="secondary">{t('word.settings.previewing')}</Paragraph>}
             <Slider
               min={0}
               max={10}
@@ -162,7 +163,7 @@ export default function SettingsPage() {
 
           <div className="field">
             <div className="field-head">
-              <Text>拼读音色</Text>
+              <Text>{t('word.settings.letterVoice')}</Text>
             </div>
             <Space wrap>
               <Button
@@ -172,7 +173,7 @@ export default function SettingsPage() {
                   preview({ letterVoice: 'random' });
                 }}
               >
-                随机
+                {t('word.settings.randomVoice')}
               </Button>
               {LETTER_VOICES.map((v) => (
                 <Button
@@ -192,8 +193,8 @@ export default function SettingsPage() {
 
           <div className="field">
             <div className="field-head">
-              <Text>连读次数</Text>
-              <Text>{pref.wordRepeatCount} 次</Text>
+              <Text>{t('word.settings.repeatCount')}</Text>
+              <Text>{t('word.settings.times', { n: pref.wordRepeatCount })}</Text>
             </div>
             <Space>
               {[1, 2, 3].map((n) => (
@@ -210,14 +211,14 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      <Card title="播放音量" style={{ marginTop: 16, marginBottom: 16 }}>
+      <Card title={t('word.settings.volumeTitle')} style={{ marginTop: 16, marginBottom: 16 }}>
         <div className="field">
           <div className="field-head">
-            <Text>音量</Text>
+            <Text>{t('word.settings.volume')}</Text>
             <Text>{pref.playbackVolume}%</Text>
           </div>
-          <Paragraph type="secondary">仅保存在本机浏览器，不同步云端；松手后用 hello 试听</Paragraph>
-          {previewing && <Paragraph type="secondary">试听中：hello → 拼读…</Paragraph>}
+          <Paragraph type="secondary">{t('word.settings.volumeHint')}</Paragraph>
+          {previewing && <Paragraph type="secondary">{t('word.settings.previewing')}</Paragraph>}
           <Slider
             min={0}
             max={100}
@@ -231,7 +232,7 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      {saving && <Paragraph type="secondary">保存中…</Paragraph>}
+      {saving && <Paragraph type="secondary">{t('word.common.saving')}</Paragraph>}
     </div>
   );
 }

@@ -7,10 +7,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.arelore.server.core.service.BaseServiceImpl;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoAdoptPicturesRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchI18nMeaningAudioRequest;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchI18nMeaningAudioResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchMeaningAudioRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchMeaningAudioResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoBatchSearchResponse;
+import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoEnrichDictRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoPictureSearchResponse;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoRequest;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordBaseInfoResponse;
@@ -24,8 +27,10 @@ import com.arelore.server.core.biz.word.admin.mapper.AdminWordEntryMapper;
 import com.arelore.server.core.biz.word.admin.dto.AdminWordPictureContentResponse;
 import com.arelore.server.core.biz.word.admin.support.MeaningSpeechTextBuilder;
 import com.arelore.server.core.biz.word.admin.support.EdgeTtsClient;
+import com.arelore.server.core.biz.word.admin.support.I18nGlossLang;
 import com.arelore.server.core.biz.word.admin.support.StockImageClient;
 import com.arelore.server.core.biz.word.admin.support.WordPictureBinaryStore;
+import com.arelore.server.core.biz.word.admin.support.FreeDictionaryClient;
 import com.arelore.server.core.biz.word.admin.support.YoudaoDictClient;
 import com.arelore.server.core.common.time.ChinaTime;
 import org.slf4j.Logger;
@@ -59,6 +64,7 @@ public class AdminWordBaseInfoServiceImpl
     /** 批量搜图每批从库拉取的无图词数 */
     private static final int BATCH_SEARCH_PAGE_SIZE = 50;
     private static final long YOUDAO_GAP_MS = 200L;
+    private static final long FREEDICTIONARY_GAP_MS = 150L;
     private static final long PIXABAY_GAP_MS = 250L;
     /** 默认 TTS 客户端并发；服务端通常 TTS_MAX_CONCURRENT=1，多请求会排队 */
     private static final int DEFAULT_TTS_PARALLELISM = 2;
@@ -136,10 +142,26 @@ public class AdminWordBaseInfoServiceImpl
         } else if (filterHasExample) {
             applyHasExampleFilter(wrapper);
         }
+        boolean filterNoFd = selectedTags.contains("no_freedictionary");
+        boolean filterHasFd = selectedTags.contains("has_freedictionary");
+        if (filterNoFd) {
+            applyNoFreeDictionaryFilter(wrapper);
+        } else if (filterHasFd) {
+            applyHasFreeDictionaryFilter(wrapper);
+        }
+        boolean filterNoI18nAudio = selectedTags.contains("no_i18n_meaning_audio");
+        boolean filterHasI18nAudio = selectedTags.contains("has_i18n_meaning_audio");
+        if (filterNoI18nAudio) {
+            applyNoI18nMeaningAudioFilter(wrapper);
+        } else if (filterHasI18nAudio) {
+            applyHasI18nMeaningAudioFilter(wrapper);
+        }
         for (String t : selectedTags) {
             if ("no_picture".equals(t) || "has_picture".equals(t)
                 || "no_meaning_audio".equals(t) || "has_meaning_audio".equals(t)
-                || "no_example".equals(t) || "has_example".equals(t)) {
+                || "no_example".equals(t) || "has_example".equals(t)
+                || "no_freedictionary".equals(t) || "has_freedictionary".equals(t)
+                || "no_i18n_meaning_audio".equals(t) || "has_i18n_meaning_audio".equals(t)) {
                 continue;
             }
             applyTagContains(wrapper, t);
@@ -240,6 +262,48 @@ public class AdminWordBaseInfoServiceImpl
         );
     }
 
+    /** 无多语种译词：兼容历史无 tags / wordTranslations 为空 */
+    private static void applyNoFreeDictionaryFilter(LambdaQueryWrapper<AdminWordBaseInfo> wrapper) {
+        wrapper.and(w -> w
+            .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"no_freedictionary\"")
+            .or()
+            .isNull(AdminWordBaseInfo::getExtInfo)
+            .or()
+            .apply("JSON_EXTRACT(ext_info, '$.wordTranslations') IS NULL")
+            .or()
+            .apply("JSON_LENGTH(COALESCE(JSON_EXTRACT(ext_info, '$.wordTranslations'), JSON_ARRAY())) = 0")
+        );
+    }
+
+    private static void applyHasFreeDictionaryFilter(LambdaQueryWrapper<AdminWordBaseInfo> wrapper) {
+        wrapper.and(w -> w
+            .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"has_freedictionary\"")
+            .or()
+            .apply("JSON_LENGTH(COALESCE(JSON_EXTRACT(ext_info, '$.wordTranslations'), JSON_ARRAY())) > 0")
+        );
+    }
+
+    /** 无多语种译词语音：兼容历史无 tags / i18nMeaningAudios 为空 */
+    private static void applyNoI18nMeaningAudioFilter(LambdaQueryWrapper<AdminWordBaseInfo> wrapper) {
+        wrapper.and(w -> w
+            .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"no_i18n_meaning_audio\"")
+            .or()
+            .isNull(AdminWordBaseInfo::getExtInfo)
+            .or()
+            .apply("JSON_EXTRACT(ext_info, '$.i18nMeaningAudios') IS NULL")
+            .or()
+            .apply("JSON_LENGTH(COALESCE(JSON_EXTRACT(ext_info, '$.i18nMeaningAudios'), JSON_OBJECT())) = 0")
+        );
+    }
+
+    private static void applyHasI18nMeaningAudioFilter(LambdaQueryWrapper<AdminWordBaseInfo> wrapper) {
+        wrapper.and(w -> w
+            .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"has_i18n_meaning_audio\"")
+            .or()
+            .apply("JSON_LENGTH(COALESCE(JSON_EXTRACT(ext_info, '$.i18nMeaningAudios'), JSON_OBJECT())) > 0")
+        );
+    }
+
     private static void applyTagContains(LambdaQueryWrapper<AdminWordBaseInfo> wrapper, String tag) {
         if (!StringUtils.hasText(tag)) {
             return;
@@ -255,7 +319,42 @@ public class AdminWordBaseInfoServiceImpl
     @Override
     public AdminWordBaseInfoSyncResponse syncFromEntries() {
         AdminWordBaseInfoSyncResponse result = new AdminWordBaseInfoSyncResponse();
+        syncWordFormsFromEntries(result);
+        if (!StringUtils.hasText(result.getNote())) {
+            result.setNote(String.format(
+                "词形同步完成：扫描 entry %d，去重 %d，新增 %d，跳过已存在 %d，失败 %d。"
+                    + "释义/多语种请调 /base-info/enrich-dict。",
+                result.getScanned(),
+                result.getDistinct(),
+                result.getInserted(),
+                result.getSkipped(),
+                result.getFailed()
+            ));
+        }
+        return result;
+    }
+
+    @Override
+    public AdminWordBaseInfoSyncResponse enrichFromDictionaries(AdminWordBaseInfoEnrichDictRequest request) {
+        AdminWordBaseInfoSyncResponse result = new AdminWordBaseInfoSyncResponse();
+        fillMissingMeaningsFromDictionaries(request, result);
+        if (!StringUtils.hasText(result.getNote())) {
+            result.setNote(String.format(
+                "补词典(有道+FreeDictionary)完成：扫描 %d，写入 %d，失败 %d，跳过 %d。"
+                    + "无多语种译词可筛标签 no_freedictionary 后再调本接口。",
+                result.getMeaningScanned(),
+                result.getMeaningFilled(),
+                result.getMeaningFailed(),
+                result.getMeaningSkipped()
+            ));
+        }
+        return result;
+    }
+
+    /** 从词书 entry 补齐尚未入库的词形；已存在的用内存集合跳过，避免逐条 SELECT。 */
+    private void syncWordFormsFromEntries(AdminWordBaseInfoSyncResponse result) {
         Map<String, String> bookLanguageCache = new HashMap<>();
+        Set<String> existingKeys = loadExistingWordKeys();
         Set<String> seen = new HashSet<>();
         long lastId = 0L;
         int pageNum = 1;
@@ -290,7 +389,12 @@ public class AdminWordBaseInfoServiceImpl
                     continue;
                 }
                 result.setDistinct(result.getDistinct() + 1);
+                if (existingKeys.contains(key)) {
+                    result.setSkipped(result.getSkipped() + 1);
+                    continue;
+                }
                 upsertWordOnly(languageCode, word, result);
+                existingKeys.add(key);
             }
             if (rows.size() < ENTRY_PAGE_SIZE) {
                 break;
@@ -301,30 +405,60 @@ public class AdminWordBaseInfoServiceImpl
                 break;
             }
         }
-        // 第二阶段：无释义 / 无例句等词查有道补释义、音标、例句、词组、近义、派生（带空格跳过；不改已有配图）
-        fillMissingMeaningsFromYoudao(result);
-        if (!StringUtils.hasText(result.getNote())) {
-            result.setNote(String.format(
-                "词形同步完成；补词典：扫描 %d，写入 %d，失败 %d，跳过 %d",
-                result.getMeaningScanned(),
-                result.getMeaningFilled(),
-                result.getMeaningFailed(),
-                result.getMeaningSkipped()
-            ));
+    }
+
+    private Set<String> loadExistingWordKeys() {
+        Set<String> keys = new HashSet<>();
+        long lastId = 0L;
+        while (true) {
+            List<AdminWordBaseInfo> rows = mapper.selectList(new LambdaQueryWrapper<AdminWordBaseInfo>()
+                .select(AdminWordBaseInfo::getId, AdminWordBaseInfo::getLanguageCode, AdminWordBaseInfo::getWord)
+                .gt(AdminWordBaseInfo::getId, lastId)
+                .orderByAsc(AdminWordBaseInfo::getId)
+                .last("LIMIT " + ENTRY_PAGE_SIZE));
+            if (rows == null || rows.isEmpty()) {
+                break;
+            }
+            for (AdminWordBaseInfo row : rows) {
+                if (row == null || row.getId() == null) {
+                    continue;
+                }
+                lastId = row.getId();
+                String lang = row.getLanguageCode() == null ? "" : row.getLanguageCode().trim();
+                String word = row.getWord() == null ? "" : row.getWord().trim();
+                if (StringUtils.hasText(lang) && StringUtils.hasText(word)) {
+                    keys.add(lang + "\0" + word);
+                }
+            }
+            if (rows.size() < ENTRY_PAGE_SIZE) {
+                break;
+            }
         }
-        return result;
+        return keys;
     }
 
     /**
-     * 分页扫描缺释义或缺例句的词，调有道写入 meanings/音标/例句/词组/近义/派生；带空格词跳过；保留已有 pictures。
+     * 只扫 admin_word_base_info：有道 + FreeDictionary；带空格跳过；保留已有 pictures。
+     * 无列表筛选时默认只扫缺释义/例句/多语种的词；有筛选则按筛选 + 仍跳过已齐全项。
      */
-    private void fillMissingMeaningsFromYoudao(AdminWordBaseInfoSyncResponse result) {
+    private void fillMissingMeaningsFromDictionaries(
+        AdminWordBaseInfoEnrichDictRequest request,
+        AdminWordBaseInfoSyncResponse result
+    ) {
+        AdminWordBaseInfoRequest query = toEnrichQuery(request);
+        boolean hasListFilter = hasEnrichListFilter(request);
+        int limit = resolveEnrichLimit(request == null ? null : request.getLimit());
         long lastId = 0L;
         int pageRounds = 0;
+        int processed = 0;
+        // 本轮一旦 429，后续词跳过 FD，留给 no_freedictionary 标签稍后补
+        boolean skipFreeDictionary = false;
         while (pageRounds < 100_000) {
             pageRounds++;
-            LambdaQueryWrapper<AdminWordBaseInfo> wrapper = new LambdaQueryWrapper<>();
-            applyNeedYoudaoEnrichFilter(wrapper);
+            LambdaQueryWrapper<AdminWordBaseInfo> wrapper = buildWrapper(query);
+            if (!hasListFilter) {
+                applyNeedYoudaoEnrichFilter(wrapper);
+            }
             wrapper.gt(AdminWordBaseInfo::getId, lastId)
                 .orderByAsc(AdminWordBaseInfo::getId)
                 .last("LIMIT " + ENTRY_PAGE_SIZE);
@@ -337,6 +471,18 @@ public class AdminWordBaseInfoServiceImpl
                     continue;
                 }
                 lastId = row.getId();
+                if (limit > 0 && processed >= limit) {
+                    result.setNote(String.format(
+                        "已达 limit=%d：扫描 %d，写入 %d，失败 %d，跳过 %d",
+                        limit,
+                        result.getMeaningScanned(),
+                        result.getMeaningFilled(),
+                        result.getMeaningFailed(),
+                        result.getMeaningSkipped()
+                    ));
+                    return;
+                }
+                processed++;
                 result.setMeaningScanned(result.getMeaningScanned() + 1);
                 String word = row.getWord() == null ? "" : row.getWord().trim();
                 if (!StringUtils.hasText(word) || wordContainsSpace(word)) {
@@ -344,8 +490,9 @@ public class AdminWordBaseInfoServiceImpl
                     continue;
                 }
                 JSONObject ext = parseExt(row.getExtInfo());
-                if (hasMeanings(ext) && hasExamples(ext) && hasPhrases(ext)) {
-                    // 标签滞后：刷新后跳过，避免重复打有道
+                boolean needYoudao = !hasMeanings(ext) || !hasExamples(ext) || !hasPhrases(ext);
+                boolean needFd = !hasFreeDictionary(ext);
+                if (!needYoudao && (!needFd || skipFreeDictionary)) {
                     refreshMetaTags(ext);
                     row.setExtInfo(ext.toJSONString());
                     mapper.updateById(row);
@@ -353,13 +500,33 @@ public class AdminWordBaseInfoServiceImpl
                     continue;
                 }
                 try {
-                    boolean filled = fillMeaningFromYoudao(row, ext);
+                    boolean filled = fillMeaningFromYoudao(row, ext, !skipFreeDictionary && needFd);
                     if (filled) {
                         result.setMeaningFilled(result.getMeaningFilled() + 1);
                     } else {
                         result.setMeaningFailed(result.getMeaningFailed() + 1);
                     }
                     Thread.sleep(YOUDAO_GAP_MS);
+                } catch (FreeDictionaryClient.RateLimitedException rl) {
+                    skipFreeDictionary = true;
+                    log.warn("【限流告警】FreeDictionary 429 word={} scanned={}: {}",
+                        word, result.getMeaningScanned(), rl.getMessage());
+                    // 有道可能已写入内存 ext，落库并打 no_freedictionary，后续词跳过 FD
+                    if (hasMeanings(ext) || hasExamples(ext) || hasPhrases(ext)) {
+                        ext.remove("syncError");
+                        ext.put("lastMeaningSyncTime", ChinaTime.nowDateTime());
+                        result.setMeaningFilled(result.getMeaningFilled() + 1);
+                    }
+                    refreshMetaTags(ext);
+                    row.setExtInfo(ext.toJSONString());
+                    mapper.updateById(row);
+                    result.setNote(String.format(
+                        "【限流告警】FreeDictionary 已限流，本轮停止 FD。"
+                            + "进度：扫描 %d / 写入 %d / 失败 %d。请稍后列表筛选标签 no_freedictionary 再点「补词典」。",
+                        result.getMeaningScanned(),
+                        result.getMeaningFilled(),
+                        result.getMeaningFailed()
+                    ));
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     result.setNote("补词典被中断；已扫描 " + result.getMeaningScanned() + " 个待补词");
@@ -384,7 +551,40 @@ public class AdminWordBaseInfoServiceImpl
         }
     }
 
-    /** 缺释义或缺例句：兼容历史无 tags */
+    private static AdminWordBaseInfoRequest toEnrichQuery(AdminWordBaseInfoEnrichDictRequest request) {
+        AdminWordBaseInfoRequest query = new AdminWordBaseInfoRequest();
+        if (request == null) {
+            return query;
+        }
+        query.setLanguageCode(request.getLanguageCode());
+        query.setWord(request.getWord());
+        query.setTag(request.getTag());
+        query.setTags(request.getTags());
+        query.setHasPicture(request.getHasPicture());
+        query.setPictureConfirmed(request.getPictureConfirmed());
+        return query;
+    }
+
+    private static boolean hasEnrichListFilter(AdminWordBaseInfoEnrichDictRequest request) {
+        if (request == null) {
+            return false;
+        }
+        if (StringUtils.hasText(request.getLanguageCode()) || StringUtils.hasText(request.getWord())
+            || StringUtils.hasText(request.getTag())
+            || request.getHasPicture() != null || request.getPictureConfirmed() != null) {
+            return true;
+        }
+        return request.getTags() != null && request.getTags().stream().anyMatch(StringUtils::hasText);
+    }
+
+    private static int resolveEnrichLimit(Integer limit) {
+        if (limit == null || limit <= 0) {
+            return 0;
+        }
+        return Math.min(limit, 50_000);
+    }
+
+    /** 缺释义 / 缺例句 / 缺多语种译词：兼容历史无 tags */
     private static void applyNeedYoudaoEnrichFilter(LambdaQueryWrapper<AdminWordBaseInfo> wrapper) {
         wrapper.and(w -> w
             .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"no_meaning\"")
@@ -400,7 +600,21 @@ public class AdminWordBaseInfoServiceImpl
             .apply("JSON_EXTRACT(ext_info, '$.sentence.sentences') IS NULL")
             .or()
             .apply("JSON_LENGTH(COALESCE(JSON_EXTRACT(ext_info, '$.sentence.sentences'), JSON_ARRAY())) = 0")
+            .or()
+            .apply("JSON_CONTAINS(COALESCE(ext_info, '{}'), {0}, '$.tags')", "\"no_freedictionary\"")
+            .or()
+            .apply("JSON_EXTRACT(ext_info, '$.wordTranslations') IS NULL")
+            .or()
+            .apply("JSON_LENGTH(COALESCE(JSON_EXTRACT(ext_info, '$.wordTranslations'), JSON_ARRAY())) = 0")
         );
+    }
+
+    private static boolean hasFreeDictionary(JSONObject ext) {
+        if (ext == null) {
+            return false;
+        }
+        JSONArray translations = ext.getJSONArray("wordTranslations");
+        return translations != null && !translations.isEmpty();
     }
 
     private static boolean wordContainsSpace(String word) {
@@ -444,65 +658,85 @@ public class AdminWordBaseInfoServiceImpl
     }
 
     /**
-     * 有道补释义/音标/例句/词组/近义/派生/词源摘要；不覆盖已有配图与确认状态。
-     * 释义/音标仅在本地为空时写入；例句等富化字段在本地为空时写入。
+     * 有道补释义/音标/例句等；再以 FreeDictionary（Wiktionary）补多语种译词与英英释义兜底。
+     * 不覆盖已有配图与确认状态。释义/音标等仅在本地为空时写入。
      *
+     * @param callFreeDictionary 本轮是否仍调用 FreeDictionary（限流后为 false）
      * @return true 本次至少写入了一项词典内容
      */
-    private boolean fillMeaningFromYoudao(AdminWordBaseInfo row, JSONObject ext) throws Exception {
-        JSONObject slim = YoudaoDictClient.fetchSlimExt(row.getWord());
-        JSONArray meanings = slim.getJSONArray("meanings");
-        boolean slimHasMeaning = meanings != null && !meanings.isEmpty();
-        boolean slimHasPhone = StringUtils.hasText(slim.getString("ukphone"))
-            || StringUtils.hasText(slim.getString("usphone"));
-        boolean slimHasExample = slim.getJSONObject("sentence") != null
-            && slim.getJSONObject("sentence").getJSONArray("sentences") != null
-            && !slim.getJSONObject("sentence").getJSONArray("sentences").isEmpty();
-        boolean slimHasPhrase = slim.getJSONArray("phrases") != null && !slim.getJSONArray("phrases").isEmpty();
-        boolean slimHasSynonym = slim.getJSONArray("synonyms") != null && !slim.getJSONArray("synonyms").isEmpty();
-        boolean slimHasRelated = slim.getJSONArray("relatedWords") != null && !slim.getJSONArray("relatedWords").isEmpty();
-        boolean slimHasEtym = StringUtils.hasText(slim.getString("etym"));
-        if (!slimHasMeaning && !slimHasPhone && !slimHasExample && !slimHasPhrase
-            && !slimHasSynonym && !slimHasRelated && !slimHasEtym) {
-            markMeaningSyncError(row, ext, "有道无可用词典字段");
-            return false;
-        }
+    private boolean fillMeaningFromYoudao(AdminWordBaseInfo row, JSONObject ext, boolean callFreeDictionary)
+        throws Exception {
         boolean wrote = false;
-        if (slimHasMeaning && !hasMeanings(ext)) {
-            ext.put("meanings", meanings);
-            wrote = true;
+        boolean youdaoOk = false;
+        boolean needYoudao = !hasMeanings(ext) || !hasExamples(ext) || !hasPhrases(ext);
+        if (needYoudao) {
+            try {
+                JSONObject slim = YoudaoDictClient.fetchSlimExt(row.getWord());
+                JSONArray meanings = slim.getJSONArray("meanings");
+                boolean slimHasMeaning = meanings != null && !meanings.isEmpty();
+                boolean slimHasPhone = StringUtils.hasText(slim.getString("ukphone"))
+                    || StringUtils.hasText(slim.getString("usphone"));
+                boolean slimHasExample = slim.getJSONObject("sentence") != null
+                    && slim.getJSONObject("sentence").getJSONArray("sentences") != null
+                    && !slim.getJSONObject("sentence").getJSONArray("sentences").isEmpty();
+                boolean slimHasPhrase = slim.getJSONArray("phrases") != null && !slim.getJSONArray("phrases").isEmpty();
+                boolean slimHasSynonym = slim.getJSONArray("synonyms") != null && !slim.getJSONArray("synonyms").isEmpty();
+                boolean slimHasRelated = slim.getJSONArray("relatedWords") != null && !slim.getJSONArray("relatedWords").isEmpty();
+                boolean slimHasEtym = StringUtils.hasText(slim.getString("etym"));
+                youdaoOk = slimHasMeaning || slimHasPhone || slimHasExample || slimHasPhrase
+                    || slimHasSynonym || slimHasRelated || slimHasEtym;
+                if (youdaoOk) {
+                    if (slimHasMeaning && !hasMeanings(ext)) {
+                        ext.put("meanings", meanings);
+                        wrote = true;
+                    }
+                    if (StringUtils.hasText(slim.getString("ukphone")) && !StringUtils.hasText(ext.getString("ukphone"))) {
+                        ext.put("ukphone", slim.getString("ukphone"));
+                        wrote = true;
+                    }
+                    if (StringUtils.hasText(slim.getString("usphone")) && !StringUtils.hasText(ext.getString("usphone"))) {
+                        ext.put("usphone", slim.getString("usphone"));
+                        wrote = true;
+                    }
+                    if (slimHasExample && !hasExamples(ext)) {
+                        ext.put("sentence", slim.getJSONObject("sentence"));
+                        wrote = true;
+                    }
+                    if (slimHasPhrase && !hasPhrases(ext)) {
+                        ext.put("phrases", slim.getJSONArray("phrases"));
+                        wrote = true;
+                    }
+                    if (slimHasSynonym && (ext.getJSONArray("synonyms") == null || ext.getJSONArray("synonyms").isEmpty())) {
+                        ext.put("synonyms", slim.getJSONArray("synonyms"));
+                        wrote = true;
+                    }
+                    if (slimHasRelated && (ext.getJSONArray("relatedWords") == null || ext.getJSONArray("relatedWords").isEmpty())) {
+                        ext.put("relatedWords", slim.getJSONArray("relatedWords"));
+                        wrote = true;
+                    }
+                    if (slimHasEtym && !StringUtils.hasText(ext.getString("etym"))) {
+                        ext.put("etym", slim.getString("etym"));
+                        wrote = true;
+                    }
+                    if (!StringUtils.hasText(ext.getString("source")) || "ENTRY".equalsIgnoreCase(ext.getString("source"))) {
+                        ext.put("source", "YOUDAO");
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("youdao enrich failed word={}: {}", row.getWord(), e.getMessage());
+            }
         }
-        if (StringUtils.hasText(slim.getString("ukphone")) && !StringUtils.hasText(ext.getString("ukphone"))) {
-            ext.put("ukphone", slim.getString("ukphone"));
-            wrote = true;
+
+        boolean fdWrote = false;
+        if (callFreeDictionary && !hasFreeDictionary(ext)) {
+            Thread.sleep(FREEDICTIONARY_GAP_MS);
+            fdWrote = enrichFromFreeDictionary(row, ext);
+            wrote = wrote || fdWrote;
         }
-        if (StringUtils.hasText(slim.getString("usphone")) && !StringUtils.hasText(ext.getString("usphone"))) {
-            ext.put("usphone", slim.getString("usphone"));
-            wrote = true;
-        }
-        if (slimHasExample && !hasExamples(ext)) {
-            ext.put("sentence", slim.getJSONObject("sentence"));
-            wrote = true;
-        }
-        if (slimHasPhrase && !hasPhrases(ext)) {
-            ext.put("phrases", slim.getJSONArray("phrases"));
-            wrote = true;
-        }
-        if (slimHasSynonym && (ext.getJSONArray("synonyms") == null || ext.getJSONArray("synonyms").isEmpty())) {
-            ext.put("synonyms", slim.getJSONArray("synonyms"));
-            wrote = true;
-        }
-        if (slimHasRelated && (ext.getJSONArray("relatedWords") == null || ext.getJSONArray("relatedWords").isEmpty())) {
-            ext.put("relatedWords", slim.getJSONArray("relatedWords"));
-            wrote = true;
-        }
-        if (slimHasEtym && !StringUtils.hasText(ext.getString("etym"))) {
-            ext.put("etym", slim.getString("etym"));
-            wrote = true;
-        }
-        // 仅在尚未有来源时标记；不改 pictures / pictureConfirmed
-        if (!StringUtils.hasText(ext.getString("source")) || "ENTRY".equalsIgnoreCase(ext.getString("source"))) {
-            ext.put("source", "YOUDAO");
+
+        if (!wrote && !youdaoOk && !fdWrote && !hasMeanings(ext) && !hasFreeDictionary(ext)) {
+            markMeaningSyncError(row, ext, "有道/FreeDictionary 均无可用词典字段");
+            return false;
         }
         ext.remove("syncError");
         ext.put("lastMeaningSyncTime", ChinaTime.nowDateTime());
@@ -510,6 +744,49 @@ public class AdminWordBaseInfoServiceImpl
         row.setExtInfo(ext.toJSONString());
         mapper.updateById(row);
         return wrote;
+    }
+
+    /**
+     * FreeDictionary：写入 wordTranslations；若尚无 meanings 则用英英 definition 兜底。
+     * 429 向上抛出 {@link FreeDictionaryClient.RateLimitedException}。
+     */
+    private boolean enrichFromFreeDictionary(AdminWordBaseInfo row, JSONObject ext)
+        throws FreeDictionaryClient.RateLimitedException {
+        try {
+            JSONObject fd = FreeDictionaryClient.fetchSlimExt(row.getWord(), row.getLanguageCode());
+            boolean wrote = false;
+            JSONArray fdMeanings = fd.getJSONArray("meanings");
+            if (!hasMeanings(ext) && fdMeanings != null && !fdMeanings.isEmpty()) {
+                ext.put("meanings", fdMeanings);
+                wrote = true;
+                if (!StringUtils.hasText(ext.getString("source")) || "ENTRY".equalsIgnoreCase(ext.getString("source"))) {
+                    ext.put("source", "FREEDICTIONARY");
+                }
+            }
+            JSONArray translations = fd.getJSONArray("wordTranslations");
+            if (translations != null && !translations.isEmpty()) {
+                JSONArray existing = ext.getJSONArray("wordTranslations");
+                if (existing == null || existing.isEmpty()) {
+                    ext.put("wordTranslations", translations);
+                    wrote = true;
+                }
+            }
+            if (StringUtils.hasText(fd.getString("wiktionaryUrl"))
+                && !StringUtils.hasText(ext.getString("wiktionaryUrl"))) {
+                ext.put("wiktionaryUrl", fd.getString("wiktionaryUrl"));
+                wrote = true;
+            }
+            if (wrote) {
+                ext.put("i18nSource", "FREEDICTIONARY");
+                ext.put("lastI18nSyncTime", ChinaTime.nowDateTime());
+            }
+            return wrote;
+        } catch (FreeDictionaryClient.RateLimitedException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("freedictionary enrich failed word={}: {}", row.getWord(), e.getMessage());
+            return false;
+        }
     }
 
     private void markMeaningSyncError(AdminWordBaseInfo row, JSONObject ext, String errorMsg) {
@@ -1150,6 +1427,288 @@ public class AdminWordBaseInfoServiceImpl
         return result;
     }
 
+    @Override
+    public AdminWordBaseInfoBatchI18nMeaningAudioResponse batchGenerateI18nMeaningAudio(
+        AdminWordBaseInfoBatchI18nMeaningAudioRequest request
+    ) {
+        if (!edgeTtsClient.isEnabled()) {
+            throw new IllegalStateException(
+                "Edge TTS 未启用：请安装 edge-tts/imageio-ffmpeg，并配置 arelore.tts.edge.script 指向 speak.py");
+        }
+        AdminWordBaseInfoBatchI18nMeaningAudioRequest req =
+            request == null ? new AdminWordBaseInfoBatchI18nMeaningAudioRequest() : request;
+        int maxWords = req.getLimit() == null || req.getLimit() <= 0
+            ? Integer.MAX_VALUE
+            : Math.max(1, Math.min(50_000, req.getLimit()));
+        boolean force = Boolean.TRUE.equals(req.getForce());
+        int parallelism = resolveTtsParallelism(req.getParallelism());
+        int maxLangs = req.getMaxLangsPerWord() == null || req.getMaxLangsPerWord() <= 0
+            ? 12
+            : Math.min(20, req.getMaxLangsPerWord());
+        Set<String> langFilter = resolveI18nLangFilter(req.getLangs());
+
+        AdminWordBaseInfoBatchI18nMeaningAudioResponse result = new AdminWordBaseInfoBatchI18nMeaningAudioResponse();
+        result.setSource("EDGE_TTS");
+        result.setParallelism(parallelism);
+
+        AtomicInteger scanned = new AtomicInteger();
+        AtomicInteger filled = new AtomicInteger();
+        AtomicInteger failed = new AtomicInteger();
+        AtomicInteger skipped = new AtomicInteger();
+        AtomicInteger audioFilled = new AtomicInteger();
+
+        ExecutorService pool = Executors.newFixedThreadPool(parallelism, r -> {
+            Thread t = new Thread(r, "i18n-meaning-tts-" + System.identityHashCode(r));
+            t.setDaemon(true);
+            return t;
+        });
+        try {
+            long lastId = 0L;
+            int pageRounds = 0;
+            while (scanned.get() < maxWords && pageRounds < 100_000) {
+                pageRounds++;
+                AdminWordBaseInfoRequest query = new AdminWordBaseInfoRequest();
+                query.setLanguageCode(req.getLanguageCode());
+                query.setWord(req.getWord());
+                query.setTags(req.getTags());
+                query.setTag(req.getTag());
+                query.setHasPicture(req.getHasPicture());
+                query.setPictureConfirmed(req.getPictureConfirmed());
+                boolean hasListFilter = StringUtils.hasText(req.getLanguageCode())
+                    || StringUtils.hasText(req.getWord())
+                    || StringUtils.hasText(req.getTag())
+                    || req.getHasPicture() != null
+                    || req.getPictureConfirmed() != null
+                    || (req.getTags() != null && req.getTags().stream().anyMatch(StringUtils::hasText));
+                int fetchSize = Math.min(BATCH_SEARCH_PAGE_SIZE, maxWords - scanned.get());
+                if (fetchSize <= 0) {
+                    break;
+                }
+                LambdaQueryWrapper<AdminWordBaseInfo> wrapper = buildWrapper(query);
+                if (!hasListFilter) {
+                    applyHasFreeDictionaryFilter(wrapper);
+                }
+                wrapper.gt(AdminWordBaseInfo::getId, lastId)
+                    .orderByAsc(AdminWordBaseInfo::getId)
+                    .last("LIMIT " + fetchSize);
+                List<AdminWordBaseInfo> rows = mapper.selectList(wrapper);
+                if (rows == null || rows.isEmpty()) {
+                    break;
+                }
+                lastId = rows.get(rows.size() - 1).getId();
+
+                List<AdminWordBaseInfo> batch = new ArrayList<>();
+                for (AdminWordBaseInfo row : rows) {
+                    if (row == null || row.getId() == null) {
+                        continue;
+                    }
+                    if (scanned.get() + batch.size() >= maxWords) {
+                        break;
+                    }
+                    batch.add(row);
+                }
+                if (batch.isEmpty()) {
+                    break;
+                }
+
+                List<Future<?>> futures = new ArrayList<>(batch.size());
+                for (AdminWordBaseInfo row : batch) {
+                    futures.add(pool.submit(() -> {
+                        scanned.incrementAndGet();
+                        if (!StringUtils.hasText(row.getWord())) {
+                            skipped.incrementAndGet();
+                            return;
+                        }
+                        try {
+                            int wrote = generateI18nMeaningAudiosForRow(row, force, langFilter, maxLangs);
+                            if (wrote > 0) {
+                                filled.incrementAndGet();
+                                audioFilled.addAndGet(wrote);
+                            } else {
+                                skipped.incrementAndGet();
+                            }
+                        } catch (Exception e) {
+                            failed.incrementAndGet();
+                            log.warn("batch i18n meaning audio failed id={} word={}: {}",
+                                row.getId(), row.getWord(), e.getMessage());
+                        }
+                    }));
+                }
+                for (Future<?> f : futures) {
+                    try {
+                        f.get();
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        result.setNote("批量生成多语种译词语音被中断；已处理 " + scanned.get() + " 个词");
+                        result.setScanned(scanned.get());
+                        result.setFilled(filled.get());
+                        result.setFailed(failed.get());
+                        result.setSkipped(skipped.get());
+                        result.setAudioFilled(audioFilled.get());
+                        return result;
+                    } catch (Exception e) {
+                        failed.incrementAndGet();
+                        log.warn("batch i18n meaning audio future failed: {}", e.getMessage());
+                    }
+                }
+                if (rows.size() < fetchSize) {
+                    break;
+                }
+            }
+        } finally {
+            pool.shutdown();
+            try {
+                if (!pool.awaitTermination(30, TimeUnit.SECONDS)) {
+                    pool.shutdownNow();
+                }
+            } catch (InterruptedException ie) {
+                pool.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        result.setScanned(scanned.get());
+        result.setFilled(filled.get());
+        result.setFailed(failed.get());
+        result.setSkipped(skipped.get());
+        result.setAudioFilled(audioFilled.get());
+        if (result.getScanned() == 0) {
+            result.setNote("没有带多语种译词（wordTranslations）的词可生成语音；请先「补词典」");
+        } else {
+            result.setNote("已按 wordTranslations 用 Edge TTS 按语种换音色生成译词语音（parallelism="
+                + parallelism + "，每词最多 " + maxLangs + " 语种）。"
+                + "写入 ext_info.i18nMeaningAudios；译词未变则跳过（force=true 强制）。"
+                + "无对应 Neural 音色的语种会跳过。");
+        }
+        return result;
+    }
+
+    private static Set<String> resolveI18nLangFilter(List<String> langs) {
+        if (langs == null || langs.isEmpty()) {
+            return Collections.emptySet();
+        }
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        for (String raw : langs) {
+            String code = I18nGlossLang.canonicalize(raw);
+            if (I18nGlossLang.isSupported(code)) {
+                out.add(code);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * @return 本词新写入/覆盖的语种语音条数；0=无可写或全跳过
+     */
+    private int generateI18nMeaningAudiosForRow(
+        AdminWordBaseInfo row,
+        boolean force,
+        Set<String> langFilter,
+        int maxLangs
+    ) throws Exception {
+        JSONObject ext = parseExt(row.getExtInfo());
+        JSONArray translations = ext.getJSONArray("wordTranslations");
+        if (translations == null || translations.isEmpty()) {
+            return 0;
+        }
+        JSONObject audios = ext.getJSONObject("i18nMeaningAudios");
+        if (audios == null) {
+            audios = new JSONObject();
+        }
+        int wrote = 0;
+        int considered = 0;
+        for (int i = 0; i < translations.size(); i++) {
+            if (considered >= maxLangs) {
+                break;
+            }
+            JSONObject item = translations.getJSONObject(i);
+            if (item == null) {
+                continue;
+            }
+            String lang = I18nGlossLang.canonicalize(item.getString("lang"));
+            if (!I18nGlossLang.isSupported(lang)) {
+                continue;
+            }
+            if (!langFilter.isEmpty() && !langFilter.contains(lang)) {
+                continue;
+            }
+            String voice = I18nGlossLang.edgeVoiceOrNull(lang);
+            if (!StringUtils.hasText(voice)) {
+                continue;
+            }
+            JSONArray words = item.getJSONArray("words");
+            if (words == null || words.isEmpty()) {
+                continue;
+            }
+            List<String> parts = new ArrayList<>();
+            for (int j = 0; j < words.size(); j++) {
+                String w = words.getString(j);
+                if (StringUtils.hasText(w)) {
+                    parts.add(w.trim());
+                }
+            }
+            if (parts.isEmpty()) {
+                continue;
+            }
+            considered++;
+            String sep = ("zh".equals(lang) || "ja".equals(lang)) ? "、" : ", ";
+            String speechText = String.join(sep, parts);
+            String speechHash = sha256Hex(lang + "\0" + speechText);
+            JSONObject existing = audios.getJSONObject(lang);
+            Long oldFileId = existing == null ? null : existing.getLong("fileId");
+            if (!force
+                && oldFileId != null
+                && speechHash.equals(existing.getString("speechHash"))
+                && pictureBinaryStore.exists(oldFileId)) {
+                continue;
+            }
+
+            byte[] mp3 = edgeTtsClient.synthesize(speechText, voice);
+            JSONObject binaryExt = new JSONObject();
+            binaryExt.put("wordBaseInfoId", row.getId());
+            binaryExt.put("i18nLang", lang);
+            if (StringUtils.hasText(row.getWord())) {
+                binaryExt.put("word", row.getWord().trim());
+            }
+            JSONObject saved = pictureBinaryStore.saveOrOverwriteBytes(
+                oldFileId, mp3, "audio/mpeg", "EDGE_TTS_I18N", binaryExt
+            );
+            Long newFileId = saved.getLong("fileId");
+            String hashHex = saved.getString("hashValue");
+            if (!StringUtils.hasText(hashHex)) {
+                hashHex = saved.getString("fileHash");
+            }
+            JSONObject audioMeta = new JSONObject();
+            audioMeta.put("fileId", newFileId);
+            audioMeta.put("fileHash", hashHex);
+            audioMeta.put("hashValue", hashHex);
+            audioMeta.put("speechHash", speechHash);
+            audioMeta.put("lang", lang);
+            audioMeta.put("langName", I18nGlossLang.labelZhOrFallback(lang, item.getString("langName")));
+            audioMeta.put("voice", voice);
+            audioMeta.put("source", "EDGE_TTS");
+            audioMeta.put("bitrate", edgeTtsClient.getBitrate());
+            audioMeta.put("sampleRate", edgeTtsClient.getSampleRate());
+            audioMeta.put("contentType", "audio/mpeg");
+            audioMeta.put("fileSize", saved.getInteger("fileSize"));
+            audioMeta.put("updatedAt", ChinaTime.nowDateTime());
+            audios.put(lang, audioMeta);
+            wrote++;
+            if (oldFileId != null && !oldFileId.equals(newFileId)) {
+                pictureBinaryStore.release(Collections.singleton(oldFileId));
+            }
+        }
+        if (wrote > 0) {
+            ext.put("i18nMeaningAudios", audios);
+            ext.put("lastI18nAudioSyncTime", ChinaTime.nowDateTime());
+            refreshMetaTags(ext);
+            row.setExtInfo(ext.toJSONString());
+            row.setModifyTime(ChinaTime.now());
+            mapper.updateById(row);
+        }
+        return wrote;
+    }
+
     private int resolveTtsParallelism(Integer requestParallelism) {
         if (requestParallelism != null && requestParallelism > 0) {
             return Math.min(8, requestParallelism);
@@ -1275,15 +1834,8 @@ public class AdminWordBaseInfoServiceImpl
     }
 
     /** 仅落库语种+词形；已存在则跳过，不调有道、不改配图 */
+    /** 仅插入新词形；调用方已用 existingKeys 排除已存在词，这里不再逐条 SELECT。 */
     private void upsertWordOnly(String languageCode, String word, AdminWordBaseInfoSyncResponse result) {
-        AdminWordBaseInfo exists = mapper.selectOne(new LambdaQueryWrapper<AdminWordBaseInfo>()
-            .eq(AdminWordBaseInfo::getLanguageCode, languageCode)
-            .eq(AdminWordBaseInfo::getWord, word)
-            .last("limit 1"));
-        if (exists != null) {
-            result.setSkipped(result.getSkipped() + 1);
-            return;
-        }
         JSONObject ext = new JSONObject();
         ext.put("source", "ENTRY");
         ext.put("lastSyncTime", ChinaTime.nowDateTime());
@@ -1335,6 +1887,7 @@ public class AdminWordBaseInfoServiceImpl
         boolean meaningAudioError = StringUtils.hasText(ext.getString("meaningAudioError"));
         JSONObject meaningAudio = ext.getJSONObject("meaningAudio");
         boolean hasMeaningAudio = meaningAudio != null && meaningAudio.getLong("fileId") != null;
+        boolean hasI18nMeaningAudio = hasAnyI18nMeaningAudio(ext);
 
         LinkedHashSet<String> tags = new LinkedHashSet<>();
         tags.add(hasPicture ? "has_picture" : "no_picture");
@@ -1343,6 +1896,10 @@ public class AdminWordBaseInfoServiceImpl
         tags.add(hasMeaning ? "has_meaning" : "no_meaning");
         tags.add(hasExample ? "has_example" : "no_example");
         tags.add(hasMeaningAudio ? "has_meaning_audio" : "no_meaning_audio");
+        JSONArray wordTranslations = ext.getJSONArray("wordTranslations");
+        boolean hasFd = wordTranslations != null && !wordTranslations.isEmpty();
+        tags.add(hasFd ? "has_freedictionary" : "no_freedictionary");
+        tags.add(hasI18nMeaningAudio ? "has_i18n_meaning_audio" : "no_i18n_meaning_audio");
         if (syncError) {
             tags.add("sync_error");
         }
@@ -1350,6 +1907,23 @@ public class AdminWordBaseInfoServiceImpl
             tags.add("meaning_audio_error");
         }
         ext.put("tags", new ArrayList<>(tags));
+    }
+
+    private static boolean hasAnyI18nMeaningAudio(JSONObject ext) {
+        if (ext == null) {
+            return false;
+        }
+        JSONObject audios = ext.getJSONObject("i18nMeaningAudios");
+        if (audios == null || audios.isEmpty()) {
+            return false;
+        }
+        for (String key : audios.keySet()) {
+            JSONObject one = audios.getJSONObject(key);
+            if (one != null && one.getLong("fileId") != null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void saveExt(

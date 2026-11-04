@@ -12,13 +12,13 @@ public class AdminWordBaseInfoSyncResponse {
     private int updated;
     private int failed;
     private int skipped;
-    /** 有道补释义扫描数（无释义词，不含带空格词） */
+    /** 补词典扫描数（基础表；含有道/FreeDictionary） */
     private int meaningScanned;
-    /** 有道补释义成功写入数 */
+    /** 补词典成功写入数 */
     private int meaningFilled;
-    /** 有道补释义失败/空结果数 */
+    /** 补词典失败/空结果数 */
     private int meaningFailed;
-    /** 跳过（含带空格、已标记 youdao_empty 等） */
+    /** 跳过（含带空格、已齐全等） */
     private int meaningSkipped;
     private String note;
 }

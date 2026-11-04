@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Avatar, Button, Card, Space, Typography, message } from 'antd';
-import {  } from 'react-router-dom';
-import { useLocaleNavigate } from '../../../locale';
+import { useI18n, useLocaleNavigate } from '../../../locale';
 import { authApi } from '../api/auth';
 import { wordApi } from '../api/word';
 import { modeLabel, syncPreference } from '../utils/preference';
@@ -10,25 +9,27 @@ import { shortErrorMessage } from '../utils/request';
 
 const { Title, Text, Paragraph } = Typography;
 
-function displayUser(raw: any) {
-  if (!raw) return null;
-  return {
-    nickName: raw.nickname || raw.nickName || raw.username || '邮箱用户',
-    email: raw.username || raw.email || '',
-    avatarUrl: raw.avatar || raw.avatarUrl || '',
-  };
-}
-
 export default function ProfilePage() {
   const navigate = useLocaleNavigate();
+  const { t, locale } = useI18n();
+
+  const displayUser = (raw: any) => {
+    if (!raw) return null;
+    return {
+      nickName: raw.nickname || raw.nickName || raw.username || t('word.common.emailUser'),
+      email: raw.username || raw.email || '',
+      avatarUrl: raw.avatar || raw.avatarUrl || '',
+    };
+  };
+
   const [user, setUserState] = useState(displayUser(getUser()));
   const [stats, setStats] = useState({ totalStudyDays: 0, consecutiveStudyDays: 0 });
-  const [studyModeLabel, setStudyModeLabel] = useState(modeLabel(getPreference().studyMode));
+  const [studyModeLabel, setStudyModeLabel] = useState(modeLabel(getPreference().studyMode, locale));
 
   const refresh = async () => {
-    setStudyModeLabel(modeLabel(getPreference().studyMode));
+    setStudyModeLabel(modeLabel(getPreference().studyMode, locale));
     syncPreference()
-      .then((p) => setStudyModeLabel(modeLabel(p.studyMode)))
+      .then((p) => setStudyModeLabel(modeLabel(p.studyMode, locale)))
       .catch(() => undefined);
 
     if (!getToken()) {
@@ -54,7 +55,8 @@ export default function ProfilePage() {
 
   useEffect(() => {
     refresh();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locale]);
 
   const logout = async () => {
     try {
@@ -65,25 +67,25 @@ export default function ProfilePage() {
     clearSession();
     setUserState(null);
     setStats({ totalStudyDays: 0, consecutiveStudyDays: 0 });
-    message.success('已退出');
+    message.success(t('word.profile.loggedOut'));
     navigate('/word/login');
   };
 
   return (
     <div className="page">
-      <Title level={3}>我的</Title>
+      <Title level={3}>{t('word.profile.title')}</Title>
       {!user ? (
         <Card>
-          <Paragraph type="secondary">登录后可同步学习进度</Paragraph>
+          <Paragraph type="secondary">{t('word.profile.loginHint')}</Paragraph>
           <Button type="primary" onClick={() => navigate('/word/login')}>
-            邮箱登录
+            {t('word.profile.emailLogin')}
           </Button>
         </Card>
       ) : (
         <Card>
           <Space>
             <Avatar size={56} src={user.avatarUrl || undefined}>
-              {(user.nickName || '用').slice(0, 1)}
+              {(user.nickName || 'U').slice(0, 1)}
             </Avatar>
             <div>
               <Text strong>{user.nickName}</Text>
@@ -93,33 +95,33 @@ export default function ProfilePage() {
                 </Paragraph>
               ) : null}
               <Paragraph type="secondary" style={{ margin: 0 }}>
-                当前模式：{studyModeLabel}
+                {t('word.profile.currentMode', { mode: studyModeLabel })}
               </Paragraph>
             </div>
           </Space>
           <div className="profile-stats">
             <div>
               <div className="stat-num">{stats.totalStudyDays}</div>
-              <Text type="secondary">累计学习天</Text>
+              <Text type="secondary">{t('word.profile.totalDays')}</Text>
             </div>
             <div>
               <div className="stat-num">{stats.consecutiveStudyDays}</div>
-              <Text type="secondary">连续学习天</Text>
+              <Text type="secondary">{t('word.profile.streakDays')}</Text>
             </div>
           </div>
         </Card>
       )}
 
       <div className="home-actions" style={{ marginTop: 20 }}>
-        <Button onClick={() => navigate('/word/settings')}>学习设置</Button>
-        <Button onClick={() => navigate('/word/books')}>选择单词书</Button>
-        {user && <Button onClick={() => navigate('/word/feedback')}>意见反馈</Button>}
+        <Button onClick={() => navigate('/word/settings')}>{t('word.profile.studySettings')}</Button>
+        <Button onClick={() => navigate('/word/books')}>{t('word.profile.chooseBook')}</Button>
+        {user && <Button onClick={() => navigate('/word/feedback')}>{t('word.profile.feedback')}</Button>}
         {user && (
-          <Button onClick={() => navigate('/word/login?mode=reset')}>设置 / 修改密码</Button>
+          <Button onClick={() => navigate('/word/login?mode=reset')}>{t('word.profile.setPassword')}</Button>
         )}
         {user && (
           <Button danger onClick={logout}>
-            退出登录
+            {t('word.profile.logout')}
           </Button>
         )}
       </div>

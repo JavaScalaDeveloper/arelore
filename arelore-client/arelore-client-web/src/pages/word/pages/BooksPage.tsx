@@ -1,27 +1,23 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Card, Radio, Select, Space, Spin, Switch, Typography, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import { useLocaleNavigate } from '../../../locale';
+import { useI18n, useLocaleNavigate } from '../../../locale';
 import { wordApi } from '../api/word';
 import { shortErrorMessage } from '../utils/request';
 import { setBookId } from '../utils/storage';
 
 const { Title, Text, Paragraph } = Typography;
 
-const RATIO_OPTIONS = [
-  { label: '新学:复习 = 1:1', value: '1:1', reviewPart: 1 },
-  { label: '新学:复习 = 1:2', value: '1:2', reviewPart: 2 },
-  { label: '新学:复习 = 1:3', value: '1:3', reviewPart: 3 },
-];
+const RATIO_PARTS = [
+  { value: '1:1', reviewPart: 1 },
+  { value: '1:2', reviewPart: 2 },
+  { value: '1:3', reviewPart: 3 },
+] as const;
 const NEW_COUNT_OPTIONS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 const LOOKBACK_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
-const VOICE_OPTIONS = [
-  { label: '美音', value: 2 },
-  { label: '英音', value: 1 },
-];
 
 function calcPlan(wordCount: number, ratioValue: string, dailyNewCount: number) {
-  const ratio = RATIO_OPTIONS.find((item) => item.value === ratioValue) || RATIO_OPTIONS[0];
+  const ratio = RATIO_PARTS.find((item) => item.value === ratioValue) || RATIO_PARTS[0];
   const dailyReviewCount = dailyNewCount * ratio.reviewPart;
   const planDays = dailyNewCount > 0 ? Math.ceil((wordCount || 0) / dailyNewCount) : 0;
   return { dailyReviewCount, planDays };
@@ -47,6 +43,16 @@ function parseBookExt(extInfo: any) {
 
 export default function BooksPage() {
   const navigate = useLocaleNavigate();
+  const { t } = useI18n();
+  const ratioOptions = [
+    { label: t('word.books.ratio11'), value: '1:1', reviewPart: 1 },
+    { label: t('word.books.ratio12'), value: '1:2', reviewPart: 2 },
+    { label: t('word.books.ratio13'), value: '1:3', reviewPart: 3 },
+  ];
+  const voiceOptions = [
+    { label: t('word.books.usVoice'), value: 2 },
+    { label: t('word.books.ukVoice'), value: 1 },
+  ];
   const [step, setStep] = useState<'language' | 'category' | 'book' | 'plan'>('language');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -195,10 +201,10 @@ export default function BooksPage() {
       };
       await wordApi.planConfirm(payload);
       setBookId(selectedBook.code);
-      message.success('计划已保存');
+      message.success(t('word.books.planSaved'));
       navigate('/word');
     } catch (e: any) {
-      message.error(shortErrorMessage(e, '保存失败'));
+      message.error(shortErrorMessage(e, t('word.common.saveFailed')));
     } finally {
       setSaving(false);
     }
@@ -211,12 +217,12 @@ export default function BooksPage() {
 
   const title =
     step === 'language'
-      ? '选择语种'
+      ? t('word.books.pickLanguage')
       : step === 'category'
-        ? '选择分类'
+        ? t('word.books.pickCategory')
         : step === 'book'
-          ? '选择单词本'
-          : '学习计划';
+          ? t('word.books.pickBook')
+          : t('word.books.studyPlan');
 
   return (
     <div className="page">
@@ -226,7 +232,7 @@ export default function BooksPage() {
         </Title>
         {step !== 'language' && (
           <Button icon={<ArrowLeftOutlined />} onClick={onBack}>
-            返回上一步
+            {t('word.books.backStep')}
           </Button>
         )}
       </div>
@@ -270,7 +276,7 @@ export default function BooksPage() {
               <Text strong>{item.name || item.code}</Text>
               <div>
                 <Text type="secondary">
-                  {item.wordCount || 0} 词
+                  {t('word.books.wordCount', { count: item.wordCount || 0 })}
                   {item.originName ? ` · ${item.originName}` : ''}
                 </Text>
               </div>
@@ -282,68 +288,76 @@ export default function BooksPage() {
       {step === 'plan' && selectedBook && (
         <Card className="plan-form" style={{ maxWidth: 520 }}>
           <Title level={5}>{selectedBook.name || selectedBook.code}</Title>
-          <Paragraph type="secondary">共 {selectedBook.wordCount || 0} 词</Paragraph>
+          <Paragraph type="secondary">
+            {t('word.books.totalWords', { count: selectedBook.wordCount || 0 })}
+          </Paragraph>
           <Space direction="vertical" style={{ width: '100%' }} size={16}>
             <div>
-              <Text>每日新学</Text>
+              <Text>{t('word.books.dailyNew')}</Text>
               <div style={{ marginTop: 8 }}>
                 <Select
                   style={{ width: 240 }}
                   value={dailyNewCount}
-                  options={NEW_COUNT_OPTIONS.map((n) => ({ value: n, label: `${n} 词` }))}
+                  options={NEW_COUNT_OPTIONS.map((n) => ({
+                    value: n,
+                    label: t('word.books.wordsUnit', { n }),
+                  }))}
                   onChange={setDailyNewCount}
                 />
               </div>
             </div>
             <div>
-              <Text>新学/复习比例</Text>
+              <Text>{t('word.books.ratio')}</Text>
               <div style={{ marginTop: 8 }}>
-                <Select style={{ width: 240 }} value={ratio} options={RATIO_OPTIONS} onChange={setRatio} />
+                <Select style={{ width: 240 }} value={ratio} options={ratioOptions} onChange={setRatio} />
               </div>
             </div>
             {showVoice && (
               <div>
-                <Text>发音</Text>
+                <Text>{t('word.books.voice')}</Text>
                 <div style={{ marginTop: 8 }}>
                   <Radio.Group
                     value={voiceType}
-                    options={VOICE_OPTIONS}
+                    options={voiceOptions}
                     onChange={(e) => setVoiceType(e.target.value)}
                   />
                 </div>
               </div>
             )}
             <div>
-              <Text>复习回溯天数</Text>
+              <Text>{t('word.books.lookback')}</Text>
               <div style={{ marginTop: 8 }}>
                 <Select
                   style={{ width: 240 }}
                   value={reviewLookbackDays}
                   options={LOOKBACK_OPTIONS.map((n) => ({
                     value: n,
-                    label: `最近 ${n} 个学习日`,
+                    label: t('word.books.lookbackDays', { n }),
                   }))}
                   onChange={setReviewLookbackDays}
                 />
               </div>
               <Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
-                从最近 N 个有新学的日子里抽复习词，再与「每日复习」上限取小
+                {t('word.books.lookbackHint')}
               </Paragraph>
             </div>
             <div>
-              <Text>断签软着陆</Text>
+              <Text>{t('word.books.softLand')}</Text>
               <div style={{ marginTop: 8 }}>
                 <Switch checked={softLandEnabled} onChange={setSoftLandEnabled} />
                 <Text type="secondary" style={{ marginLeft: 12 }}>
-                  断签 ≥2 天时，今日复习压到约每日新学量
+                  {t('word.books.softLandHint')}
                 </Text>
               </div>
             </div>
             <Paragraph type="secondary">
-              每日复习上限约 {derived.dailyReviewCount} 词 · 预计 {derived.planDays} 天完成
+              {t('word.books.planSummary', {
+                review: derived.dailyReviewCount,
+                days: derived.planDays,
+              })}
             </Paragraph>
             <Button type="primary" loading={saving} onClick={confirmPlan}>
-              确认并开始
+              {t('word.books.confirmStart')}
             </Button>
           </Space>
         </Card>

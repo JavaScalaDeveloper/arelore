@@ -11,6 +11,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -78,8 +79,15 @@ public class EdgeTtsClient {
         return sampleRate;
     }
 
-    /** 合成并压缩后的 mp3 字节。 */
+    /** 合成并压缩后的 mp3 字节（默认配置音色）。 */
     public byte[] synthesize(String input) throws Exception {
+        return synthesize(input, null);
+    }
+
+    /**
+     * @param voiceOverride 指定 Edge Neural 音色；空则用配置默认音色
+     */
+    public byte[] synthesize(String input, String voiceOverride) throws Exception {
         if (!isEnabled()) {
             throw new IllegalStateException(
                 "Edge TTS 未启用或脚本不存在: " + (scriptPath == null ? "(null)" : scriptPath));
@@ -88,6 +96,7 @@ public class EdgeTtsClient {
         if (!StringUtils.hasText(text)) {
             throw new IllegalArgumentException("TTS 文本为空");
         }
+        String useVoice = StringUtils.hasText(voiceOverride) ? voiceOverride.trim() : voice;
 
         long acquireTimeoutSec = Math.max(60L, (long) timeoutSeconds * maxAttempts + 60L);
         try {
@@ -100,17 +109,17 @@ public class EdgeTtsClient {
             throw new IllegalStateException("Edge TTS 客户端排队被中断", ie);
         }
         try {
-            return synthesizeWithRetry(text);
+            return synthesizeWithRetry(text, useVoice);
         } finally {
             inFlight.release();
         }
     }
 
-    private byte[] synthesizeWithRetry(String text) throws Exception {
+    private byte[] synthesizeWithRetry(String text, String useVoice) throws Exception {
         Exception last = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                return synthesizeOnce(text);
+                return synthesizeOnce(text, useVoice);
             } catch (IllegalStateException e) {
                 // 脚本缺失、空音频等业务错误不重试
                 if (e.getMessage() != null && e.getMessage().contains("exit=")) {
@@ -118,8 +127,8 @@ public class EdgeTtsClient {
                     if (attempt >= maxAttempts) {
                         break;
                     }
-                    log.warn("Edge TTS process failed attempt={}/{} chars={} err={}",
-                        attempt, maxAttempts, text.length(), e.getMessage());
+                    log.warn("Edge TTS process failed attempt={}/{} chars={} voice={} err={}",
+                        attempt, maxAttempts, text.length(), useVoice, e.getMessage());
                     sleepBeforeRetry(attempt);
                     continue;
                 }
@@ -129,16 +138,17 @@ public class EdgeTtsClient {
                 if (!isTransient(e) || attempt >= maxAttempts) {
                     throw new IllegalStateException("Edge TTS 失败: " + e.getMessage(), e);
                 }
-                log.warn("Edge TTS transient failure attempt={}/{} chars={} err={}",
-                    attempt, maxAttempts, text.length(), e.toString());
+                log.warn("Edge TTS transient failure attempt={}/{} chars={} voice={} err={}",
+                    attempt, maxAttempts, text.length(), useVoice, e.toString());
                 sleepBeforeRetry(attempt);
             }
         }
         throw new IllegalStateException(
-            "Edge TTS 失败（attempts=" + maxAttempts + ", chars=" + text.length() + ")", last);
+            "Edge TTS 失败（attempts=" + maxAttempts + ", chars=" + text.length()
+                + ", voice=" + useVoice + ")", last);
     }
 
-    private byte[] synthesizeOnce(String text) throws Exception {
+    private byte[] synthesizeOnce(String text, String useVoice) throws Exception {
         Path workDir = scriptPath.getParent();
         // 绝对路径输出，避免依赖 edge-tts/outputs；speak.py 对绝对路径直接落盘
         Path outFile = Files.createTempFile("arelore-edge-", ".mp3");
@@ -151,7 +161,7 @@ public class EdgeTtsClient {
             cmd.add("-o");
             cmd.add(outFile.toAbsolutePath().toString());
             cmd.add("-v");
-            cmd.add(voice);
+            cmd.add(useVoice);
             cmd.add("--bitrate");
             cmd.add(bitrate);
             cmd.add("--sample-rate");
@@ -200,7 +210,7 @@ public class EdgeTtsClient {
             }
             byte[] data = Files.readAllBytes(outFile);
             log.debug("Edge TTS ok chars={} bytes={} voice={} bitrate={}",
-                text.length(), data.length, voice, bitrate);
+                text.length(), data.length, useVoice, bitrate);
             return data;
         } finally {
             try {
@@ -237,7 +247,12 @@ public class EdgeTtsClient {
         if (input == null) {
             return "";
         }
-        String text = input.trim().replaceAll("[\\p{Cntrl}&&[^\r\n\t]]", " ").replaceAll("\\s+", " ").trim();
+        // Wiktionary 常带组合重音（сде́лка）；去掉 Mn 后更稳，朗读也不需要重音符
+        String text = Normalizer.normalize(input.trim(), Normalizer.Form.NFD)
+            .replaceAll("\\p{M}+", "")
+            .replaceAll("[\\p{Cntrl}&&[^\r\n\t]]", " ")
+            .replaceAll("\\s+", " ")
+            .trim();
         if (text.length() > MAX_INPUT_CHARS) {
             text = text.substring(0, MAX_INPUT_CHARS);
         }

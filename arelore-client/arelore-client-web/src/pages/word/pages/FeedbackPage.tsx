@@ -14,6 +14,7 @@ import {
   message,
 } from 'antd';
 import { CloseCircleFilled, PlusOutlined, UploadOutlined } from '@ant-design/icons';
+import { useI18n } from '../../../locale';
 import { feedbackApi } from '../api/feedback';
 import { shortErrorMessage } from '../utils/request';
 
@@ -27,11 +28,11 @@ type PendingFile = {
   previewUrl: string;
 };
 
-const STATUS_MAP: Record<number, { color: string; label: string }> = {
-  1: { color: 'orange', label: '待客服处理' },
-  2: { color: 'blue', label: '处理中' },
-  3: { color: 'purple', label: '待你回复' },
-  4: { color: 'default', label: '已关闭' },
+const STATUS_COLORS: Record<number, string> = {
+  1: 'orange',
+  2: 'blue',
+  3: 'purple',
+  4: 'default',
 };
 
 function fileToBase64(file: File): Promise<string> {
@@ -91,6 +92,13 @@ function PendingImageList({
 }
 
 export default function FeedbackPage() {
+  const { t } = useI18n();
+  const statusMap: Record<number, { color: string; label: string }> = {
+    1: { color: STATUS_COLORS[1], label: t('word.feedback.statusPending') },
+    2: { color: STATUS_COLORS[2], label: t('word.feedback.statusProcessing') },
+    3: { color: STATUS_COLORS[3], label: t('word.feedback.statusWaitUser') },
+    4: { color: STATUS_COLORS[4], label: t('word.feedback.statusClosed') },
+  };
   const [list, setList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -170,7 +178,7 @@ export default function FeedbackPage() {
             previewUrl: contentBase64,
           },
         ]);
-        message.success('图片已上传');
+        message.success(t('word.feedback.uploaded'));
       }
     } catch (e: any) {
       message.error(shortErrorMessage(e));
@@ -181,7 +189,7 @@ export default function FeedbackPage() {
   const submitCreate = async () => {
     const values = await form.validateFields();
     if (!String(values.contentText || '').trim() && !createFiles.length) {
-      message.warning('请填写内容或上传截图');
+      message.warning(t('word.feedback.needContent'));
       return;
     }
     setSubmitting(true);
@@ -191,7 +199,7 @@ export default function FeedbackPage() {
         contentText: String(values.contentText || '').trim(),
         files: toApiFiles(createFiles),
       });
-      message.success('反馈已提交');
+      message.success(t('word.feedback.created'));
       setCreateOpen(false);
       form.resetFields();
       setCreateFiles([]);
@@ -206,7 +214,7 @@ export default function FeedbackPage() {
   const sendReply = async () => {
     if (!detail?.id) return;
     if (!replyText.trim() && !replyFiles.length) {
-      message.warning('请填写回复或上传截图');
+      message.warning(t('word.feedback.needReply'));
       return;
     }
     setSubmitting(true);
@@ -220,7 +228,7 @@ export default function FeedbackPage() {
       setReplyText('');
       setReplyFiles([]);
       await loadPreviews(res.data);
-      message.success('已发送');
+      message.success(t('word.feedback.sent'));
       loadList();
     } catch (e: any) {
       message.error(shortErrorMessage(e));
@@ -233,7 +241,7 @@ export default function FeedbackPage() {
     <div className="page">
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 12 }}>
         <Title level={3} style={{ margin: 0 }}>
-          意见反馈
+          {t('word.feedback.title')}
         </Title>
         <Button
           type="primary"
@@ -244,16 +252,16 @@ export default function FeedbackPage() {
             setCreateOpen(true);
           }}
         >
-          新建反馈
+          {t('word.feedback.newTicket')}
         </Button>
       </Space>
-      <Paragraph type="secondary">每天最多提交 6 条工单；可与客服多轮沟通。</Paragraph>
+      <Paragraph type="secondary">{t('word.feedback.dailyHint')}</Paragraph>
       <List
         loading={loading}
         dataSource={list}
-        locale={{ emptyText: '暂无反馈' }}
+        locale={{ emptyText: t('word.feedback.empty') }}
         renderItem={(item) => {
-          const st = STATUS_MAP[item.status] || { color: 'default', label: String(item.status) };
+          const st = statusMap[item.status] || { color: 'default', label: String(item.status) };
           return (
             <Card
               size="small"
@@ -262,7 +270,7 @@ export default function FeedbackPage() {
             >
               <Space style={{ width: '100%', justifyContent: 'space-between' }}>
                 <Text strong ellipsis style={{ maxWidth: 220 }}>
-                  {item.title || `工单 #${item.id}`}
+                  {item.title || t('word.feedback.ticketId', { id: item.id })}
                 </Text>
                 <Tag color={st.color}>{st.label}</Tag>
               </Space>
@@ -275,19 +283,24 @@ export default function FeedbackPage() {
       />
 
       <Drawer
-        title="新建反馈"
+        title={t('word.feedback.newTicket')}
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         destroyOnClose
         extra={
           <Button type="primary" loading={submitting} onClick={submitCreate}>
-            提交
+            {t('word.feedback.submit')}
           </Button>
         }
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="contentText" label="反馈内容">
-            <TextArea rows={5} placeholder="请描述问题或建议…" maxLength={2000} showCount />
+          <Form.Item name="contentText" label={t('word.feedback.content')}>
+            <TextArea
+              rows={5}
+              placeholder={t('word.feedback.contentPlaceholder')}
+              maxLength={2000}
+              showCount
+            />
           </Form.Item>
         </Form>
         <Upload
@@ -295,7 +308,7 @@ export default function FeedbackPage() {
           showUploadList={false}
           accept="image/*"
         >
-          <Button icon={<UploadOutlined />}>上传截图</Button>
+          <Button icon={<UploadOutlined />}>{t('word.feedback.uploadShot')}</Button>
         </Upload>
         <PendingImageList
           files={createFiles}
@@ -304,7 +317,7 @@ export default function FeedbackPage() {
       </Drawer>
 
       <Drawer
-        title={detail ? `工单 #${detail.id}` : '会话'}
+        title={detail ? t('word.feedback.ticketId', { id: detail.id }) : t('word.feedback.thread')}
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
         width={Math.min(480, typeof window !== 'undefined' ? window.innerWidth - 24 : 480)}
@@ -312,8 +325,8 @@ export default function FeedbackPage() {
       >
         {detail && (
           <>
-            <Tag color={(STATUS_MAP[detail.status] || {}).color} style={{ marginBottom: 12 }}>
-              {(STATUS_MAP[detail.status] || {}).label}
+            <Tag color={(statusMap[detail.status] || {}).color} style={{ marginBottom: 12 }}>
+              {(statusMap[detail.status] || {}).label}
             </Tag>
             <div
               style={{
@@ -335,7 +348,8 @@ export default function FeedbackPage() {
                     }}
                   >
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      {m.senderType === 'USER' ? '我' : '客服'} · {m.modifyTime}
+                      {m.senderType === 'USER' ? t('word.feedback.me') : t('word.feedback.support')} ·{' '}
+                      {m.modifyTime}
                     </Text>
                     {m.contentText ? (
                       <Paragraph
@@ -377,7 +391,7 @@ export default function FeedbackPage() {
                   rows={3}
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  placeholder="继续补充…"
+                  placeholder={t('word.feedback.replyPlaceholder')}
                 />
                 <Space style={{ marginTop: 8 }}>
                   <Upload
@@ -385,10 +399,10 @@ export default function FeedbackPage() {
                     showUploadList={false}
                     accept="image/*"
                   >
-                    <Button icon={<UploadOutlined />}>截图</Button>
+                    <Button icon={<UploadOutlined />}>{t('word.feedback.shot')}</Button>
                   </Upload>
                   <Button type="primary" loading={submitting} onClick={sendReply}>
-                    发送
+                    {t('word.feedback.send')}
                   </Button>
                 </Space>
                 <PendingImageList

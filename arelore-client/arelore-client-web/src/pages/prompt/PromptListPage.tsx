@@ -24,6 +24,7 @@ import {
   SearchOutlined,
   EyeOutlined,
 } from '@ant-design/icons';
+import { useI18n } from '../../locale';
 import {
   AiPromptItem,
   AiPromptTag,
@@ -31,20 +32,29 @@ import {
 } from '../../api/prompt';
 import { csvToPrompts, downloadCsv, promptsToCsv } from './promptCsv';
 
-function promptsToMarkdown(items: AiPromptItem[]): string {
+function promptsToMarkdown(
+  items: AiPromptItem[],
+  labels: {
+    untitled: (n: number) => string;
+    noSummary: string;
+    noPrompt: string;
+    headingSummary: string;
+    headingPrompt: string;
+  }
+): string {
   return items
     .map((item, i) => {
-      const title = (item.title || '').trim() || `未命名-${i + 1}`;
-      const summary = (item.summary || '').trim() || '（无描述）';
-      const prompt = (item.promptText || '').trim() || '（无提示词）';
+      const title = (item.title || '').trim() || labels.untitled(i + 1);
+      const summary = (item.summary || '').trim() || labels.noSummary;
+      const prompt = (item.promptText || '').trim() || labels.noPrompt;
       return [
         `# ${title}`,
         '',
-        '## 描述',
+        `## ${labels.headingSummary}`,
         '',
         summary,
         '',
-        '## 提示词',
+        `## ${labels.headingPrompt}`,
         '',
         prompt,
         '',
@@ -63,13 +73,6 @@ function downloadMarkdown(filename: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
-const PUBLISH_OPTIONS = [
-  { label: '草稿', value: 'DRAFT' },
-  { label: '制作中', value: 'PRODUCING' },
-  { label: '已发布', value: 'PUBLISHED' },
-  { label: '已下架', value: 'OFFLINE' },
-];
-
 function copyText(text: string) {
   if (navigator.clipboard?.writeText) {
     return navigator.clipboard.writeText(text);
@@ -84,6 +87,16 @@ function copyText(text: string) {
 }
 
 const PromptListPage: React.FC = () => {
+  const { t } = useI18n();
+  const publishOptions = useMemo(
+    () => [
+      { label: t('prompt.status.draft'), value: 'DRAFT' },
+      { label: t('prompt.status.producing'), value: 'PRODUCING' },
+      { label: t('prompt.status.published'), value: 'PUBLISHED' },
+      { label: t('prompt.status.offline'), value: 'OFFLINE' },
+    ],
+    [t]
+  );
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<AiPromptItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -133,7 +146,7 @@ const PromptListPage: React.FC = () => {
       setRows(data.list || data.records || []);
       setTotal(data.total || 0);
     } catch (e: any) {
-      message.error(e?.message || '加载失败，请先登录');
+      message.error(e?.message || t('prompt.common.loadFailedLogin'));
     } finally {
       setLoading(false);
     }
@@ -190,7 +203,7 @@ const PromptListPage: React.FC = () => {
     opts?: { refreshTags?: boolean; errorTip?: string }
   ) => {
     if (!row.id) {
-      message.error('缺少 id，无法保存');
+      message.error(t('prompt.list.missingId'));
       return;
     }
     const key = String(row.id);
@@ -232,7 +245,7 @@ const PromptListPage: React.FC = () => {
             : r
         )
       );
-      message.error(e?.message || opts?.errorTip || '保存失败');
+      message.error(e?.message || opts?.errorTip || t('prompt.common.saveFailed'));
     } finally {
       setSavingRowIds((m) => {
         const next = { ...m };
@@ -252,14 +265,14 @@ const PromptListPage: React.FC = () => {
     if (same) return;
     await saveRowInline(row, { manualTagList: normalized }, {
       refreshTags: true,
-      errorTip: '打标保存失败',
+      errorTip: t('prompt.list.tagSaveFailed'),
     });
   };
 
   const onPublishStatusChange = async (row: AiPromptItem, nextStatus: string) => {
     const prev = row.publishStatus || 'DRAFT';
     if (!nextStatus || nextStatus === prev) return;
-    await saveRowInline(row, { publishStatus: nextStatus }, { errorTip: '状态保存失败' });
+    await saveRowInline(row, { publishStatus: nextStatus }, { errorTip: t('prompt.list.statusSaveFailed') });
   };
 
   const allTagOptions = useMemo(() => {
@@ -310,12 +323,12 @@ const PromptListPage: React.FC = () => {
             }
           : {}),
       });
-      message.success('已保存');
+      message.success(t('prompt.common.saved'));
       setEditOpen(false);
       loadPage();
       loadTags();
     } catch (e: any) {
-      message.error(e?.message || '保存失败');
+      message.error(e?.message || t('prompt.common.saveFailed'));
     }
   };
 
@@ -323,15 +336,15 @@ const PromptListPage: React.FC = () => {
     if (!row.id) return;
     try {
       await promptApi.delete({ id: row.id });
-      message.success('已删除');
+      message.success(t('prompt.common.deleted'));
       loadPage();
     } catch (e: any) {
-      message.error(e?.message || '删除失败');
+      message.error(e?.message || t('prompt.common.deleteFailed'));
     }
   };
 
   const statusLabel = (code?: string) =>
-    PUBLISH_OPTIONS.find((o) => o.value === code)?.label || code || '未知';
+    publishOptions.find((o) => o.value === code)?.label || code || t('prompt.common.unknown');
 
   const openDetail = async (row: AiPromptItem) => {
     setDetailOpen(true);
@@ -342,7 +355,7 @@ const PromptListPage: React.FC = () => {
       const res = await promptApi.detail({ id: row.id });
       setDetailItem(res.data || row);
     } catch (e: any) {
-      message.error(e?.message || '加载详情失败');
+      message.error(e?.message || t('prompt.list.loadDetailFailed'));
     } finally {
       setDetailLoading(false);
     }
@@ -351,27 +364,26 @@ const PromptListPage: React.FC = () => {
   const onCopyPrompt = async (row: AiPromptItem) => {
     try {
       await copyText(row.promptText || '');
-      message.success('已复制提示词');
+      message.success(t('prompt.list.copiedPrompt'));
     } catch {
-      message.error('复制失败');
+      message.error(t('prompt.common.copyFailed'));
     }
   };
 
   const onCopyAll = async (row: AiPromptItem) => {
-    const text = [
-      `标题：${row.title || ''}`,
-      `描述：${row.summary || ''}`,
-      `状态：${statusLabel(row.publishStatus)}`,
-      `配置标签：${(row.configTagList || []).join('、')}`,
-      `人工标签：${(row.manualTagList || []).join('、')}`,
-      `提示词：`,
-      row.promptText || '',
-    ].join('\n');
+    const text = t('prompt.list.copyAllFields', {
+      title: row.title || '',
+      summary: row.summary || '',
+      status: statusLabel(row.publishStatus),
+      configTags: (row.configTagList || []).join(', '),
+      manualTags: (row.manualTagList || []).join(', '),
+      prompt: row.promptText || '',
+    });
     try {
       await copyText(text);
-      message.success('已复制全部字段');
+      message.success(t('prompt.list.copiedAll'));
     } catch {
-      message.error('复制失败');
+      message.error(t('prompt.common.copyFailed'));
     }
   };
 
@@ -386,9 +398,9 @@ const PromptListPage: React.FC = () => {
       const res = await promptApi.exportList(exportFilter());
       const list = res.data || [];
       downloadCsv(`ai-prompts-${Date.now()}.csv`, promptsToCsv(list));
-      message.success(`已导出 ${list.length} 条 CSV（可用 Excel 打开）`);
+      message.success(t('prompt.list.exportedCsv', { count: list.length }));
     } catch (e: any) {
-      message.error(e?.message || '导出失败');
+      message.error(e?.message || t('prompt.list.exportFailed'));
     }
   };
 
@@ -398,13 +410,19 @@ const PromptListPage: React.FC = () => {
       const res = await promptApi.exportList(exportFilter());
       const list = res.data || [];
       if (!list.length) {
-        message.warning('当前查询条件下没有可导出的数据');
+        message.warning(t('prompt.list.noExportData'));
         return;
       }
-      setMdContent(promptsToMarkdown(list));
+      setMdContent(promptsToMarkdown(list, {
+        untitled: (n) => t('prompt.list.mdUntitled', { n }),
+        noSummary: t('prompt.list.mdNoSummary'),
+        noPrompt: t('prompt.list.mdNoPrompt'),
+        headingSummary: t('prompt.list.mdHeadingSummary'),
+        headingPrompt: t('prompt.list.mdHeadingPrompt'),
+      }));
       setMdOpen(true);
     } catch (e: any) {
-      message.error(e?.message || '导出失败');
+      message.error(e?.message || t('prompt.list.exportFailed'));
     } finally {
       setMdExporting(false);
     }
@@ -412,15 +430,15 @@ const PromptListPage: React.FC = () => {
 
   const onDownloadMd = () => {
     downloadMarkdown(`ai-prompts-${Date.now()}.md`, mdContent);
-    message.success('已开始下载 .md 文件');
+    message.success(t('prompt.list.mdDownloading'));
   };
 
   const onCopyMd = async () => {
     try {
       await copyText(mdContent);
-      message.success('已复制 Markdown');
+      message.success(t('prompt.list.mdCopied'));
     } catch {
-      message.error('复制失败');
+      message.error(t('prompt.common.copyFailed'));
     }
   };
 
@@ -428,28 +446,28 @@ const PromptListPage: React.FC = () => {
     try {
       const name = (file.name || '').toLowerCase();
       if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-        message.error('请先将 Excel 另存为 CSV 后再导入');
+        message.error(t('prompt.list.excelToCsv'));
         return false;
       }
       const text = await file.text();
       const items = csvToPrompts(text);
       if (!items.length) {
-        message.error('文件中没有可导入的数据');
+        message.error(t('prompt.list.importEmpty'));
         return false;
       }
       const res = await promptApi.importBatch({ items });
-      message.success(res.data?.message || '导入完成');
+      message.success(res.data?.message || t('prompt.list.importDone'));
       loadPage();
       loadTags();
     } catch (e: any) {
-      message.error(e?.message || '导入失败，请确认 CSV 含 configTags（或 importTags/tags）列');
+      message.error(e?.message || t('prompt.list.importFailed'));
     }
     return false;
   };
 
   const columns = [
     {
-      title: '标题（引流）',
+      title: t('prompt.list.colTitle'),
       dataIndex: 'title',
       ellipsis: true,
       width: 200,
@@ -458,7 +476,7 @@ const PromptListPage: React.FC = () => {
         const preview = (
           <div style={{ maxWidth: 420, maxHeight: 360, overflow: 'auto' }}>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              提示词预览
+              {t('prompt.list.promptPreview')}
             </Typography.Text>
             <pre
               style={{
@@ -470,7 +488,7 @@ const PromptListPage: React.FC = () => {
                 fontFamily: 'inherit',
               }}
             >
-              {prompt || '（无提示词）'}
+              {prompt || t('prompt.list.emptyPrompt')}
             </pre>
           </div>
         );
@@ -482,7 +500,7 @@ const PromptListPage: React.FC = () => {
       },
     },
     {
-      title: '描述（引流）',
+      title: t('prompt.list.colSummary'),
       dataIndex: 'summary',
       ellipsis: true,
       width: 180,
@@ -497,7 +515,7 @@ const PromptListPage: React.FC = () => {
             content={
               <div style={{ maxWidth: 420, maxHeight: 360, overflow: 'auto' }}>
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  提示词预览
+                  {t('prompt.list.promptPreview')}
                 </Typography.Text>
                 <pre
                   style={{
@@ -523,7 +541,7 @@ const PromptListPage: React.FC = () => {
       },
     },
     {
-      title: '配置标签',
+      title: t('prompt.list.colConfigTags'),
       dataIndex: 'configTagList',
       width: 140,
       render: (list: string[]) =>
@@ -536,7 +554,7 @@ const PromptListPage: React.FC = () => {
           : '-',
     },
     {
-      title: '人工标签',
+      title: t('prompt.list.colManualTags'),
       dataIndex: 'manualTagList',
       width: 240,
       render: (_: string[], row: AiPromptItem) => {
@@ -547,7 +565,7 @@ const PromptListPage: React.FC = () => {
             mode="tags"
             size="small"
             style={{ width: '100%', minWidth: 180 }}
-            placeholder="选择或输入后自动保存"
+            placeholder={t('prompt.list.manualTagPlaceholder')}
             value={row.manualTagList || []}
             options={manualTagOptions}
             loading={saving}
@@ -579,7 +597,7 @@ const PromptListPage: React.FC = () => {
       },
     },
     {
-      title: '状态',
+      title: t('prompt.common.status'),
       dataIndex: 'publishStatus',
       width: 120,
       render: (_: string, row: AiPromptItem) => {
@@ -589,7 +607,7 @@ const PromptListPage: React.FC = () => {
           <Select
             size="small"
             style={{ width: '100%', minWidth: 96 }}
-            options={PUBLISH_OPTIONS}
+            options={publishOptions}
             value={row.publishStatus || 'DRAFT'}
             loading={saving}
             disabled={!row.id || saving}
@@ -599,34 +617,34 @@ const PromptListPage: React.FC = () => {
       },
     },
     {
-      title: 'UUID',
+      title: t('prompt.list.colUuid'),
       dataIndex: 'promptUuid',
       width: 120,
       ellipsis: true,
       render: (v: string) => v || '-',
     },
     {
-      title: '操作',
+      title: t('prompt.common.actions'),
       key: 'action',
       width: 320,
       fixed: 'right' as const,
       render: (_: unknown, row: AiPromptItem) => (
         <Space wrap>
           <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => openDetail(row)}>
-            详情
+            {t('prompt.common.detail')}
           </Button>
           <Button type="link" size="small" icon={<CopyOutlined />} onClick={() => onCopyPrompt(row)}>
-            复制
+            {t('prompt.common.copy')}
           </Button>
           <Button type="link" size="small" onClick={() => onCopyAll(row)}>
-            复制全部
+            {t('prompt.list.copyAll')}
           </Button>
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(row)}>
-            编辑
+            {t('prompt.common.edit')}
           </Button>
-          <Popconfirm title="确认删除？" onConfirm={() => onDelete(row)}>
+          <Popconfirm title={t('prompt.common.confirmDelete')} onConfirm={() => onDelete(row)}>
             <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-              删除
+              {t('prompt.common.delete')}
             </Button>
           </Popconfirm>
         </Space>
@@ -637,14 +655,14 @@ const PromptListPage: React.FC = () => {
   return (
     <div>
       <Typography.Title level={4} style={{ marginTop: 0 }}>
-        提示词列表
+        {t('prompt.list.title')}
       </Typography.Title>
       <Typography.Paragraph type="secondary" style={{ marginTop: -8 }}>
-        支持按标题 / 状态 / 标签筛选；列表内可打标、改状态；点「详情」查看全文。配置标签可被 CSV 覆盖，人工标签仅本页修改。
+        {t('prompt.list.lead')}
       </Typography.Paragraph>
       <Space style={{ marginBottom: 12 }} wrap>
         <Input
-          placeholder="按标题搜索"
+          placeholder={t('prompt.list.searchTitle')}
           allowClear
           style={{ width: 220 }}
           value={titleKeyword}
@@ -653,9 +671,9 @@ const PromptListPage: React.FC = () => {
         />
         <Select
           allowClear
-          placeholder="发布状态"
+          placeholder={t('prompt.list.publishStatus')}
           style={{ width: 140 }}
-          options={PUBLISH_OPTIONS}
+          options={publishOptions}
           value={publishStatus}
           onChange={(v) => {
             setPublishStatus(v);
@@ -671,7 +689,7 @@ const PromptListPage: React.FC = () => {
           allowClear
           showSearch
           optionFilterProp="label"
-          placeholder="任意标签"
+          placeholder={t('prompt.list.anyTag')}
           style={{ width: 180 }}
           options={allTagOptions}
           value={tagName}
@@ -686,19 +704,19 @@ const PromptListPage: React.FC = () => {
           }}
         />
         <Button type="primary" icon={<SearchOutlined />} onClick={onSearch}>
-          查询
+          {t('prompt.common.search')}
         </Button>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          新建
+          {t('prompt.common.create')}
         </Button>
         <Button icon={<ExportOutlined />} onClick={onExport}>
-          导出 CSV
+          {t('prompt.list.exportCsv')}
         </Button>
         <Button icon={<ExportOutlined />} loading={mdExporting} onClick={onExportMd}>
-          导出 MD
+          {t('prompt.list.exportMd')}
         </Button>
         <Upload accept=".csv,text/csv" showUploadList={false} beforeUpload={onImportFile}>
-          <Button icon={<ImportOutlined />}>导入 CSV</Button>
+          <Button icon={<ImportOutlined />}>{t('prompt.list.importCsv')}</Button>
         </Upload>
       </Space>
 
@@ -722,20 +740,20 @@ const PromptListPage: React.FC = () => {
       />
 
       <Modal
-        title="导出 Markdown 预览"
+        title={t('prompt.list.mdPreviewTitle')}
         open={mdOpen}
         onCancel={() => setMdOpen(false)}
         width={800}
         destroyOnClose
         footer={[
           <Button key="close" onClick={() => setMdOpen(false)}>
-            关闭
+            {t('prompt.common.close')}
           </Button>,
           <Button key="copy" icon={<CopyOutlined />} onClick={onCopyMd}>
-            复制
+            {t('prompt.common.copy')}
           </Button>,
           <Button key="download" type="primary" icon={<ExportOutlined />} onClick={onDownloadMd}>
-            下载 .md
+            {t('prompt.list.downloadMd')}
           </Button>,
         ]}
       >
@@ -748,7 +766,7 @@ const PromptListPage: React.FC = () => {
       </Modal>
 
       <Modal
-        title={detailItem?.title || '提示词详情'}
+        title={detailItem?.title || t('prompt.list.detailTitle')}
         open={detailOpen}
         onCancel={() => {
           setDetailOpen(false);
@@ -763,7 +781,7 @@ const PromptListPage: React.FC = () => {
             icon={<CopyOutlined />}
             onClick={() => detailItem && onCopyPrompt(detailItem)}
           >
-            复制提示词
+            {t('prompt.list.copyPrompt')}
           </Button>,
           <Button
             key="edit"
@@ -775,7 +793,7 @@ const PromptListPage: React.FC = () => {
               openEdit(detailItem);
             }}
           >
-            编辑
+            {t('prompt.common.edit')}
           </Button>,
           <Button
             key="close"
@@ -784,7 +802,7 @@ const PromptListPage: React.FC = () => {
               setDetailItem(null);
             }}
           >
-            关闭
+            {t('prompt.common.close')}
           </Button>,
         ]}
       >
@@ -792,29 +810,29 @@ const PromptListPage: React.FC = () => {
           <div style={{ maxHeight: '70vh', overflow: 'auto' }}>
             <Space wrap style={{ marginBottom: 12 }}>
               <Tag color="processing">{statusLabel(detailItem.publishStatus)}</Tag>
-              {(detailItem.configTagList || []).map((t) => (
-                <Tag key={`c-${t}`} color="blue">
-                  {t}
+              {(detailItem.configTagList || []).map((tag) => (
+                <Tag key={`c-${tag}`} color="blue">
+                  {tag}
                 </Tag>
               ))}
-              {(detailItem.manualTagList || []).map((t) => (
-                <Tag key={`m-${t}`} color={manualTagColorMap.get(t)}>
-                  {t}
+              {(detailItem.manualTagList || []).map((tag) => (
+                <Tag key={`m-${tag}`} color={manualTagColorMap.get(tag)}>
+                  {tag}
                 </Tag>
               ))}
             </Space>
             {detailItem.promptUuid ? (
               <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
-                UUID：{detailItem.promptUuid}
+                {t('prompt.list.uuidLabel', { uuid: detailItem.promptUuid })}
               </Typography.Paragraph>
             ) : null}
             <Typography.Title level={5} style={{ marginTop: 0 }}>
-              描述
+              {t('prompt.list.description')}
             </Typography.Title>
             <Typography.Paragraph style={{ whiteSpace: 'pre-wrap' }}>
-              {(detailItem.summary || '').trim() || '（无）'}
+              {(detailItem.summary || '').trim() || t('prompt.common.none')}
             </Typography.Paragraph>
-            <Typography.Title level={5}>提示词</Typography.Title>
+            <Typography.Title level={5}>{t('prompt.list.promptLabel')}</Typography.Title>
             <pre
               style={{
                 margin: 0,
@@ -828,14 +846,14 @@ const PromptListPage: React.FC = () => {
                 borderRadius: 6,
               }}
             >
-              {(detailItem.promptText || '').trim() || '（无）'}
+              {(detailItem.promptText || '').trim() || t('prompt.common.none')}
             </pre>
           </div>
         ) : null}
       </Modal>
 
       <Modal
-        title={editing ? '编辑提示词' : '新建提示词'}
+        title={editing ? t('prompt.list.editTitle') : t('prompt.list.createTitle')}
         open={editOpen}
         onCancel={() => setEditOpen(false)}
         onOk={onSave}
@@ -844,45 +862,45 @@ const PromptListPage: React.FC = () => {
       >
         <Form form={form} layout="vertical">
           {editing ? (
-            <Form.Item label="UUID（服务端生成，不可修改；导入覆盖用）">
+            <Form.Item label={t('prompt.list.uuidField')}>
               <Input value={editing.promptUuid || ''} readOnly disabled />
             </Form.Item>
           ) : null}
           <Form.Item
             name="title"
-            label="标题（发视频引流）"
+            label={t('prompt.list.titleField')}
             rules={[{ required: true, max: 255 }]}
           >
-            <Input maxLength={255} placeholder="用于短视频标题，吸引点击" />
+            <Input maxLength={255} placeholder={t('prompt.list.titlePlaceholder')} />
           </Form.Item>
           <Form.Item
             name="summary"
-            label="描述（发视频引流）"
-            extra="建议文末加话题，如 #英语口语 #学英语"
+            label={t('prompt.list.summaryField')}
+            extra={t('prompt.list.summaryExtra')}
           >
-            <Input.TextArea rows={3} maxLength={1024} placeholder="用于视频简介/文案，末尾可加 #话题" />
+            <Input.TextArea rows={3} maxLength={1024} placeholder={t('prompt.list.summaryPlaceholder')} />
           </Form.Item>
-          <Form.Item name="promptText" label="提示词" rules={[{ required: true }]}>
+          <Form.Item name="promptText" label={t('prompt.list.promptLabel')} rules={[{ required: true }]}>
             <Input.TextArea rows={8} showCount maxLength={65535} />
           </Form.Item>
           <Form.Item
             name="configTagList"
-            label="配置标签（可手打，CSV 亦可覆盖）"
-            extra="例如：小红书；或 抖音 + 视频号"
+            label={t('prompt.list.configTagsField')}
+            extra={t('prompt.list.configTagsExtra')}
           >
-            <Select mode="tags" options={configTagOptions} placeholder="选择或输入配置标签" />
+            <Select mode="tags" options={configTagOptions} placeholder={t('prompt.list.configTagsPlaceholder')} />
           </Form.Item>
           {editing ? (
             <>
               <Form.Item
                 name="manualTagList"
-                label="人工标签"
-                extra="仅编辑时可改；导入不会覆盖"
+                label={t('prompt.list.manualTagsField')}
+                extra={t('prompt.list.manualTagsExtra')}
               >
-                <Select mode="tags" options={manualTagOptions} placeholder="选择或输入人工标签" />
+                <Select mode="tags" options={manualTagOptions} placeholder={t('prompt.list.manualTagsPlaceholder')} />
               </Form.Item>
-              <Form.Item name="publishStatus" label="发布状态" rules={[{ required: true }]}>
-                <Select options={PUBLISH_OPTIONS} />
+              <Form.Item name="publishStatus" label={t('prompt.list.publishStatusField')} rules={[{ required: true }]}>
+                <Select options={publishOptions} />
               </Form.Item>
             </>
           ) : null}

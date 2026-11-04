@@ -4,7 +4,7 @@ export interface ParsedLocalePath {
   locale: AppLocale;
   /** 去掉区域前缀后的路径，始终以 / 开头（根为 /） */
   pathname: string;
-  /** URL 是否显式带了 /zh-cn 或 /en-us */
+  /** URL 是否显式带了 /zh-cn、/ja-jp、/en-us 等母语前缀 */
   hasExplicitPrefix: boolean;
 }
 
@@ -32,9 +32,9 @@ export function stripLocalePrefix(pathname: string): string {
 }
 
 /**
- * 拼出带区域策略的路径：
- * - zh-cn → 无前缀（默认）
- * - en-us → /en-us/...
+ * 拼出带母语前缀的路径：
+ * - zh-cn（默认）→ 无前缀
+ * - 其它母语 → /ja-jp/... 、/en-us/...
  */
 export function buildLocalePath(locale: AppLocale, pathWithoutLocale: string): string {
   let path = pathWithoutLocale || '/';

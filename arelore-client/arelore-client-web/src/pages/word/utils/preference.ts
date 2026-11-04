@@ -1,3 +1,4 @@
+import { AppLocale, DEFAULT_LOCALE, translate } from '../../../locale';
 import request from './request';
 import {
   getPreference,
@@ -11,15 +12,16 @@ import {
   type WordPreference,
 } from './storage';
 
-const MODE_LABELS: Record<string, string> = {
-  [STUDY_MODE_LISTEN_SPELL]: '听词（摸鱼）',
-  [STUDY_MODE_SEE_MEANING]: '看词识意',
-  [STUDY_MODE_DICTATION]: '听写',
-  [STUDY_MODE_SEE_PICK_IMAGE]: '看词选图',
+const MODE_PATH: Record<string, string> = {
+  [STUDY_MODE_LISTEN_SPELL]: 'word.mode.listenSpell',
+  [STUDY_MODE_SEE_MEANING]: 'word.mode.seeMeaning',
+  [STUDY_MODE_DICTATION]: 'word.mode.dictation',
+  [STUDY_MODE_SEE_PICK_IMAGE]: 'word.mode.seePickImage',
 };
 
-export function modeLabel(mode?: string): string {
-  return MODE_LABELS[mode || ''] || MODE_LABELS[STUDY_MODE_SEE_MEANING];
+export function modeLabel(mode?: string, locale: AppLocale = DEFAULT_LOCALE): string {
+  const path = MODE_PATH[mode || ''] || MODE_PATH[STUDY_MODE_SEE_MEANING];
+  return translate(locale, path);
 }
 
 export async function syncPreference(): Promise<WordPreference> {

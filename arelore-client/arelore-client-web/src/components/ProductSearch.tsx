@@ -1,8 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { AutoComplete, Input } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
-import { useLocaleNavigate } from '../locale';
-import { kindLabel, searchSiteCatalog, SITE_CATALOG, SiteCatalogItem } from '../data/siteCatalog';
+import { useI18n, useLocaleNavigate } from '../locale';
+import {
+  LocalizedSiteCatalogItem,
+  searchSiteCatalog,
+  SITE_CATALOG,
+} from '../data/siteCatalog';
 
 type Props = {
   /** hero 大搜索 / header 紧凑 */
@@ -15,12 +19,12 @@ type Props = {
   initialQuery?: string;
 };
 
-function optionLabel(item: SiteCatalogItem) {
+function optionLabel(item: LocalizedSiteCatalogItem, kindText: string) {
   return (
     <div className="product-search-option">
       <div className="product-search-option-title">
         <span>{item.title}</span>
-        <em>{kindLabel(item.kind)}</em>
+        <em>{kindText}</em>
       </div>
       <div className="product-search-option-meta">
         {item.category} · {item.blurb}
@@ -32,33 +36,39 @@ function optionLabel(item: SiteCatalogItem) {
 export default function ProductSearch({
   size = 'large',
   className,
-  placeholder = '搜索产品、工具或方案…',
+  placeholder,
   allowListFallback = true,
   initialQuery = '',
 }: Props) {
   const navigate = useLocaleNavigate();
+  const { t, locale } = useI18n();
   const [value, setValue] = useState(initialQuery);
   const [open, setOpen] = useState(false);
+  const ph = placeholder || t('common.searchProducts');
 
   const options = useMemo(() => {
-    const hits = searchSiteCatalog(value, 12);
+    const hits = searchSiteCatalog(value, 12, locale);
     return hits.map((item) => ({
       value: item.key,
-      label: optionLabel(item),
+      label: optionLabel(item, t(`kind.${item.kind}`)),
       item,
     }));
-  }, [value]);
+  }, [value, locale, t]);
 
-  const goItem = (item: SiteCatalogItem) => {
+  const goItem = (item: LocalizedSiteCatalogItem) => {
     setOpen(false);
     setValue('');
     navigate(item.path);
   };
 
   const onSelect = (key: string) => {
-    const hit = SITE_CATALOG.find((x) => x.key === key);
+    const hit = searchSiteCatalog('', 100, locale).find((x) => x.key === key)
+      || searchSiteCatalog(key, 1, locale)[0];
+    const raw = SITE_CATALOG.find((x) => x.key === key);
     if (hit) {
       goItem(hit);
+    } else if (raw) {
+      navigate(raw.path);
     }
   };
 
@@ -68,7 +78,7 @@ export default function ProductSearch({
       if (allowListFallback) navigate('/home/products');
       return;
     }
-    const exact = searchSiteCatalog(q, 1);
+    const exact = searchSiteCatalog(q, 1, locale);
     if (exact.length === 1 && exact[0].title.toLowerCase() === q.toLowerCase()) {
       goItem(exact[0]);
       return;
@@ -78,7 +88,6 @@ export default function ProductSearch({
       return;
     }
     if (allowListFallback) {
-      setOpen(false);
       navigate(`/home/products?q=${encodeURIComponent(q)}`);
     }
   };
@@ -88,25 +97,19 @@ export default function ProductSearch({
       className={className}
       style={{ width: '100%' }}
       options={options}
-      value={value}
       open={open}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setTimeout(() => setOpen(false), 150)}
-      onSearch={(v) => {
-        setValue(v);
-        setOpen(true);
-      }}
+      onDropdownVisibleChange={setOpen}
+      value={value}
+      onChange={setValue}
       onSelect={onSelect}
-      popupClassName="product-search-dropdown"
-      notFoundContent={value.trim() ? '未找到相关产品' : null}
+      onFocus={() => setOpen(true)}
     >
       <Input
         size={size}
         allowClear
-        placeholder={placeholder}
+        placeholder={ph}
         prefix={<SearchOutlined />}
         onPressEnter={onSearchSubmit}
-        aria-label="产品搜索"
       />
     </AutoComplete>
   );
