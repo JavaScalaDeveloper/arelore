@@ -6,6 +6,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.arelore.server.core.common.exception.BusinessException;
 import com.arelore.server.core.common.result.ResultCode;
+import com.arelore.server.core.common.time.ChinaTime;
 import com.arelore.server.core.registration.dto.MobileRegisterApplyRequest;
 import com.arelore.server.core.registration.dto.MobileRegisterVerifyRequest;
 import com.arelore.server.core.registration.dto.MobileResetPasswordApplyRequest;
@@ -90,14 +91,14 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
         String verifyCode = RandomUtil.randomNumbers(6);
         String salt = PasswordHashUtils.randomSaltBase64Url(16);
         String passwordHash = PasswordHashUtils.sha256(salt + ":" + password);
-        LocalDateTime expireAt = LocalDateTime.now().plusMinutes(CODE_VALID_MINUTES);
+        LocalDateTime expireAt = ChinaTime.now().plusMinutes(CODE_VALID_MINUTES);
 
         // 4. 将验证码、密码哈希、有效期写入申请表 ext_info，供后续验证码校验使用。
         JSONObject ext = new JSONObject();
         ext.put("passwordSalt", salt);
         ext.put("passwordHash", passwordHash);
         ext.put("verifyCode", verifyCode);
-        ext.put("codeExpireAt", expireAt.toString());
+        ext.put("codeExpireAt", ChinaTime.format(expireAt));
         ext.put("codeValidMinutes", CODE_VALID_MINUTES);
 
         UserRegistrationApplication app = new UserRegistrationApplication();
@@ -159,8 +160,8 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
             throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码错误");
         }
         try {
-            LocalDateTime expireAt = LocalDateTime.parse(expireAtStr);
-            if (LocalDateTime.now().isAfter(expireAt)) {
+            LocalDateTime expireAt = ChinaTime.parseDateTime(expireAtStr);
+            if (expireAt == null || ChinaTime.now().isAfter(expireAt)) {
                 throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码已过期，请重新获取");
             }
         } catch (BusinessException e) {
@@ -225,13 +226,13 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
         enforceResetApplyCooldown(mobile);
 
         String verifyCode = RandomUtil.randomNumbers(6);
-        LocalDateTime expireAt = LocalDateTime.now().plusMinutes(CODE_VALID_MINUTES);
+        LocalDateTime expireAt = ChinaTime.now().plusMinutes(CODE_VALID_MINUTES);
 
         // 1) 新增申请流水，作为验证码请求频控依据。
         JSONObject applyExt = new JSONObject();
         applyExt.put("scene", "RESET_PASSWORD");
         applyExt.put("verifyCode", verifyCode);
-        applyExt.put("codeExpireAt", expireAt.toString());
+        applyExt.put("codeExpireAt", ChinaTime.format(expireAt));
         applyExt.put("codeValidMinutes", CODE_VALID_MINUTES);
         UserRegistrationApplication application = new UserRegistrationApplication();
         application.setAccountType(ACCOUNT_TYPE_MOBILE_PASSWORD_RESET);
@@ -243,7 +244,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
         // 2) 同步把验证码写入注册结果 ext_info，供找回确认时校验。
         JSONObject resultExt = parseExtInfo(result.getExtInfo());
         resultExt.put("resetVerifyCode", verifyCode);
-        resultExt.put("resetCodeExpireAt", expireAt.toString());
+        resultExt.put("resetCodeExpireAt", ChinaTime.format(expireAt));
         resultExt.put("resetApplyIp", clientIp);
         result.setExtInfo(JSON.toJSONString(resultExt));
         resultMapper.updateById(result);
@@ -288,8 +289,8 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
             throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码错误");
         }
         try {
-            LocalDateTime expireAt = LocalDateTime.parse(expireAtStr);
-            if (LocalDateTime.now().isAfter(expireAt)) {
+            LocalDateTime expireAt = ChinaTime.parseDateTime(expireAtStr);
+            if (expireAt == null || ChinaTime.now().isAfter(expireAt)) {
                 throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码已过期，请重新获取");
             }
         } catch (BusinessException e) {
@@ -303,7 +304,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
         String passwordHash = PasswordHashUtils.sha256(salt + ":" + newPassword);
         resultExt.put("passwordSalt", salt);
         resultExt.put("passwordHash", passwordHash);
-        resultExt.put("passwordResetAt", LocalDateTime.now().toString());
+        resultExt.put("passwordResetAt", ChinaTime.nowDateTime());
         resultExt.put("passwordResetIp", clientIp == null ? "" : clientIp);
         resultExt.remove("resetVerifyCode");
         resultExt.remove("resetCodeExpireAt");
@@ -381,7 +382,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
             return;
         }
         LocalDateTime nextAllowedTime = latest.getCreateTime().plusSeconds(RESET_APPLY_COOLDOWN_SECONDS);
-        if (LocalDateTime.now().isBefore(nextAllowedTime)) {
+        if (ChinaTime.now().isBefore(nextAllowedTime)) {
             throw new BusinessException(ResultCode.USER_REGISTER_RATE_LIMITED, "验证码请求过于频繁，请稍后再试");
         }
     }

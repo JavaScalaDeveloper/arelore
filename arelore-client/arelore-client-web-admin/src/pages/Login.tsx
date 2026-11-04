@@ -1,7 +1,8 @@
 import React from 'react';
 import { Form, Input, Button, Card, message } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
-import { RegionSwitcher, useLocaleNavigate } from '../locale';
+import RegionSwitcher from '../locale/RegionSwitcher';
+import { useLocaleNavigate } from '../locale/navigation';
 
 interface LoginFormValues {
   username: string;

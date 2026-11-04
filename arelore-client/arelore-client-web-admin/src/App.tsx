@@ -9,8 +9,10 @@ import {
   useLocale,
   useStrippedLocation,
 } from './locale';
+// Layout 勿 lazy：与 locale barrel + HMR 叠加易触发
+// Cannot access '__WEBPACK_DEFAULT_EXPORT__' before initialization
+import Layout from './pages/Layout';
 
-const Layout = lazy(() => import('./pages/Layout'));
 const ProductHome = lazy(() => import('./pages/ProductHome'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));

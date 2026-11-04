@@ -7,6 +7,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.arelore.server.core.common.exception.BusinessException;
 import com.arelore.server.core.common.result.ResultCode;
+import com.arelore.server.core.common.time.ChinaTime;
 import com.arelore.server.core.registration.entity.UserRegistrationApplication;
 import com.arelore.server.core.registration.entity.UserRegistrationResult;
 import com.arelore.server.core.registration.enums.AccountTypeEnum;
@@ -25,7 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 /**
  * 小程序认证服务：
@@ -75,7 +75,7 @@ public class MiniAuthServiceImpl implements MiniAuthService {
         JSONObject appExt = new JSONObject();
         appExt.put("scene", "MINI_MANUAL_LOGIN");
         appExt.put("passwordHash", passwordHashCredential);
-        appExt.put("loginAt", LocalDateTime.now().toString());
+        appExt.put("loginAt", ChinaTime.nowDateTime());
         UserRegistrationApplication app = new UserRegistrationApplication();
         app.setAccountType(ACCOUNT_TYPE_MINI_MANUAL_LOGIN);
         app.setAccount(mobile);
@@ -91,7 +91,7 @@ public class MiniAuthServiceImpl implements MiniAuthService {
             verifyPassword(result, passwordHashCredential);
             // 同步把最近登录信息写入 ext_info
             JSONObject ext = parseExtInfo(result.getExtInfo());
-            ext.put("lastLoginAt", LocalDateTime.now().toString());
+            ext.put("lastLoginAt", ChinaTime.nowDateTime());
             ext.put("lastLoginIp", clientIp);
             result.setExtInfo(JSON.toJSONString(ext));
             resultMapper.updateById(result);
@@ -131,8 +131,8 @@ public class MiniAuthServiceImpl implements MiniAuthService {
         ext.put("passwordSalt", salt);
         ext.put("passwordHash", passwordHash);
         ext.put("registerIp", clientIp);
-        ext.put("registerAt", LocalDateTime.now().toString());
-        ext.put("lastLoginAt", LocalDateTime.now().toString());
+        ext.put("registerAt", ChinaTime.nowDateTime());
+        ext.put("lastLoginAt", ChinaTime.nowDateTime());
         ext.put("lastLoginIp", clientIp);
 
         for (int i = 0; i < 5; i++) {

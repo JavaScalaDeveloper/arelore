@@ -1,7 +1,8 @@
 import React from 'react';
 import { Card, Col, Row, Typography } from 'antd';
 import { BookOutlined, DatabaseOutlined, FileSearchOutlined, HighlightOutlined } from '@ant-design/icons';
-import { RegionSwitcher, useLocaleNavigate } from '../locale';
+import RegionSwitcher from '../locale/RegionSwitcher';
+import { useLocaleNavigate } from '../locale/navigation';
 
 const { Title, Paragraph } = Typography;
 

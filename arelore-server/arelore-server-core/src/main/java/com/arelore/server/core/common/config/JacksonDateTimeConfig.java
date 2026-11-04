@@ -17,7 +17,7 @@ import java.util.TimeZone;
 
 @Configuration
 public class JacksonDateTimeConfig {
-    public static final String DATETIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
+    public static final String DATETIME_PATTERN = ChinaTime.DATETIME_PATTERN;
 
     @Bean
     public Jackson2ObjectMapperBuilderCustomizer jackson2ObjectMapperBuilderCustomizer() {

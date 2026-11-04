@@ -9,6 +9,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.arelore.server.core.common.constant.CommonConstants;
 import com.arelore.server.core.common.exception.BusinessException;
 import com.arelore.server.core.common.result.ResultCode;
+import com.arelore.server.core.common.time.ChinaTime;
 import com.arelore.server.core.registration.entity.UserRegistrationApplication;
 import com.arelore.server.core.registration.entity.UserRegistrationResult;
 import com.arelore.server.core.registration.enums.AccountTypeEnum;
@@ -424,7 +425,7 @@ public class AuthServiceImpl implements AuthService {
         String storedHash = PasswordHashUtils.sha256(salt + ":" + clientPasswordHash);
         JSONObject resultExt = new JSONObject();
         resultExt.put("registerIp", clientIp);
-        resultExt.put("registerAt", LocalDateTime.now().toString());
+        resultExt.put("registerAt", ChinaTime.nowDateTime());
         resultExt.put("registerChannel", "EMAIL_REGISTER");
         resultExt.put("passwordSalt", salt);
         resultExt.put("passwordHash", storedHash);
@@ -488,7 +489,7 @@ public class AuthServiceImpl implements AuthService {
         String storedHash = PasswordHashUtils.sha256(salt + ":" + clientPasswordHash);
         resultExt.put("passwordSalt", salt);
         resultExt.put("passwordHash", storedHash);
-        resultExt.put("passwordResetAt", LocalDateTime.now().toString());
+        resultExt.put("passwordResetAt", ChinaTime.nowDateTime());
         resultExt.put("passwordResetIp", clientIp);
         account.setExtInfo(JSON.toJSONString(resultExt));
         userRegistrationResultMapper.updateById(account);
@@ -744,11 +745,11 @@ public class AuthServiceImpl implements AuthService {
 
     private void sendEmailVerifyCode(String email, String clientIp, String accountType, String purpose) {
         String verifyCode = RandomUtil.randomNumbers(6);
-        LocalDateTime expireAt = LocalDateTime.now().plusMinutes(EMAIL_CODE_VALID_MINUTES);
+        LocalDateTime expireAt = ChinaTime.now().plusMinutes(EMAIL_CODE_VALID_MINUTES);
         JSONObject ext = new JSONObject();
         ext.put("purpose", purpose);
         ext.put("verifyCode", verifyCode);
-        ext.put("codeExpireAt", expireAt.toString());
+        ext.put("codeExpireAt", ChinaTime.format(expireAt));
         ext.put("codeValidMinutes", EMAIL_CODE_VALID_MINUTES);
 
         UserRegistrationApplication application = new UserRegistrationApplication();
@@ -791,8 +792,8 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码错误");
         }
         try {
-            LocalDateTime expireAt = LocalDateTime.parse(expireAtStr);
-            if (LocalDateTime.now().isAfter(expireAt)) {
+            LocalDateTime expireAt = ChinaTime.parseDateTime(expireAtStr);
+            if (expireAt == null || ChinaTime.now().isAfter(expireAt)) {
                 throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码已过期，请重新获取");
             }
         } catch (BusinessException e) {
@@ -801,7 +802,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(ResultCode.USER_REGISTER_PARAM_INVALID, "验证码过期时间异常，请重新获取");
         }
         ext.put("used", true);
-        ext.put("usedAt", LocalDateTime.now().toString());
+        ext.put("usedAt", ChinaTime.nowDateTime());
         latest.setExtInfo(JSON.toJSONString(ext));
         userRegistrationApplicationMapper.updateById(latest);
     }
@@ -817,7 +818,7 @@ public class AuthServiceImpl implements AuthService {
             return;
         }
         LocalDateTime nextAllowed = latest.getCreateTime().plusSeconds(EMAIL_APPLY_COOLDOWN_SECONDS);
-        if (LocalDateTime.now().isBefore(nextAllowed)) {
+        if (ChinaTime.now().isBefore(nextAllowed)) {
             throw new BusinessException(ResultCode.USER_REGISTER_RATE_LIMITED, "验证码发送过于频繁，请稍后再试");
         }
     }
@@ -881,7 +882,7 @@ public class AuthServiceImpl implements AuthService {
         }
         JSONObject resultExt = new JSONObject();
         resultExt.put("registerIp", clientIp == null ? "" : clientIp);
-        resultExt.put("registerAt", LocalDateTime.now().toString());
+        resultExt.put("registerAt", ChinaTime.nowDateTime());
         resultExt.put("registerChannel", "EMAIL_OTP");
         return insertEmailAccount(email, resultExt);
     }
